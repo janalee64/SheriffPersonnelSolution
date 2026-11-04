@@ -1,0 +1,211 @@
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@inject SearchService service
+@inject ISnackbar Snackbar
+@inject ILogger<AddInventoryItemModal> logger
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(Assignment.EmpInventoryID == 0 ? Icons.Material.Filled.Add : Icons.Material.Filled.Edit)" Class="mr-2" />
+            @(Assignment.EmpInventoryID == 0 ? "Add Inventory Item" : "Edit Inventory Item")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <EditForm Model="Assignment" OnValidSubmit="SaveAssignmentAsync">
+            <DataAnnotationsValidator />
+            <MudGrid>
+                <MudItem xs="12" sm="8">
+                    <MudAutocomplete T="InventoryItemsDto"
+                                     Value="selectedInventoryItem"
+                                     ValueChanged="OnInventoryItemChanged"
+                                     SearchFunc="SearchInventoryItems"
+                                     ToStringFunc="GetInventoryItemText"
+                                     Label="Inventory Item"
+                                     Variant="Variant.Outlined"
+                                     ResetValueOnEmptyText="true"
+                                     CoerceText="true"
+                                     CoerceValue="false"
+                                     Clearable="true"
+                                     Required="true"
+                                     RequiredError="Inventory item is required"
+                                     AdornmentIcon="@Icons.Material.Filled.Search"
+                                     AdornmentColor="Color.Primary" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField @bind-Value="Assignment.Quantity" Label="Quantity" Variant="Variant.Outlined" Min="1" Required="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Assignment.SerialNumber" Label="Serial Number" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudDatePicker @bind-Date="issueDate" Label="Issue Date" Variant="Variant.Outlined" Required="true" DateFormat="MM/dd/yyyy" Editable="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudDatePicker @bind-Date="returnDate" Label="Return Date" Variant="Variant.Outlined" Clearable="true" DateFormat="MM/dd/yyyy" Editable="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudDatePicker @bind-Date="expireDate" Label="Expire Date" Variant="Variant.Outlined" Clearable="true" DateFormat="MM/dd/yyyy" Editable="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Assignment.Notes" Label="Notes" Variant="Variant.Outlined" Lines="2" />
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="Cancel" Disabled="@isSaving">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Check" OnClick="SaveAssignmentAsync" Disabled="@isSaving">
+            @if (isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Saving...</span>
+            }
+            else
+            {
+                <span>Save</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public int EmployeeId { get; set; }
+
+    [Parameter]
+    public EmployeeInventoryAssignmentsDto Assignment { get; set; } = new();
+
+    [Parameter]
+    public IEnumerable<InventoryItemsDto>? AvailableInventoryItems { get; set; }
+
+    private InventoryItemsDto? selectedInventoryItem;
+    private DateTime? issueDate;
+    private DateTime? returnDate;
+    private DateTime? expireDate;
+    private bool isSaving = false;
+
+    protected override void OnInitialized()
+    {
+        issueDate = Assignment.EmpInventoryID == 0 ? DateTime.Today : Assignment.IssueDate;
+        returnDate = Assignment.ReturnDate;
+        expireDate = Assignment.ExpireDate;
+        InitSelectedItem();
+    }
+
+    protected override void OnParametersSet()
+    {
+        InitSelectedItem();
+    }
+
+    private void InitSelectedItem()
+    {
+        if (selectedInventoryItem == null && Assignment.InventoryID > 0 && AvailableInventoryItems != null)
+        {
+            selectedInventoryItem = AvailableInventoryItems.FirstOrDefault(x => x.InventoryID == Assignment.InventoryID);
+        }
+    }
+
+    private void OnInventoryItemChanged(InventoryItemsDto? item)
+    {
+        selectedInventoryItem = item;
+        Assignment.InventoryID = item?.InventoryID ?? 0;
+    }
+
+    private Task<IEnumerable<InventoryItemsDto>> SearchInventoryItems(string value, CancellationToken token)
+    {
+        if (AvailableInventoryItems == null || !AvailableInventoryItems.Any())
+        {
+            return Task.FromResult(Enumerable.Empty<InventoryItemsDto>());
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult(AvailableInventoryItems);
+        }
+
+        var result = AvailableInventoryItems.Where(x =>
+            (!string.IsNullOrEmpty(x.ProductName) && x.ProductName.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(x.CategoryName) && x.CategoryName.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(x.SKU) && x.SKU.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(x.BrandName) && x.BrandName.Contains(value, StringComparison.OrdinalIgnoreCase))
+        );
+
+        return Task.FromResult(result);
+    }
+
+    private string GetInventoryItemText(InventoryItemsDto? item)
+    {
+        if (item == null) return string.Empty;
+        return string.IsNullOrEmpty(item.CategoryName) ? item.ProductName : $"{item.ProductName} ({item.CategoryName})";
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task SaveAssignmentAsync()
+    {
+        if (Assignment.InventoryID <= 0)
+        {
+            Snackbar.Add("Please select an inventory item.", Severity.Error);
+            return;
+        }
+
+        if (!issueDate.HasValue)
+        {
+            Snackbar.Add("Issue Date is required.", Severity.Error);
+            return;
+        }
+
+        Assignment.EmployeeID = EmployeeId;
+        Assignment.IssueDate = issueDate.Value;
+        Assignment.ReturnDate = returnDate;
+        Assignment.ExpireDate = expireDate;
+        isSaving = true;
+
+        try
+        {
+            if (Assignment.EmpInventoryID == 0)
+            {
+                var result = await service.CreateEmployeeInventoryAssignmentAsync(Assignment);
+                if (result != null)
+                {
+                    Snackbar.Add("Inventory assignment created successfully!", Severity.Success);
+                    MudDialog.Close(DialogResult.Ok(result));
+                }
+                else
+                {
+                    Snackbar.Add("Failed to create inventory assignment.", Severity.Error);
+                }
+            }
+            else
+            {
+                var result = await service.UpdateEmployeeInventoryAssignmentAsync(Assignment.EmpInventoryID, Assignment);
+                if (result != null)
+                {
+                    Snackbar.Add("Inventory assignment updated successfully!", Severity.Success);
+                    MudDialog.Close(DialogResult.Ok(result));
+                }
+                else
+                {
+                    Snackbar.Add("Failed to update inventory assignment.", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error saving employee inventory assignment.");
+            Snackbar.Add($"Failed to save inventory assignment: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}
+

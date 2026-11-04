@@ -1,0 +1,4 @@
+@SheriffPersonnel.API_HostAddress = http://localhost:5156
+
+GET {{SheriffPersonnel.API_HostAddress}}/api/employees/
+Accept: application/json

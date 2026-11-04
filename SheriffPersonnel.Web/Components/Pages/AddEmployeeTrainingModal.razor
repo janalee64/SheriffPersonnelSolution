@@ -1,0 +1,461 @@
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@inject SearchService service
+@inject ISnackbar Snackbar
+@inject ILogger<AddEmployeeTrainingModal> logger
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(TrainingRecord.EmployeeTrainingID == 0 ? Icons.Material.Filled.Add : Icons.Material.Filled.Edit)" Class="mr-2" />
+            @(TrainingRecord.EmployeeTrainingID == 0 ? "Add Employee Training" : "Edit Employee Training")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <EditForm Model="TrainingRecord" OnValidSubmit="SaveTrainingAsync">
+            <DataAnnotationsValidator />
+            
+            <!-- Training Session Selection Header -->
+            <MudPaper Class="pa-4 mb-4" Elevation="0" Style="background-color: var(--mud-palette-background-gray); border: 1px solid var(--mud-palette-lines-default);">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-2">Training Session Option</MudText>
+                <MudRadioGroup T="bool" Value="isNewSession" ValueChanged="OnSessionModeChanged">
+                    <MudStack Row="true">
+                        <MudRadio Value="false" Color="Color.Primary">Select Existing Session</MudRadio>
+                        <MudRadio Value="true" Color="Color.Primary">Add New Session</MudRadio>
+                    </MudStack>
+                </MudRadioGroup>
+
+                @if (!isNewSession)
+                {
+                    <MudAutocomplete T="TrainingSessionsDto"
+                                     Value="selectedTrainingSession"
+                                     ValueChanged="OnTrainingSessionChanged"
+                                     SearchFunc="SearchTrainingSessions"
+                                     ToStringFunc="GetTrainingSessionText"
+                                     Label="Search / Select Existing Session"
+                                     Variant="Variant.Outlined"
+                                     ResetValueOnEmptyText="true"
+                                     CoerceText="true"
+                                     CoerceValue="false"
+                                     Clearable="true"
+                                     Required="true"
+                                     RequiredError="Training Session selection is required"
+                                     AdornmentIcon="@Icons.Material.Filled.Search"
+                                     AdornmentColor="Color.Primary"
+                                     ShowProgressIndicator="true"
+                                     ProgressIndicatorColor="Color.Primary"
+                                     Class="mt-3" />
+                }
+            </MudPaper>
+
+            <!-- Training Session Details -->
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-2">Session Details</MudText>
+            <MudGrid Class="mb-4">
+                <MudItem xs="12" sm="6">
+                    <MudAutocomplete T="TrainingSchoolsDto"
+                                     Value="selectedSchool"
+                                     ValueChanged="OnTrainingSchoolChanged"
+                                     SearchFunc="SearchTrainingSchools"
+                                     ToStringFunc="GetSchoolText"
+                                     Label="Training School"
+                                     Variant="Variant.Outlined"
+                                     ResetValueOnEmptyText="true"
+                                     CoerceText="true"
+                                     CoerceValue="false"
+                                     Clearable="true"
+                                     Disabled="!isNewSession"
+                                     AdornmentIcon="@Icons.Material.Filled.Search"
+                                     AdornmentColor="Color.Primary" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="TrainingRecord.Location" Label="Location" Variant="Variant.Outlined" MaxLength="150" Disabled="!isNewSession" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="TrainingRecord.Instructor" Label="Instructor" Variant="Variant.Outlined" MaxLength="100" Disabled="!isNewSession" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal?" @bind-Value="TrainingRecord.SessionHours" Label="Session Hours" Variant="Variant.Outlined" Format="F2" Min="0m" Max="999.99m" Disabled="!isNewSession" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="beginDate" Label="Begin Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" Disabled="!isNewSession" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="endDate" Label="End Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" Disabled="!isNewSession" />
+                </MudItem>
+            </MudGrid>
+
+            <!-- Employee Training Details -->
+            <MudDivider Class="my-3" />
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-2">Employee Completion Details</MudText>
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal?" @bind-Value="TrainingRecord.HoursCompleted" Label="Hours Completed" Variant="Variant.Outlined" Format="F2" Min="0m" Max="999.99m" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="expireDate" Label="Expire Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="TrainingRecord.OrderNumber" Label="Order Number" Variant="Variant.Outlined" MaxLength="50" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal" @bind-Value="TrainingRecord.RegistrationCost" Label="Registration Cost" Variant="Variant.Outlined" Format="C2" Min="0m" Max="999999.99m" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal" @bind-Value="TrainingRecord.TravelCost" Label="Travel Cost" Variant="Variant.Outlined" Format="C2" Min="0m" Max="999999.99m" />
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="Cancel" Disabled="@isSaving">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Check" OnClick="SaveTrainingAsync" Disabled="@isSaving">
+            @if (isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Saving...</span>
+            }
+            else
+            {
+                <span>Save</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public int EmployeeId { get; set; }
+
+    [Parameter]
+    public EmployeeTrainingsDto TrainingRecord { get; set; } = new();
+
+    [Parameter]
+    public IEnumerable<TrainingSessionsDto>? AvailableTrainingSessions { get; set; }
+
+    private IEnumerable<TrainingSchoolsDto>? availableSchools;
+    private TrainingSchoolsDto? selectedSchool;
+
+    private bool IsEditRecord => TrainingRecord != null && TrainingRecord.EmployeeTrainingID > 0;
+
+    private IEnumerable<TrainingSchoolsDto> GetFilteredSchools() =>
+        availableSchools?.Where(s => (IsEditRecord && !isNewSession) || s.IsActive) ?? Enumerable.Empty<TrainingSchoolsDto>();
+    private TrainingSessionsDto? selectedTrainingSession;
+    private bool isNewSession = false;
+    private DateTime? beginDate;
+    private DateTime? endDate;
+    private DateTime? expireDate;
+    private bool isSaving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        InitSelectedItem();
+
+        if (TrainingRecord.BeginDate.HasValue)
+        {
+            beginDate = TrainingRecord.BeginDate.Value.ToDateTime(TimeOnly.MinValue);
+        }
+
+        if (TrainingRecord.EndDate.HasValue)
+        {
+            endDate = TrainingRecord.EndDate.Value.ToDateTime(TimeOnly.MinValue);
+        }
+
+        if (TrainingRecord.ExpireDate.HasValue)
+        {
+            expireDate = TrainingRecord.ExpireDate.Value.ToDateTime(TimeOnly.MinValue);
+        }
+
+        try
+        {
+            availableSchools = await service.GetTrainingSchoolsAsync();
+            InitSelectedSchool();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error fetching training schools.");
+        }
+
+        if (AvailableTrainingSessions == null)
+        {
+            AvailableTrainingSessions = await service.GetTrainingSessionsAsync();
+            InitSelectedItem();
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        InitSelectedItem();
+        InitSelectedSchool();
+    }
+
+    private void InitSelectedSchool()
+    {
+        if (selectedSchool == null && TrainingRecord.TrainingSchoolID.HasValue && availableSchools != null)
+        {
+            selectedSchool = availableSchools.FirstOrDefault(s => s.TrainingSchoolID == TrainingRecord.TrainingSchoolID.Value);
+            if (selectedSchool == null && !string.IsNullOrEmpty(TrainingRecord.SchoolName))
+            {
+                selectedSchool = new TrainingSchoolsDto
+                {
+                    TrainingSchoolID = TrainingRecord.TrainingSchoolID.Value,
+                    SchoolName = TrainingRecord.SchoolName
+                };
+            }
+        }
+    }
+
+    private void InitSelectedItem()
+    {
+        if (!isNewSession && TrainingRecord.TrainingSessionID > 0)
+        {
+            if (AvailableTrainingSessions != null)
+            {
+                var session = AvailableTrainingSessions.FirstOrDefault(x => x.TrainingSessionID == TrainingRecord.TrainingSessionID);
+                if (session != null)
+                {
+                    selectedTrainingSession = session;
+                    PopulateSessionFields(session);
+                    return;
+                }
+            }
+
+            if (selectedTrainingSession == null || selectedTrainingSession.TrainingSessionID != TrainingRecord.TrainingSessionID)
+            {
+                selectedTrainingSession = new TrainingSessionsDto
+                {
+                    TrainingSessionID = TrainingRecord.TrainingSessionID,
+                    TrainingSchoolID = TrainingRecord.TrainingSchoolID,
+                    SchoolName = TrainingRecord.SchoolName,
+                    Location = TrainingRecord.Location,
+                    Instructor = TrainingRecord.Instructor,
+                    BeginDate = TrainingRecord.BeginDate,
+                    EndDate = TrainingRecord.EndDate,
+                    SessionHours = TrainingRecord.SessionHours
+                };
+            }
+
+            if (selectedTrainingSession != null)
+            {
+                PopulateSessionFields(selectedTrainingSession);
+            }
+        }
+    }
+
+    private void OnSessionModeChanged(bool newSessionMode)
+    {
+        isNewSession = newSessionMode;
+        if (isNewSession)
+        {
+            selectedTrainingSession = null;
+            TrainingRecord.TrainingSessionID = 0;
+            ClearSessionFields();
+        }
+        else
+        {
+            ClearSessionFields();
+            InitSelectedItem();
+        }
+    }
+
+    private void OnTrainingSessionChanged(TrainingSessionsDto? session)
+    {
+        selectedTrainingSession = session;
+        TrainingRecord.TrainingSessionID = session?.TrainingSessionID ?? 0;
+        if (session != null)
+        {
+            PopulateSessionFields(session);
+        }
+        else
+        {
+            ClearSessionFields();
+        }
+    }
+
+    private void PopulateSessionFields(TrainingSessionsDto session)
+    {
+        TrainingRecord.TrainingSchoolID = session.TrainingSchoolID;
+        TrainingRecord.SchoolName = session.SchoolName;
+        TrainingRecord.Location = session.Location;
+        TrainingRecord.Instructor = session.Instructor;
+        TrainingRecord.BeginDate = session.BeginDate;
+        TrainingRecord.EndDate = session.EndDate;
+        TrainingRecord.SessionHours = session.SessionHours;
+
+        beginDate = session.BeginDate.HasValue ? session.BeginDate.Value.ToDateTime(TimeOnly.MinValue) : null;
+        endDate = session.EndDate.HasValue ? session.EndDate.Value.ToDateTime(TimeOnly.MinValue) : null;
+
+        if (session.TrainingSchoolID.HasValue && availableSchools != null)
+        {
+            selectedSchool = availableSchools.FirstOrDefault(s => s.TrainingSchoolID == session.TrainingSchoolID.Value);
+            if (selectedSchool == null && !string.IsNullOrEmpty(session.SchoolName))
+            {
+                selectedSchool = new TrainingSchoolsDto
+                {
+                    TrainingSchoolID = session.TrainingSchoolID.Value,
+                    SchoolName = session.SchoolName
+                };
+            }
+        }
+        else
+        {
+            selectedSchool = null;
+        }
+    }
+
+    private void ClearSessionFields()
+    {
+        TrainingRecord.TrainingSchoolID = null;
+        TrainingRecord.SchoolName = null;
+        TrainingRecord.Location = null;
+        TrainingRecord.Instructor = null;
+        TrainingRecord.BeginDate = null;
+        TrainingRecord.EndDate = null;
+        TrainingRecord.SessionHours = null;
+        beginDate = null;
+        endDate = null;
+        selectedSchool = null;
+    }
+
+    private void OnTrainingSchoolChanged(TrainingSchoolsDto? school)
+    {
+        selectedSchool = school;
+        TrainingRecord.TrainingSchoolID = school?.TrainingSchoolID;
+        TrainingRecord.SchoolName = school?.SchoolName;
+    }
+
+    private Task<IEnumerable<TrainingSchoolsDto>> SearchTrainingSchools(string value, CancellationToken token)
+    {
+        var schools = GetFilteredSchools().ToList();
+
+        if (selectedSchool != null && !schools.Any(s => s.TrainingSchoolID == selectedSchool.TrainingSchoolID))
+        {
+            schools.Insert(0, selectedSchool);
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult<IEnumerable<TrainingSchoolsDto>>(schools);
+        }
+
+        var filtered = schools.Where(s =>
+            !string.IsNullOrEmpty(s.SchoolName) && s.SchoolName.Contains(value, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult<IEnumerable<TrainingSchoolsDto>>(filtered);
+    }
+
+    private string GetSchoolText(TrainingSchoolsDto? school) => school?.SchoolName ?? string.Empty;
+
+    private async Task<IEnumerable<TrainingSessionsDto>> SearchTrainingSessions(string value, CancellationToken token)
+    {
+        if (AvailableTrainingSessions == null)
+        {
+            AvailableTrainingSessions = await service.GetTrainingSessionsAsync();
+            InitSelectedItem();
+        }
+
+        var sessionsList = AvailableTrainingSessions != null ? AvailableTrainingSessions.ToList() : new List<TrainingSessionsDto>();
+
+        if (selectedTrainingSession != null && !sessionsList.Any(x => x.TrainingSessionID == selectedTrainingSession.TrainingSessionID))
+        {
+            sessionsList.Insert(0, selectedTrainingSession);
+        }
+
+        if (!sessionsList.Any())
+        {
+            return Enumerable.Empty<TrainingSessionsDto>();
+        }
+
+        IEnumerable<TrainingSessionsDto> result = sessionsList;
+
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            result = result.Where(x =>
+                (!string.IsNullOrEmpty(x.SchoolName) && x.SchoolName.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.Location) && x.Location.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.Instructor) && x.Instructor.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+                (x.BeginDate.HasValue && x.BeginDate.Value.ToString("MM/dd/yyyy").Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+                (x.EndDate.HasValue && x.EndDate.Value.ToString("MM/dd/yyyy").Contains(value, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+
+        return result.OrderBy(x => GetTrainingSessionText(x), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private string GetTrainingSessionText(TrainingSessionsDto? ts)
+    {
+        if (ts == null) return string.Empty;
+        var name = !string.IsNullOrWhiteSpace(ts.SchoolName) ? ts.SchoolName : (!string.IsNullOrWhiteSpace(ts.Location) ? ts.Location : "Training Session");
+        if (ts.BeginDate.HasValue || ts.EndDate.HasValue)
+        {
+            return $"{name} ({ts.BeginDate:MM/dd/yyyy} - {ts.EndDate:MM/dd/yyyy})".Trim();
+        }
+        return name;
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task SaveTrainingAsync()
+    {
+        if (!isNewSession && TrainingRecord.TrainingSessionID <= 0)
+        {
+            Snackbar.Add("Please select an existing Training Session or choose 'Add New Session'.", Severity.Error);
+            return;
+        }
+
+        if (isNewSession)
+        {
+            TrainingRecord.TrainingSessionID = 0;
+        }
+
+        TrainingRecord.EmployeeID = EmployeeId;
+        TrainingRecord.BeginDate = beginDate.HasValue ? DateOnly.FromDateTime(beginDate.Value) : null;
+        TrainingRecord.EndDate = endDate.HasValue ? DateOnly.FromDateTime(endDate.Value) : null;
+        TrainingRecord.ExpireDate = expireDate.HasValue ? DateOnly.FromDateTime(expireDate.Value) : null;
+        isSaving = true;
+
+        try
+        {
+            if (TrainingRecord.EmployeeTrainingID == 0)
+            {
+                var result = await service.CreateEmployeeTrainingAsync(TrainingRecord);
+                if (result != null)
+                {
+                    Snackbar.Add("Training record added successfully!", Severity.Success);
+                    MudDialog.Close(DialogResult.Ok(result));
+                }
+                else
+                {
+                    Snackbar.Add("Failed to create training record.", Severity.Error);
+                }
+            }
+            else
+            {
+                var result = await service.UpdateEmployeeTrainingAsync(TrainingRecord.EmployeeTrainingID, TrainingRecord);
+                if (result != null)
+                {
+                    Snackbar.Add("Training record updated successfully!", Severity.Success);
+                    MudDialog.Close(DialogResult.Ok(result));
+                }
+                else
+                {
+                    Snackbar.Add("Failed to update training record.", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error saving training record.");
+            Snackbar.Add($"Failed to save training record: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

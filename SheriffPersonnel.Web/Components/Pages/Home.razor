@@ -1,0 +1,453 @@
+@page "/"
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services    
+@attribute [Authorize(Roles = "Personnel")]
+
+@inject SearchService service
+@inject ExcelExportService excelExportService
+@inject NavigationManager Navigation
+@inject SearchStateContainer searchState
+@inject ILogger<Home> logger
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Employee Search</PageTitle>
+
+<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Employee Search</MudText>
+    <AuthorizeView Roles="Personnel">
+        <Authorized>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="NavigateToAddEmployee">
+                Add New Employee
+            </MudButton>
+        </Authorized>
+    </AuthorizeView>
+</MudStack>
+
+<MudPaper Class="pa-6 mb-6" Elevation="3">
+    <MudText Typo="Typo.h6" Class="mb-4">Search Criteria</MudText>
+
+    <EditForm Model="@searchRequest" OnValidSubmit="HandleSearch">
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="4">
+                <MudTextField @bind-Value="searchRequest.FirstName" Label="First Name" Variant="Variant.Outlined" Clearable="true" Placeholder="Enter first name..." Immediate="true" OnKeyDown="HandleKeyDown" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudTextField @bind-Value="searchRequest.LastName" Label="Last Name" Variant="Variant.Outlined" Clearable="true" Placeholder="Enter last name..." Immediate="true" OnKeyDown="HandleKeyDown" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudTextField @bind-Value="searchRequest.BadgeNumber" Label="Badge Number" Variant="Variant.Outlined" Clearable="true" Placeholder="Enter badge number..." Immediate="true" OnKeyDown="HandleKeyDown" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect T="string" @bind-Value="searchRequest.Status" Label="Status" Variant="Variant.Outlined" Clearable="true">
+                    <MudSelectItem T="string" Value="@("")">-- All Statuses --</MudSelectItem>
+                    @if (availableStatuses != null)
+                    {
+                        @foreach (var status in availableStatuses)
+                        {
+                            <MudSelectItem T="string" Value="@(status.StatusDescription ?? status.StatusCode)">
+                                @(status.StatusDescription ?? status.StatusCode)
+                            </MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect T="int?" @bind-Value="searchRequest.ProgramID" Label="Program" Variant="Variant.Outlined" Clearable="true">
+                    <MudSelectItem T="int?" Value="@((int?)null)">-- All Programs --</MudSelectItem>
+                    @if (availablePrograms != null)
+                    {
+                        @foreach (var program in availablePrograms)
+                        {
+                            <MudSelectItem T="int?" Value="@program.ProgramID">
+                                @program.DisplayName
+                            </MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect T="int?" @bind-Value="searchRequest.UnitID" Label="Unit" Variant="Variant.Outlined" Clearable="true">
+                    <MudSelectItem T="int?" Value="@((int?)null)">-- All Units --</MudSelectItem>
+                    @if (availableUnits != null)
+                    {
+                        @foreach (var unit in availableUnits)
+                        {
+                            <MudSelectItem T="int?" Value="@unit.UnitID">
+                                @unit.UnitName
+                            </MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="4" Class="d-flex align-center">
+                <MudCheckBox T="bool" @bind-Value="isEmployeeFlagChecked" Label="Sheriff Employee Flag Only" Color="Color.Primary" />
+            </MudItem>
+        </MudGrid>
+
+        <MudStack Row="true" Spacing="2" Class="mt-6">
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search" Disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    <span>Searching...</span>
+                }
+                else
+                {
+                    <span>Search</span>
+                }
+            </MudButton>
+
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="ResetFilters" Disabled="@isLoading">
+                Reset Filters
+            </MudButton>
+
+            <MudButton Variant="Variant.Outlined" Color="Color.Info" StartIcon="@Icons.Material.Filled.Print" OnClick="OpenPrintWindow" Disabled="@(isLoading || !hasSearched || searchResults == null || !searchResults.Any())">
+                Print Results
+            </MudButton>
+
+            <MudButton Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Custom.FileFormats.FileExcel" OnClick="ExportToExcel" Disabled="@(isLoading || !hasSearched || searchResults == null || !searchResults.Any())">
+                Export to Excel
+            </MudButton>
+        </MudStack>
+    </EditForm>
+</MudPaper>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4" CloseIcon="@Icons.Material.Filled.Close" CloseIconClicked="() => errorMessage = null">
+        @errorMessage
+    </MudAlert>
+}
+
+@if (isLoading)
+{
+    <MudPaper Class="pa-6 d-flex justify-center align-center mb-6" Style="min-height: 200px;" Elevation="3">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Class="ml-4">Searching employees...</MudText>
+    </MudPaper>
+}
+else if (hasSearched)
+{
+    <MudAlert Severity="Severity.Info" Variant="Variant.Filled" Class="mb-4">
+        <div class="d-flex justify-space-between align-center w-100 flex-wrap gap-2">
+            <div>
+                <b>Filters Summary:</b> @GetFiltersSummary()
+            </div>
+            <div class="d-flex align-center gap-2">
+                <div>
+                    <b>Employees Found:</b> @(searchResults?.Count() ?? 0)
+                </div>
+                <MudButton Variant="Variant.Filled" Color="Color.Surface" StartIcon="@Icons.Custom.FileFormats.FileExcel" Size="Size.Small" OnClick="ExportToExcel">
+                    Export Excel
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Surface" StartIcon="@Icons.Material.Filled.Print" Size="Size.Small" OnClick="OpenPrintWindow">
+                    Print
+                </MudButton>
+            </div>
+        </div>
+    </MudAlert>
+
+    <MudPaper Elevation="3">
+        <MudTable T="EmployeeSearchResultDto" Items="searchResults" Hover="true" Striped="true" Loading="@isLoading" AllowUnsorted="true" OnRowClick="OnRowClick" RowClass="cursor-pointer">
+            <HeaderContent>
+                <MudTh>Photo</MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.FormattedName)">Name</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.Status)">Status</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.BadgeNumber)">Badge Number</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.HireDate ?? DateTime.MinValue)">Hire Date</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.Program ?? string.Empty)">Program</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.Unit ?? string.Empty)">Unit</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.InactiveDate ?? DateTime.MinValue)">Inactive Date</MudTableSortLabel></MudTh>
+                <MudTh>Employee Flag</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Photo">
+                    @if (context.EmployeeImage != null && context.EmployeeImage.Length > 0)
+                    {
+                        <MudAvatar Size="Size.Medium">
+                            <MudImage Src="@($"data:image/png;base64,{Convert.ToBase64String(context.EmployeeImage)}")" Alt="Photo" />
+                        </MudAvatar>
+                    }
+                    else
+                    {
+                        <MudAvatar Size="Size.Medium" Color="Color.Default" Variant="Variant.Outlined">
+                            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+                        </MudAvatar>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Name">@context.FormattedName</MudTd>
+                <MudTd DataLabel="Status">
+                    @if (!string.IsNullOrWhiteSpace(context.Status))
+                    {
+                        <MudChip T="string" Color="GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Badge Number">
+                    @if (!string.IsNullOrWhiteSpace(context.BadgeNumber))
+                    {
+                        <MudChip T="string" Color="Color.Dark" Size="Size.Small">@context.BadgeNumber</MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Hire Date">@(context.HireDate?.ToString("MM/dd/yyyy") ?? "")</MudTd>
+                <MudTd DataLabel="Program">@(context.Program ?? "")</MudTd>
+                <MudTd DataLabel="Unit">@(context.Unit ?? "")</MudTd>
+                <MudTd DataLabel="Inactive Date">@(context.InactiveDate?.ToString("MM/dd/yyyy") ?? "")</MudTd>
+                <MudTd DataLabel="Employee Flag">
+                    @if (context.EmployeeFlag)
+                    {
+                        <MudChip T="string" Color="Color.Success" Size="Size.Small">Yes</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Color="Color.Default" Size="Size.Small">No</MudChip>
+                    }
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="pa-4 text-center">No employees found matching the specified criteria.</MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+            </PagerContent>
+        </MudTable>
+    </MudPaper>
+}
+
+@code {
+    private EmployeeSearchRequestDto searchRequest = new();
+    private IEnumerable<EmployeeSearchResultDto>? searchResults;
+    private IEnumerable<StatusesDto>? availableStatuses;
+    private IEnumerable<ProgramsDto>? availablePrograms;
+    private IEnumerable<UnitsDto>? availableUnits;
+    private bool isEmployeeFlagChecked = false;
+    private bool isLoading = false;
+    private bool hasSearched = false;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            availableStatuses = await service.GetAvailableStatusesAsync();
+            availablePrograms = await service.GetProgramsAsync();
+            availableUnits = await service.GetUnitsAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to load available search criteria options during page initialization.");
+            availableStatuses = new List<StatusesDto>();
+            availablePrograms = new List<ProgramsDto>();
+            availableUnits = new List<UnitsDto>();
+        }
+
+        if (searchState.HasSearched)
+        {
+            searchRequest = searchState.SearchRequest;
+            searchResults = searchState.SearchResults;
+            isEmployeeFlagChecked = searchState.IsEmployeeFlagChecked;
+            hasSearched = searchState.HasSearched;
+        }
+    }
+
+    private Color GetStatusColor(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+            return Color.Default;
+
+        var s = status.Trim().ToLowerInvariant();
+
+        if (s.Contains("inactive") || s.Contains("terminated") || s.Contains("resigned") || s == "inact" || s == "term")
+        {
+            return Color.Default;
+        }
+
+        if (s.Contains("retired") || s == "ret")
+        {
+            return Color.Info;
+        }
+
+        if (s.Contains("active") || s == "act")
+        {
+            return Color.Success;
+        }
+
+        return Color.Default;
+    }
+
+    private async Task HandleKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !isLoading)
+        {
+            await HandleSearch();
+        }
+    }
+
+    private async Task HandleSearch()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            searchRequest.EmployeeFlag = isEmployeeFlagChecked ? true : null;
+
+            logger.LogInformation("Executing employee search from UI...");
+            searchResults = await service.SearchEmployeesAsync(searchRequest);
+            hasSearched = true;
+
+            searchState.SearchRequest = searchRequest;
+            searchState.SearchResults = searchResults;
+            searchState.IsEmployeeFlagChecked = isEmployeeFlagChecked;
+            searchState.HasSearched = true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error occurred while executing employee search in Home component.");
+            searchResults = null;
+            errorMessage = $"Error retrieving search results: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ResetFilters()
+    {
+        searchRequest = new EmployeeSearchRequestDto();
+        isEmployeeFlagChecked = false;
+        searchResults = null;
+        hasSearched = false;
+        errorMessage = null;
+
+        searchState.Clear();
+    }
+
+    private string GetFiltersSummary()
+    {
+        var filters = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.FirstName))
+            filters.Add($"First Name: \"{searchRequest.FirstName.Trim()}\"");
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.LastName))
+            filters.Add($"Last Name: \"{searchRequest.LastName.Trim()}\"");
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.BadgeNumber))
+            filters.Add($"Badge Number: \"{searchRequest.BadgeNumber.Trim()}\"");
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.Status))
+            filters.Add($"Status: \"{searchRequest.Status.Trim()}\"");
+
+        if (searchRequest.ProgramID.HasValue && availablePrograms != null)
+        {
+            var program = availablePrograms.FirstOrDefault(p => p.ProgramID == searchRequest.ProgramID.Value);
+            if (program != null)
+            {
+                filters.Add($"Program: \"{program.ProgramName}\"");
+            }
+        }
+
+        if (searchRequest.UnitID.HasValue && availableUnits != null)
+        {
+            var unit = availableUnits.FirstOrDefault(u => u.UnitID == searchRequest.UnitID.Value);
+            if (unit != null)
+            {
+                filters.Add($"Unit: \"{unit.UnitName}\"");
+            }
+        }
+
+        if (isEmployeeFlagChecked)
+            filters.Add("Sheriff Employee Flag: Yes");
+
+        return filters.Any() ? string.Join(" | ", filters) : "No specific filters applied (Showing all matching records)";
+    }
+
+    private void NavigateToAddEmployee()
+    {
+        Navigation.NavigateTo("/employee/add");
+    }
+
+    private void NavigateToEditEmployee(int id)
+    {
+        Navigation.NavigateTo($"/employee/edit/{id}");
+    }
+
+    private void OnRowClick(TableRowClickEventArgs<EmployeeSearchResultDto> args)
+    {
+        if (args.Item != null)
+        {
+            NavigateToEditEmployee(args.Item.EmployeeID);
+        }
+    }
+
+    private async Task OpenPrintWindow()
+    {
+        var queryParams = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.FirstName))
+            queryParams.Add($"firstName={Uri.EscapeDataString(searchRequest.FirstName.Trim())}");
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.LastName))
+            queryParams.Add($"lastName={Uri.EscapeDataString(searchRequest.LastName.Trim())}");
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.BadgeNumber))
+            queryParams.Add($"badgeNumber={Uri.EscapeDataString(searchRequest.BadgeNumber.Trim())}");
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.Status))
+            queryParams.Add($"status={Uri.EscapeDataString(searchRequest.Status.Trim())}");
+
+        if (searchRequest.ProgramID.HasValue)
+            queryParams.Add($"programId={searchRequest.ProgramID.Value}");
+
+        if (searchRequest.UnitID.HasValue)
+            queryParams.Add($"unitId={searchRequest.UnitID.Value}");
+
+        if (isEmployeeFlagChecked)
+            queryParams.Add("employeeFlag=true");
+
+        var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
+        var printUrl = $"/print/personnel-list{queryString}";
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("open", printUrl, "_blank");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to open print window.");
+            errorMessage = "Could not open print window. Please check browser popup settings.";
+        }
+    }
+
+    private async Task ExportToExcel()
+    {
+        if (searchResults == null || !searchResults.Any())
+            return;
+
+        try
+        {
+            var filterSummary = GetFiltersSummary();
+            var fileBytes = excelExportService.ExportEmployeeSearchResultsToExcel(searchResults, filterSummary);
+            var base64String = Convert.ToBase64String(fileBytes);
+            var fileName = $"Employee_Search_Results_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            var contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+            await JSRuntime.InvokeVoidAsync("downloadFileFromByteArray", fileName, base64String, contentType);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to export employee search results to Excel.");
+            errorMessage = "Failed to export search results to Excel. Please try again.";
+        }
+    }
+}

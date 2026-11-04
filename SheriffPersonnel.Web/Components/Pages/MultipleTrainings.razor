@@ -1,0 +1,1627 @@
+@page "/multipletrainings"
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@attribute [Authorize(Roles = "Training")]
+
+@inject SearchService service
+@inject CodeTableService CodeTableService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject ILogger<MultipleTrainings> logger
+
+<PageTitle>Training</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Training</MudText>
+
+<style>
+    .folder-styled-tabs .mud-tabs-tabbar {
+        background-color: transparent !important;
+        border-bottom: none !important;
+    }
+    .folder-styled-tabs .mud-tab {
+        border-top-left-radius: 8px !important;
+        border-top-right-radius: 8px !important;
+        background-color: #f1f5f9 !important;
+        color: #334155 !important;
+        font-weight: 600 !important;
+        padding: 10px 22px !important;
+        margin-right: 4px !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    .folder-styled-tabs .mud-tab .mud-icon-root {
+        color: #64748b !important;
+        margin-right: 6px !important;
+    }
+    .folder-styled-tabs .mud-tab:hover:not(.mud-tab-active) {
+        background-color: #e2e8f0 !important;
+        color: var(--mud-palette-primary) !important;
+    }
+    .folder-styled-tabs .mud-tab:hover:not(.mud-tab-active) .mud-icon-root {
+        color: var(--mud-palette-primary) !important;
+    }
+    .folder-styled-tabs .mud-tab.mud-tab-active {
+        background-color: var(--mud-palette-primary) !important;
+        color: #ffffff !important;
+        border: 2px solid var(--mud-palette-primary) !important;
+        border-bottom: 2px solid var(--mud-palette-primary) !important;
+        margin-bottom: -2px !important;
+        box-shadow: 0 -2px 6px rgba(0,0,0,0.12) !important;
+        font-weight: 700 !important;
+    }
+    .folder-styled-tabs .mud-tab.mud-tab-active .mud-icon-root {
+        color: #ffffff !important;
+    }
+    .folder-styled-tabs .mud-tabs-panels {
+        border: 2px solid var(--mud-palette-primary) !important;
+        border-top: none !important;
+        border-bottom-left-radius: 8px !important;
+        border-bottom-right-radius: 8px !important;
+        background-color: var(--mud-palette-surface) !important;
+        padding: 16px !important;
+    }
+</style>
+
+<MudTabs Elevation="0" ApplyEffectsToContainer="true" Class="folder-styled-tabs mb-4">
+    <MudTabPanel Text="Multiple Trainings" Icon="@Icons.Material.Filled.School">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <div>
+                <MudText Typo="Typo.h5" Class="mb-1">Multiple Trainings</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Add and assign training sessions to multiple active employees with automatic scheduling conflict checking.</MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadDataAsync" Disabled="@isLoading">
+                Refresh Data
+            </MudButton>
+        </MudStack>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4" CloseIcon="@Icons.Material.Filled.Close" CloseIconClicked="() => errorMessage = null">
+        @errorMessage
+    </MudAlert>
+}
+
+@if (lastResult != null)
+{
+    <MudPaper Class="pa-4 mb-6" Elevation="2" Style="border-left: 6px solid var(--mud-palette-info);">
+        <MudText Typo="Typo.h6" Class="mb-2">Assignment Summary</MudText>
+        
+        @if (lastResult.TotalAssigned > 0)
+        {
+            <MudAlert Severity="Severity.Success" Variant="Variant.Filled" Class="mb-3">
+                <b>Success:</b> Training session was successfully assigned to @lastResult.TotalAssigned employee(s).
+            </MudAlert>
+        }
+
+        @if (lastResult.TotalConflicts > 0)
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Filled" Class="mb-3">
+                <b>Scheduling Conflicts Encountered:</b> @lastResult.TotalConflicts employee(s) were <b>NOT</b> assigned due to existing overlapping training sessions.
+            </MudAlert>
+
+            <MudText Typo="Typo.subtitle2" Class="mt-3 mb-2 font-weight-bold">Conflicting Employees (Not Updated):</MudText>
+            <MudTable T="EmployeeTrainingConflictDto" Items="lastResult.Conflicts" Dense="true" Hover="true" Striped="true" Class="mb-2">
+                <HeaderContent>
+                    <MudTh>Employee Name</MudTh>
+                    <MudTh>Badge #</MudTh>
+                    <MudTh>Conflicting Session</MudTh>
+                    <MudTh>Dates</MudTh>
+                    <MudTh>Conflict Details</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Employee Name">
+                        <MudText Typo="Typo.body2" Style="font-weight: 600;">@context.EmployeeName</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Badge #">
+                        @if (!string.IsNullOrWhiteSpace(context.BadgeNumber))
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Dark">@context.BadgeNumber</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Conflicting Session">@context.ConflictingSchoolOrLocation</MudTd>
+                    <MudTd DataLabel="Dates">
+                        @if (context.ConflictingBeginDate.HasValue || context.ConflictingEndDate.HasValue)
+                        {
+                            <span>@context.ConflictingBeginDate?.ToString("MM/dd/yyyy") - @context.ConflictingEndDate?.ToString("MM/dd/yyyy")</span>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Conflict Details">
+                        <MudChip T="string" Color="Color.Warning" Size="Size.Small" Icon="@Icons.Material.Filled.Warning">@context.ConflictMessage</MudChip>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudPaper>
+}
+
+<MudGrid>
+    <!-- Left Column: Training Session Details -->
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-5 mb-4" Elevation="3">
+            <MudText Typo="Typo.h6" Class="mb-3" Style="display: flex; align-items: center; gap: 8px;">
+                <MudIcon Icon="@Icons.Material.Filled.School" Color="Color.Primary" />
+                Training Session Details
+            </MudText>
+
+            <MudPaper Class="pa-4 mb-4" Elevation="0" Style="background-color: var(--mud-palette-background-gray); border: 1px solid var(--mud-palette-lines-default);">
+                <MudText Typo="Typo.subtitle2" Class="mb-2" Style="font-weight: 600;">Session Selection Mode</MudText>
+                <MudRadioGroup T="bool" Value="isNewSession" ValueChanged="OnSessionModeChanged">
+                    <MudStack Row="true" Spacing="4">
+                        <MudRadio Value="false" Color="Color.Primary">Select Existing Session</MudRadio>
+                        <MudRadio Value="true" Color="Color.Primary">Add New Session</MudRadio>
+                    </MudStack>
+                </MudRadioGroup>
+
+                @if (!isNewSession)
+                {
+                    <MudAutocomplete T="TrainingSessionsDto"
+                                     Value="selectedTrainingSession"
+                                     ValueChanged="OnTrainingSessionChanged"
+                                     SearchFunc="SearchTrainingSessions"
+                                     ToStringFunc="GetTrainingSessionText"
+                                     Label="Search / Select Existing Session"
+                                     Variant="Variant.Outlined"
+                                     ResetValueOnEmptyText="true"
+                                     CoerceText="true"
+                                     CoerceValue="false"
+                                     Clearable="true"
+                                     Required="true"
+                                     RequiredError="Training Session selection is required"
+                                     AdornmentIcon="@Icons.Material.Filled.Search"
+                                     AdornmentColor="Color.Primary"
+                                     ShowProgressIndicator="true"
+                                     ProgressIndicatorColor="Color.Primary"
+                                     Class="mt-3" />
+                }
+            </MudPaper>
+
+            <MudPaper Class="pa-4 mb-4" Elevation="0" Style="background-color: var(--mud-palette-background-gray); border: 1px solid var(--mud-palette-lines-default); border-radius: 4px;">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
+                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">
+                        <MudIcon Icon="@Icons.Material.Filled.School" Size="Size.Small" Class="mr-1" Style="vertical-align: text-bottom;" />
+                        Training School
+                    </MudText>
+                    @if (isNewSession)
+                    {
+                        <MudRadioGroup T="bool" Value="isNewSchool" ValueChanged="OnSchoolModeChanged">
+                            <MudStack Row="true" Spacing="3">
+                                <MudRadio Value="false" Color="Color.Primary" Size="Size.Small">Select Existing School</MudRadio>
+                                <MudRadio Value="true" Color="Color.Primary" Size="Size.Small">Add New School</MudRadio>
+                            </MudStack>
+                        </MudRadioGroup>
+                    }
+                </MudStack>
+
+                @if (!isNewSchool)
+                {
+                    <MudAutocomplete T="TrainingSchoolsDto"
+                                     Value="selectedSchool"
+                                     ValueChanged="OnTrainingSchoolChanged"
+                                     SearchFunc="SearchTrainingSchools"
+                                     ToStringFunc="GetSchoolText"
+                                     Label="Search / Select Existing School"
+                                     Variant="Variant.Outlined"
+                                     ResetValueOnEmptyText="true"
+                                     CoerceText="true"
+                                     CoerceValue="false"
+                                     Clearable="true"
+                                     Disabled="!isNewSession"
+                                     AdornmentIcon="@Icons.Material.Filled.Search"
+                                     AdornmentColor="Color.Primary"
+                                     Margin="Margin.Dense" />
+                }
+                else
+                {
+                    <MudGrid Spacing="2" Class="mt-1">
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="newSchoolName"
+                                          Label="New School Name *"
+                                          Variant="Variant.Outlined"
+                                          MaxLength="150"
+                                          Margin="Margin.Dense"
+                                          Disabled="!isNewSession"
+                                          Required="true"
+                                          RequiredError="School Name is required" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="newSchoolAddress"
+                                          Label="School Address (Optional)"
+                                          Variant="Variant.Outlined"
+                                          MaxLength="250"
+                                          Margin="Margin.Dense"
+                                          Disabled="!isNewSession" />
+                        </MudItem>
+                        <MudItem xs="12" Class="d-flex justify-end align-center">
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Add"
+                                       OnClick="SaveNewSchoolInlineAsync"
+                                       Disabled="@(isSavingSchool || string.IsNullOrWhiteSpace(newSchoolName))">
+                                @if (isSavingSchool)
+                                {
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                                    <span>Saving...</span>
+                                }
+                                else
+                                {
+                                    <span>Save School Now</span>
+                                }
+                            </MudButton>
+                        </MudItem>
+                    </MudGrid>
+                }
+            </MudPaper>
+
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="request.Location" Label="Location" Variant="Variant.Outlined" MaxLength="150" Disabled="!isNewSession" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="request.Instructor" Label="Instructor" Variant="Variant.Outlined" MaxLength="100" Disabled="!isNewSession" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal?" @bind-Value="request.SessionHours" Label="Session Hours" Variant="Variant.Outlined" Format="F2" Min="0m" Max="999.99m" Disabled="!isNewSession" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="beginDate" Label="Begin Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" Disabled="!isNewSession" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="endDate" Label="End Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" Disabled="!isNewSession" />
+                </MudItem>
+            </MudGrid>
+
+            <MudDivider Class="my-4" />
+
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-3">Completion & Cost Details</MudText>
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal?" @bind-Value="request.HoursCompleted" Label="Hours Completed" Variant="Variant.Outlined" Format="F2" Min="0m" Max="999.99m" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="expireDate" Label="Expire Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="request.OrderNumber" Label="Order Number" Variant="Variant.Outlined" MaxLength="50" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal" @bind-Value="request.RegistrationCost" Label="Registration Cost" Variant="Variant.Outlined" Format="C2" Min="0m" Max="999999.99m" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal" @bind-Value="request.TravelCost" Label="Travel Cost" Variant="Variant.Outlined" Format="C2" Min="0m" Max="999999.99m" />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    </MudItem>
+
+    <!-- Right Column: Active Employees Selection -->
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-5 mb-4" Elevation="3">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudText Typo="Typo.h6" Style="display: flex; align-items: center; gap: 8px;">
+                    <MudIcon Icon="@Icons.Material.Filled.Group" Color="Color.Primary" />
+                    Select Active Employees
+                </MudText>
+                <MudChip T="string" Color="Color.Info" Size="Size.Small">
+                    Selected: @selectedEmployeeIds.Count / @(activeEmployees?.Count() ?? 0)
+                </MudChip>
+            </MudStack>
+
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudTextField T="string" @bind-Value="searchTerm" Placeholder="Search by name or badge..." Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" OnClick="SelectAll">Select All</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Size="Size.Small" OnClick="DeselectAll">Clear</MudButton>
+            </MudStack>
+
+            @if (isLoading)
+            {
+                <MudPaper Class="pa-6 d-flex justify-center align-center" Style="min-height: 250px;" Elevation="0">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
+                    <MudText Class="ml-3">Loading active employees...</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <div style="max-height: 460px; overflow-y: auto; border: 1px solid var(--mud-palette-lines-default); border-radius: 4px;">
+                    <MudTable T="EmployeeSearchResultDto" Items="FilteredEmployees" Dense="true" Hover="true" Striped="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh Style="width: 50px;">
+                                <MudCheckBox T="bool" Value="IsAllFilteredSelected" ValueChanged="ToggleSelectAllFiltered" Color="Color.Primary" />
+                            </MudTh>
+                            <MudTh>Photo</MudTh>
+                            <MudTh>Name</MudTh>
+                            <MudTh>Badge #</MudTh>
+                            <MudTh>Status</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>
+                                <MudCheckBox T="bool" Value="@selectedEmployeeIds.Contains(context.EmployeeID)" ValueChanged="@((bool isChecked) => ToggleEmployeeSelection(context.EmployeeID, isChecked))" Color="Color.Primary" />
+                            </MudTd>
+                            <MudTd DataLabel="Photo">
+                                @if (context.EmployeeImage != null && context.EmployeeImage.Length > 0)
+                                {
+                                    <MudAvatar Size="Size.Small">
+                                        <MudImage Src="@($"data:image/png;base64,{Convert.ToBase64String(context.EmployeeImage)}")" Alt="Photo" />
+                                    </MudAvatar>
+                                }
+                                else
+                                {
+                                    <MudAvatar Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+                                    </MudAvatar>
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="Name">
+                                <MudText Typo="Typo.body2" Style="font-weight: 600;">@context.FirstName @context.LastName</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Badge #">
+                                @if (!string.IsNullOrWhiteSpace(context.BadgeNumber))
+                                {
+                                    <MudChip T="string" Color="Color.Dark" Size="Size.Small">@context.BadgeNumber</MudChip>
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="Status">
+                                @if (!string.IsNullOrWhiteSpace(context.Status))
+                                {
+                                    <MudChip T="string" Color="GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                                }
+                            </MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent>
+                            <MudText Class="pa-4 text-center">No active employees found.</MudText>
+                        </NoRecordsContent>
+                    </MudTable>
+                </div>
+            }
+
+            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Success"
+                           Size="Size.Large"
+                           StartIcon="@Icons.Material.Filled.CheckCircle"
+                           OnClick="SubmitAssignmentAsync"
+                           Disabled="@(isAssigning || selectedEmployeeIds.Count == 0 || (!isNewSession && (selectedTrainingSession == null || selectedTrainingSession.TrainingSessionID <= 0)))">
+                    @if (isAssigning)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Checking Conflicts & Assigning...</span>
+                    }
+                    else
+                    {
+                        <span>Assign Training (@selectedEmployeeIds.Count Employee@(selectedEmployeeIds.Count == 1 ? "" : "s"))</span>
+                    }
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+    </MudTabPanel>
+
+    <MudTabPanel Text="Training Schools" Icon="@Icons.Material.Filled.School">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <div>
+                <MudText Typo="Typo.h5" Class="mb-1">Training Schools</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Manage training school reference list and location details.</MudText>
+            </div>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="gap-2">
+                <MudTextField @bind-Value="searchTrainingSchool" Placeholder="Search training schools..." Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Style="max-width: 300px;" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateTrainingSchoolDialog">
+                    Add Training School
+                </MudButton>
+            </MudStack>
+        </MudStack>
+        <MudTable Items="FilteredTrainingSchools" Hover="true" Striped="true" Loading="@isLoadingSchools">
+            <HeaderContent>
+                <MudTh><MudTableSortLabel SortBy="new Func<TrainingSchoolsDto, object>(x => x.SchoolName)">School Name</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<TrainingSchoolsDto, object>(x => x.Address ?? string.Empty)">Address</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<TrainingSchoolsDto, object>(x => x.IsActive)">Active</MudTableSortLabel></MudTh>
+                <MudTh Style="width: 120px;">Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate Context="item">
+                <MudTd DataLabel="School Name"><b>@item.SchoolName</b></MudTd>
+                <MudTd DataLabel="Address">@(item.Address ?? "-")</MudTd>
+                <MudTd DataLabel="Active">
+                    <MudSwitch T="bool"
+                               Value="@item.IsActive"
+                               ValueChanged="@((bool val) => ToggleTrainingSchoolActiveAsync(item, val))"
+                               Color="Color.Success"
+                               UncheckedColor="Color.Default"
+                               Size="Size.Small"
+                               Label="@(item.IsActive ? "Active" : "Inactive")" />
+                </MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditTrainingSchoolDialog(item)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => OpenDeleteTrainingSchoolDialog(item)" />
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent><MudText Class="pa-4 text-center">No training school records found.</MudText></NoRecordsContent>
+            <PagerContent><MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" /></PagerContent>
+        </MudTable>
+    </MudTabPanel>
+
+    <MudTabPanel Text="Training Expirations" Icon="@Icons.Material.Filled.Event">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <div>
+                <MudText Typo="Typo.h5" Class="mb-1">Training Expirations</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">View training records expiring within the specified date range.</MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadExpirationsAsync" Disabled="@isLoadingExpirations">
+                Refresh Expirations
+            </MudButton>
+        </MudStack>
+
+        <MudPaper Class="pa-4 mb-4" Elevation="2" Style="background-color: var(--mud-palette-background-gray); border: 1px solid var(--mud-palette-lines-default);">
+            <MudGrid Spacing="3">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudDatePicker @bind-Date="expStartDate"
+                                   Label="Start Date"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true"
+                                   Editable="true"
+                                   DateFormat="MM/dd/yyyy"
+                                   Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudDatePicker @bind-Date="expEndDate"
+                                   Label="End Date"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true"
+                                   Editable="true"
+                                   DateFormat="MM/dd/yyyy"
+                                   Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3" Class="d-flex align-center gap-2">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.FilterAlt"
+                               OnClick="LoadExpirationsAsync"
+                               Disabled="@isLoadingExpirations">
+                        @if (isLoadingExpirations)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                            <span>Loading...</span>
+                        }
+                        else
+                        {
+                            <span>Apply Filter</span>
+                        }
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Filled.Restore"
+                               OnClick="ResetExpirationDatesAsync">
+                        Reset (60 Days)
+                    </MudButton>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField @bind-Value="expirationSearchTerm"
+                                  Placeholder="Search school or name..."
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Clearable="true"
+                                  Immediate="true"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search" />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4 d-flex align-center">
+            <b>Total Expiring Trainings:</b> @(expirationsList?.Count ?? 0)
+        </MudAlert>
+
+        @if (!string.IsNullOrEmpty(expErrorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4" CloseIcon="@Icons.Material.Filled.Close" CloseIconClicked="() => expErrorMessage = null">
+                @expErrorMessage
+            </MudAlert>
+        }
+
+        @if (isLoadingExpirations)
+        {
+            <MudPaper Class="pa-6 d-flex justify-center align-center" Style="min-height: 200px;" Elevation="0">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
+                <MudText Class="ml-3">Loading expiring training records...</MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <MudPaper Elevation="2">
+                <MudTable Items="FilteredExpirations" Hover="true" Striped="true" Dense="true" Elevation="0">
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel SortBy="new Func<TrainingExpirationDto, object>(x => x.ExpireDate ?? DateOnly.MinValue)">Expire Date</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<TrainingExpirationDto, object>(x => x.SchoolName ?? string.Empty)">School</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<TrainingExpirationDto, object>(x => x.EmployeeName ?? string.Empty)">Name</MudTableSortLabel></MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="exp">
+                        <MudTd DataLabel="Expire Date">@(exp.ExpireDate.HasValue ? exp.ExpireDate.Value.ToString("MM/dd/yyyy") : "-")</MudTd>
+                        <MudTd DataLabel="School">@(string.IsNullOrWhiteSpace(exp.SchoolName) ? "-" : exp.SchoolName)</MudTd>
+                        <MudTd DataLabel="Name">
+                            @if (exp.EmployeeID > 0)
+                            {
+                                <MudLink Href="@($"/employee/edit/{exp.EmployeeID}")">@exp.EmployeeName</MudLink>
+                            }
+                            else
+                            {
+                                @exp.EmployeeName
+                            }
+                        </MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[]{10, 25, 50, 100}" />
+                    </PagerContent>
+                    <NoRecordsContent>
+                        <MudText Class="pa-4 text-center">No expiring training records found for the selected date range.</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudPaper>
+        }
+    </MudTabPanel>
+
+    <MudTabPanel Text="Training Search" Icon="@Icons.Material.Filled.AccountBalance">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <div>
+                <MudText Typo="Typo.h5" Class="mb-1">Training Search</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Filter and view training records by school, employee status, program, unit, and date range.</MudText>
+            </div>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="ExecuteTrainingBySchoolSearchAsync" Disabled="@isLoadingTbs">
+                    Refresh Report
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Print" OnClick="OpenTbsPrintWindow" Disabled="@(isLoadingTbs || tbsResults == null || !tbsResults.Any())">
+                    Print
+                </MudButton>
+            </MudStack>
+        </MudStack>
+
+        <MudPaper Class="pa-4 mb-4" Elevation="2" Style="background-color: var(--mud-palette-background-gray); border: 1px solid var(--mud-palette-lines-default);">
+            <MudGrid Spacing="3">
+                <MudItem xs="12" sm="6" md="4">
+                    <MudAutocomplete T="TrainingSchoolsDto"
+                                     Value="tbsSelectedSchool"
+                                     ValueChanged="OnTbsSchoolChanged"
+                                     SearchFunc="SearchTrainingSchools"
+                                     ToStringFunc="GetSchoolText"
+                                     Text="@tbsSchoolText"
+                                     TextChanged="OnTbsTextChanged"
+                                     Label="School Name"
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     ResetValueOnEmptyText="true"
+                                     CoerceText="true"
+                                     CoerceValue="false"
+                                     Clearable="true"
+                                     AdornmentIcon="@Icons.Material.Filled.Search"
+                                     AdornmentColor="Color.Primary" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect T="int?" @bind-Value="tbsSelectedStatusId" Label="Employee Status" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                        <MudSelectItem T="int?" Value="@((int?)null)">All Statuses</MudSelectItem>
+                        @if (tbsStatuses != null)
+                        {
+                            @foreach (var st in tbsStatuses)
+                            {
+                                <MudSelectItem T="int?" Value="@((int?)st.StatusID)">@(st.StatusDescription ?? st.StatusCode)</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect T="int?" @bind-Value="tbsSelectedProgramId" Label="Program" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                        <MudSelectItem T="int?" Value="@((int?)null)">All Programs</MudSelectItem>
+                        @if (tbsPrograms != null)
+                        {
+                            @foreach (var prog in tbsPrograms)
+                            {
+                                <MudSelectItem T="int?" Value="@((int?)prog.ProgramID)">@prog.DisplayName</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect T="int?" @bind-Value="tbsSelectedUnitId" Label="Unit" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                        <MudSelectItem T="int?" Value="@((int?)null)">All Units</MudSelectItem>
+                        @if (tbsUnits != null)
+                        {
+                            @foreach (var u in tbsUnits)
+                            {
+                                <MudSelectItem T="int?" Value="@((int?)u.UnitID)">@u.UnitName</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudDatePicker @bind-Date="tbsStartDate"
+                                   Label="Start Date"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true"
+                                   Editable="true"
+                                   DateFormat="MM/dd/yyyy"
+                                   Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudDatePicker @bind-Date="tbsEndDate"
+                                   Label="End Date"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true"
+                                   Editable="true"
+                                   DateFormat="MM/dd/yyyy"
+                                   Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" Class="d-flex align-center gap-2 justify-end">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.FilterAlt"
+                               OnClick="ExecuteTrainingBySchoolSearchAsync"
+                               Disabled="@isLoadingTbs">
+                        @if (isLoadingTbs)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                            <span>Searching...</span>
+                        }
+                        else
+                        {
+                            <span>Apply Filter</span>
+                        }
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Filled.Restore"
+                               OnClick="ResetTbsFiltersAsync">
+                        Reset Filters
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Print"
+                               OnClick="OpenTbsPrintWindow"
+                               Disabled="@(isLoadingTbs || tbsResults == null || !tbsResults.Any())">
+                        Print
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4 d-flex align-center">
+            <b>Total Records Found:</b> @(tbsResults?.Count ?? 0)
+        </MudAlert>
+
+        @if (!string.IsNullOrEmpty(tbsErrorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4" CloseIcon="@Icons.Material.Filled.Close" CloseIconClicked="() => tbsErrorMessage = null">
+                @tbsErrorMessage
+            </MudAlert>
+        }
+
+        @if (isLoadingTbs)
+        {
+            <MudPaper Class="pa-6 d-flex justify-center align-center" Style="min-height: 200px;" Elevation="0">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
+                <MudText Class="ml-3">Loading training records...</MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <MudPaper Elevation="2">
+                <MudTable Items="tbsResults" Hover="true" Striped="true" Dense="true" Elevation="0">
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel SortBy="new Func<TrainingBySchoolDto, object>(x => x.EmployeeName ?? string.Empty)" InitialDirection="SortDirection.Ascending">Employee Name</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<TrainingBySchoolDto, object>(x => x.EmployeeStatus ?? string.Empty)">Employee Status</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<TrainingBySchoolDto, object>(x => x.SchoolName ?? string.Empty)">School Name</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<TrainingBySchoolDto, object>(x => x.Program ?? string.Empty)">Program</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<TrainingBySchoolDto, object>(x => x.UnitName ?? string.Empty)">Unit Name</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<TrainingBySchoolDto, object>(x => x.BeginDate ?? DateOnly.MinValue)">Begin Date</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<TrainingBySchoolDto, object>(x => x.Hours ?? 0m)">Hours</MudTableSortLabel></MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="row">
+                        <MudTd DataLabel="Employee Name">
+                            @if (row.EmployeeID > 0)
+                            {
+                                <MudLink Href="@($"/employee/edit/{row.EmployeeID}")">@row.EmployeeName</MudLink>
+                            }
+                            else
+                            {
+                                @row.EmployeeName
+                            }
+                        </MudTd>
+                        <MudTd DataLabel="Employee Status">
+                            @if (!string.IsNullOrWhiteSpace(row.EmployeeStatus))
+                            {
+                                <MudChip T="string" Color="GetStatusColor(row.EmployeeStatus)" Size="Size.Small">@row.EmployeeStatus</MudChip>
+                            }
+                            else
+                            {
+                                <span>-</span>
+                            }
+                        </MudTd>
+                        <MudTd DataLabel="School Name">@(string.IsNullOrWhiteSpace(row.SchoolName) ? "-" : row.SchoolName)</MudTd>
+                        <MudTd DataLabel="Program">@(string.IsNullOrWhiteSpace(row.Program) ? "-" : row.Program)</MudTd>
+                        <MudTd DataLabel="Unit Name">@(string.IsNullOrWhiteSpace(row.UnitName) ? "-" : row.UnitName)</MudTd>
+                        <MudTd DataLabel="Begin Date">@(row.BeginDate.HasValue ? row.BeginDate.Value.ToString("MM/dd/yyyy") : "-")</MudTd>
+                        <MudTd DataLabel="Hours">@(row.Hours.HasValue ? row.Hours.Value.ToString("N2") : "-")</MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[]{10, 25, 50, 100}" />
+                    </PagerContent>
+                    <NoRecordsContent>
+                        <MudText Class="pa-4 text-center">
+                            @if (!tbsHasSearched)
+                            {
+                                <span>Please select search criteria and click Apply Filter to view training records.</span>
+                            }
+                            else
+                            {
+                                <span>No training records found for the selected criteria.</span>
+                            }
+                        </MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudPaper>
+        }
+    </MudTabPanel>
+</MudTabs>
+
+@* Training School Add / Edit Dialog *@
+<MudDialog @bind-Visible="isSchoolDialogVisible" Options="schoolDialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(isSchoolEditMode ? Icons.Material.Filled.Edit : Icons.Material.Filled.Add)" Class="mr-2" />
+            @(isSchoolEditMode ? "Edit Training School" : "Add Training School")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <EditForm Model="editingTrainingSchool" OnValidSubmit="SaveSchoolItemAsync">
+            <DataAnnotationsValidator />
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="editingTrainingSchool.SchoolName" Label="School Name" Variant="Variant.Outlined" Required="true" RequiredError="School name is required" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="editingTrainingSchool.Address" Label="Address" Variant="Variant.Outlined" Lines="2" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudCheckBox T="bool" @bind-Value="editingTrainingSchool.IsActive" Label="Active Training School" Color="Color.Success" />
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="() => isSchoolDialogVisible = false">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveSchoolItemAsync" Disabled="@isSavingSchoolDialog">
+            @if (isSavingSchoolDialog)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Saving...</span>
+            }
+            else
+            {
+                <span>Save</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* Training School Delete Confirmation Dialog *@
+<MudDialog @bind-Visible="isDeleteSchoolDialogVisible">
+    <TitleContent>
+        <MudText Typo="Typo.h6" Color="Color.Error">Confirm Delete</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText>Are you sure you want to delete Training School <b>@deleteSchoolName</b>?</MudText>
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 d-block">
+            Note: If this record is referenced by existing personnel or training records, deletion will be prevented.
+        </MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="() => isDeleteSchoolDialogVisible = false">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteSchoolItemAsync" Disabled="@isDeletingSchool">
+            @if (isDeletingSchool)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Deleting...</span>
+            }
+            else
+            {
+                <span>Delete</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private Color GetStatusColor(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+            return Color.Default;
+
+        var s = status.Trim().ToLowerInvariant();
+
+        if (s.Contains("inactive") || s.Contains("terminated") || s.Contains("resigned") || s == "inact" || s == "term")
+        {
+            return Color.Default;
+        }
+
+        if (s.Contains("retired") || s == "ret")
+        {
+            return Color.Info;
+        }
+
+        if (s.Contains("active") || s == "act")
+        {
+            return Color.Success;
+        }
+
+        return Color.Default;
+    }
+
+    private MultipleTrainingAssignmentRequestDto request = new();
+    private IEnumerable<TrainingSessionsDto>? availableSessions;
+    private IEnumerable<TrainingSchoolsDto>? availableSchools;
+    private TrainingSchoolsDto? selectedSchool;
+
+    private IEnumerable<TrainingSchoolsDto> GetFilteredSchools() =>
+        availableSchools?.Where(s => s.IsActive) ?? Enumerable.Empty<TrainingSchoolsDto>();
+    private IEnumerable<EmployeeSearchResultDto>? activeEmployees;
+    private HashSet<int> selectedEmployeeIds = new();
+    private TrainingSessionsDto? selectedTrainingSession;
+
+    private bool isNewSession = false;
+    private bool isNewSchool = false;
+    private string newSchoolName = string.Empty;
+    private string newSchoolAddress = string.Empty;
+    private bool isSavingSchool = false;
+    private bool isLoading = false;
+    private bool isAssigning = false;
+    private string? errorMessage;
+    private string searchTerm = string.Empty;
+    private DateTime? beginDate;
+    private DateTime? endDate;
+    private DateTime? expireDate;
+
+    private MultipleTrainingAssignmentResultDto? lastResult;
+
+    // Training Schools Tab State
+    private List<TrainingSchoolsDto> trainingSchools = new();
+    private string searchTrainingSchool = string.Empty;
+    private bool isLoadingSchools = false;
+    private IEnumerable<TrainingSchoolsDto> FilteredTrainingSchools => string.IsNullOrWhiteSpace(searchTrainingSchool)
+        ? trainingSchools
+        : trainingSchools.Where(x => x.SchoolName.Contains(searchTrainingSchool, StringComparison.OrdinalIgnoreCase) || (x.Address?.Contains(searchTrainingSchool, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    private DialogOptions schoolDialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+    private bool isSchoolDialogVisible = false;
+    private bool isSchoolEditMode = false;
+    private bool isSavingSchoolDialog = false;
+    private TrainingSchoolsDto editingTrainingSchool = new();
+
+    private bool isDeleteSchoolDialogVisible = false;
+    private bool isDeletingSchool = false;
+    private int deleteSchoolId = 0;
+    private string deleteSchoolName = string.Empty;
+
+    // Training Expirations tab fields & methods
+    private DateTime? expStartDate = DateTime.Today;
+    private DateTime? expEndDate = DateTime.Today.AddDays(60);
+    private List<TrainingExpirationDto> expirationsList = new();
+    private bool isLoadingExpirations = false;
+    private string? expErrorMessage;
+    private string expirationSearchTerm = string.Empty;
+
+    // Training by School tab fields & methods
+    private TrainingSchoolsDto? tbsSelectedSchool;
+    private string tbsSchoolText = string.Empty;
+    private int? tbsSelectedStatusId;
+    private int? tbsSelectedProgramId;
+    private int? tbsSelectedUnitId;
+    private DateTime? tbsStartDate;
+    private DateTime? tbsEndDate;
+
+    private IEnumerable<StatusesDto>? tbsStatuses;
+    private IEnumerable<ProgramsDto>? tbsPrograms;
+    private IEnumerable<UnitsDto>? tbsUnits;
+
+    private List<TrainingBySchoolDto> tbsResults = new();
+    private bool isLoadingTbs = false;
+    private bool tbsHasSearched = false;
+    private string? tbsErrorMessage;
+
+    private void OnTbsSchoolChanged(TrainingSchoolsDto? school)
+    {
+        tbsSelectedSchool = school;
+        if (school != null)
+        {
+            tbsSchoolText = school.SchoolName;
+        }
+    }
+
+    private void OnTbsTextChanged(string text)
+    {
+        tbsSchoolText = text;
+        if (tbsSelectedSchool != null && !string.Equals(tbsSelectedSchool.SchoolName, text, StringComparison.OrdinalIgnoreCase))
+        {
+            tbsSelectedSchool = availableSchools?.FirstOrDefault(s => string.Equals(s.SchoolName, text, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private async Task ExecuteTrainingBySchoolSearchAsync()
+    {
+        tbsErrorMessage = null;
+
+        string? effectiveSchoolName = tbsSelectedSchool?.SchoolName;
+        if (string.IsNullOrWhiteSpace(effectiveSchoolName))
+        {
+            effectiveSchoolName = tbsSchoolText;
+        }
+        effectiveSchoolName = string.IsNullOrWhiteSpace(effectiveSchoolName) ? null : effectiveSchoolName.Trim();
+
+        isLoadingTbs = true;
+        tbsHasSearched = true;
+
+        try
+        {
+            var req = new TrainingBySchoolRequestDto
+            {
+                SchoolName = effectiveSchoolName,
+                TrainingSchoolID = tbsSelectedSchool?.TrainingSchoolID,
+                StatusID = tbsSelectedStatusId,
+                ProgramID = tbsSelectedProgramId,
+                UnitID = tbsSelectedUnitId,
+                StartDate = tbsStartDate.HasValue ? DateOnly.FromDateTime(tbsStartDate.Value) : null,
+                EndDate = tbsEndDate.HasValue ? DateOnly.FromDateTime(tbsEndDate.Value) : null
+            };
+
+            var results = await service.GetTrainingBySchoolAsync(req);
+            tbsResults = results != null ? results.ToList() : new List<TrainingBySchoolDto>();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error fetching training by school report.");
+            tbsErrorMessage = $"Failed to load training records: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingTbs = false;
+        }
+    }
+
+    private Task ResetTbsFiltersAsync()
+    {
+        tbsSelectedSchool = null;
+        tbsSchoolText = string.Empty;
+        tbsSelectedStatusId = null;
+        tbsSelectedProgramId = null;
+        tbsSelectedUnitId = null;
+        tbsStartDate = null;
+        tbsEndDate = null;
+        tbsResults.Clear();
+        tbsHasSearched = false;
+        tbsErrorMessage = null;
+        return Task.CompletedTask;
+    }
+
+    private async Task OpenTbsPrintWindow()
+    {
+        var queryParams = new List<string>();
+
+        string? effectiveSchoolName = tbsSelectedSchool?.SchoolName;
+        if (string.IsNullOrWhiteSpace(effectiveSchoolName))
+        {
+            effectiveSchoolName = tbsSchoolText;
+        }
+        effectiveSchoolName = string.IsNullOrWhiteSpace(effectiveSchoolName) ? null : effectiveSchoolName.Trim();
+
+        if (!string.IsNullOrWhiteSpace(effectiveSchoolName))
+            queryParams.Add($"schoolName={Uri.EscapeDataString(effectiveSchoolName)}");
+
+        if (tbsSelectedSchool != null && tbsSelectedSchool.TrainingSchoolID > 0)
+            queryParams.Add($"trainingSchoolId={tbsSelectedSchool.TrainingSchoolID}");
+
+        if (tbsSelectedStatusId.HasValue)
+            queryParams.Add($"statusId={tbsSelectedStatusId.Value}");
+
+        if (tbsSelectedProgramId.HasValue)
+            queryParams.Add($"programId={tbsSelectedProgramId.Value}");
+
+        if (tbsSelectedUnitId.HasValue)
+            queryParams.Add($"unitId={tbsSelectedUnitId.Value}");
+
+        if (tbsStartDate.HasValue)
+            queryParams.Add($"startDate={tbsStartDate.Value:yyyy-MM-dd}");
+
+        if (tbsEndDate.HasValue)
+            queryParams.Add($"endDate={tbsEndDate.Value:yyyy-MM-dd}");
+
+        var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
+        var printUrl = $"/print/training-search{queryString}";
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("open", printUrl, "_blank");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to open training search print window.");
+            Snackbar.Add("Could not open print window. Please check browser popup settings.", Severity.Error);
+        }
+    }
+
+    private IEnumerable<TrainingExpirationDto> FilteredExpirations
+    {
+        get
+        {
+            if (expirationsList == null) return Enumerable.Empty<TrainingExpirationDto>();
+            if (string.IsNullOrWhiteSpace(expirationSearchTerm)) return expirationsList;
+
+            var term = expirationSearchTerm.Trim();
+            return expirationsList.Where(x =>
+                (!string.IsNullOrEmpty(x.SchoolName) && x.SchoolName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.EmployeeName) && x.EmployeeName.Contains(term, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+        await LoadExpirationsAsync();
+    }
+
+    private async Task LoadExpirationsAsync()
+    {
+        isLoadingExpirations = true;
+        expErrorMessage = null;
+
+        try
+        {
+            DateOnly? sDate = expStartDate.HasValue ? DateOnly.FromDateTime(expStartDate.Value) : null;
+            DateOnly? eDate = expEndDate.HasValue ? DateOnly.FromDateTime(expEndDate.Value) : null;
+
+            var result = await service.GetTrainingExpirationsAsync(sDate, eDate);
+            expirationsList = result != null ? result.ToList() : new List<TrainingExpirationDto>();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading training expirations.");
+            expErrorMessage = $"Failed to load training expirations: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingExpirations = false;
+        }
+    }
+
+    private async Task ResetExpirationDatesAsync()
+    {
+        expStartDate = DateTime.Today;
+        expEndDate = DateTime.Today.AddDays(60);
+        await LoadExpirationsAsync();
+    }
+
+    private async Task LoadTrainingSchoolsAsync()
+    {
+        isLoadingSchools = true;
+        try
+        {
+            var schools = await CodeTableService.GetTrainingSchoolsAsync();
+            trainingSchools = schools.ToList();
+            availableSchools = trainingSchools;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading Training Schools");
+            Snackbar.Add("Failed to load training schools.", Severity.Error);
+        }
+        finally
+        {
+            isLoadingSchools = false;
+        }
+    }
+
+    private void OpenCreateTrainingSchoolDialog()
+    {
+        isSchoolEditMode = false;
+        editingTrainingSchool = new TrainingSchoolsDto { IsActive = true };
+        isSchoolDialogVisible = true;
+    }
+
+    private void OpenEditTrainingSchoolDialog(TrainingSchoolsDto item)
+    {
+        isSchoolEditMode = true;
+        editingTrainingSchool = new TrainingSchoolsDto
+        {
+            TrainingSchoolID = item.TrainingSchoolID,
+            SchoolName = item.SchoolName,
+            Address = item.Address,
+            IsActive = item.IsActive
+        };
+        isSchoolDialogVisible = true;
+    }
+
+    private async Task SaveSchoolItemAsync()
+    {
+        if (string.IsNullOrWhiteSpace(editingTrainingSchool.SchoolName)) return;
+        isSavingSchoolDialog = true;
+        try
+        {
+            if (isSchoolEditMode)
+            {
+                await CodeTableService.UpdateTrainingSchoolAsync(editingTrainingSchool.TrainingSchoolID, editingTrainingSchool);
+            }
+            else
+            {
+                await CodeTableService.CreateTrainingSchoolAsync(editingTrainingSchool);
+            }
+            Snackbar.Add("Training school saved successfully.", Severity.Success);
+            isSchoolDialogVisible = false;
+            await LoadTrainingSchoolsAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error saving training school");
+            Snackbar.Add("Failed to save training school. Please check details and try again.", Severity.Error);
+        }
+        finally
+        {
+            isSavingSchoolDialog = false;
+        }
+    }
+
+    private void OpenDeleteTrainingSchoolDialog(TrainingSchoolsDto item)
+    {
+        deleteSchoolId = item.TrainingSchoolID;
+        deleteSchoolName = item.SchoolName;
+        isDeleteSchoolDialogVisible = true;
+    }
+
+    private async Task DeleteSchoolItemAsync()
+    {
+        isDeletingSchool = true;
+        try
+        {
+            var success = await CodeTableService.DeleteTrainingSchoolAsync(deleteSchoolId);
+            if (success)
+            {
+                Snackbar.Add($"Training school '{deleteSchoolName}' deleted successfully.", Severity.Success);
+                await LoadTrainingSchoolsAsync();
+            }
+            else
+            {
+                Snackbar.Add($"Unable to delete training school '{deleteSchoolName}'. It may be in use by existing records.", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error deleting training school {Id}", deleteSchoolId);
+            Snackbar.Add("Cannot delete training school because it is referenced by existing personnel or training records.", Severity.Error);
+        }
+        finally
+        {
+            isDeletingSchool = false;
+            isDeleteSchoolDialogVisible = false;
+        }
+    }
+
+    private async Task ToggleTrainingSchoolActiveAsync(TrainingSchoolsDto item, bool newStatus)
+    {
+        var originalStatus = item.IsActive;
+        item.IsActive = newStatus;
+        try
+        {
+            await CodeTableService.UpdateTrainingSchoolAsync(item.TrainingSchoolID, item);
+            Snackbar.Add($"Training school '{item.SchoolName}' marked as {(newStatus ? "Active" : "Inactive")}.", Severity.Success);
+            await LoadTrainingSchoolsAsync();
+        }
+        catch (Exception ex)
+        {
+            item.IsActive = originalStatus;
+            logger.LogError(ex, "Error toggling training school active state for TrainingSchoolID {Id}", item.TrainingSchoolID);
+            Snackbar.Add($"Failed to update status for '{item.SchoolName}'.", Severity.Error);
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            activeEmployees = await service.GetActiveEmployeesAsync();
+            availableSessions = await service.GetTrainingSessionsAsync();
+            await LoadTrainingSchoolsAsync();
+            tbsStatuses = await service.GetAvailableStatusesAsync();
+            tbsPrograms = await service.GetProgramsAsync();
+            tbsUnits = await service.GetUnitsAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading data for Multiple Trainings page.");
+            errorMessage = $"Failed to load initial data: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private IEnumerable<EmployeeSearchResultDto> FilteredEmployees
+    {
+        get
+        {
+            if (activeEmployees == null) return Enumerable.Empty<EmployeeSearchResultDto>();
+
+            var list = activeEmployees.Where(e =>
+                string.IsNullOrEmpty(e.Status) ||
+                (!e.Status.Contains("Inactive", StringComparison.OrdinalIgnoreCase) &&
+                 !e.Status.Contains("Terminated", StringComparison.OrdinalIgnoreCase) &&
+                 !e.Status.Contains("Retired", StringComparison.OrdinalIgnoreCase) &&
+                 !e.Status.Contains("Resigned", StringComparison.OrdinalIgnoreCase))
+            );
+
+            if (string.IsNullOrWhiteSpace(searchTerm)) return list;
+
+            var term = searchTerm.Trim();
+            return list.Where(e =>
+                (!string.IsNullOrEmpty(e.FirstName) && e.FirstName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(e.LastName) && e.LastName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(e.BadgeNumber) && e.BadgeNumber.Contains(term, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+    }
+
+    private bool IsAllFilteredSelected
+    {
+        get
+        {
+            var filtered = FilteredEmployees.ToList();
+            return filtered.Any() && filtered.All(e => selectedEmployeeIds.Contains(e.EmployeeID));
+        }
+    }
+
+    private void ToggleSelectAllFiltered(bool isChecked)
+    {
+        var filtered = FilteredEmployees.ToList();
+        if (isChecked)
+        {
+            foreach (var emp in filtered)
+            {
+                selectedEmployeeIds.Add(emp.EmployeeID);
+            }
+        }
+        else
+        {
+            foreach (var emp in filtered)
+            {
+                selectedEmployeeIds.Remove(emp.EmployeeID);
+            }
+        }
+    }
+
+    private void SelectAll()
+    {
+        foreach (var emp in FilteredEmployees)
+        {
+            selectedEmployeeIds.Add(emp.EmployeeID);
+        }
+    }
+
+    private void DeselectAll()
+    {
+        selectedEmployeeIds.Clear();
+    }
+
+    private void ToggleEmployeeSelection(int employeeId, bool isChecked)
+    {
+        if (isChecked)
+        {
+            selectedEmployeeIds.Add(employeeId);
+        }
+        else
+        {
+            selectedEmployeeIds.Remove(employeeId);
+        }
+    }
+
+    private void OnSessionModeChanged(bool newSessionMode)
+    {
+        isNewSession = newSessionMode;
+        isNewSchool = false;
+        newSchoolName = string.Empty;
+        newSchoolAddress = string.Empty;
+        if (isNewSession)
+        {
+            selectedTrainingSession = null;
+            request.TrainingSessionID = 0;
+            ClearSessionFields();
+        }
+        else
+        {
+            ClearSessionFields();
+        }
+    }
+
+    private void OnSchoolModeChanged(bool createNew)
+    {
+        isNewSchool = createNew;
+        if (createNew)
+        {
+            selectedSchool = null;
+            request.TrainingSchoolID = null;
+        }
+        else
+        {
+            newSchoolName = string.Empty;
+            newSchoolAddress = string.Empty;
+        }
+    }
+
+    private void OnTrainingSessionChanged(TrainingSessionsDto? session)
+    {
+        selectedTrainingSession = session;
+        request.TrainingSessionID = session?.TrainingSessionID ?? 0;
+        if (session != null)
+        {
+            PopulateSessionFields(session);
+        }
+        else
+        {
+            ClearSessionFields();
+        }
+    }
+
+    private void PopulateSessionFields(TrainingSessionsDto session)
+    {
+        request.TrainingSchoolID = session.TrainingSchoolID;
+        request.Location = session.Location;
+        request.Instructor = session.Instructor;
+        request.BeginDate = session.BeginDate;
+        request.EndDate = session.EndDate;
+        request.SessionHours = session.SessionHours;
+
+        beginDate = session.BeginDate.HasValue ? session.BeginDate.Value.ToDateTime(TimeOnly.MinValue) : null;
+        endDate = session.EndDate.HasValue ? session.EndDate.Value.ToDateTime(TimeOnly.MinValue) : null;
+
+        if (session.TrainingSchoolID.HasValue && availableSchools != null)
+        {
+            selectedSchool = availableSchools.FirstOrDefault(s => s.TrainingSchoolID == session.TrainingSchoolID.Value);
+            if (selectedSchool == null && !string.IsNullOrEmpty(session.SchoolName))
+            {
+                selectedSchool = new TrainingSchoolsDto { TrainingSchoolID = session.TrainingSchoolID.Value, SchoolName = session.SchoolName };
+            }
+        }
+        else
+        {
+            selectedSchool = null;
+        }
+    }
+
+    private void ClearSessionFields()
+    {
+        request.TrainingSchoolID = null;
+        request.Location = null;
+        request.Instructor = null;
+        request.BeginDate = null;
+        request.EndDate = null;
+        request.SessionHours = null;
+        beginDate = null;
+        endDate = null;
+        selectedSchool = null;
+        isNewSchool = false;
+        newSchoolName = string.Empty;
+        newSchoolAddress = string.Empty;
+    }
+
+    private async Task<TrainingSchoolsDto?> CreateNewSchoolAsync()
+    {
+        if (string.IsNullOrWhiteSpace(newSchoolName))
+        {
+            Snackbar.Add("Please enter a School Name for the new training school.", Severity.Warning);
+            return null;
+        }
+
+        isSavingSchool = true;
+        try
+        {
+            var dto = new TrainingSchoolsDto
+            {
+                SchoolName = newSchoolName.Trim(),
+                Address = string.IsNullOrWhiteSpace(newSchoolAddress) ? null : newSchoolAddress.Trim(),
+                IsActive = true
+            };
+
+            var created = await service.CreateTrainingSchoolAsync(dto);
+            if (created != null && created.TrainingSchoolID > 0)
+            {
+                var updatedSchoolsList = (availableSchools ?? Enumerable.Empty<TrainingSchoolsDto>()).ToList();
+                updatedSchoolsList.Add(created);
+                availableSchools = updatedSchoolsList;
+                trainingSchools = updatedSchoolsList;
+
+                selectedSchool = created;
+                request.TrainingSchoolID = created.TrainingSchoolID;
+                isNewSchool = false;
+                newSchoolName = string.Empty;
+                newSchoolAddress = string.Empty;
+
+                Snackbar.Add($"Training school '{created.SchoolName}' created successfully!", Severity.Success);
+                return created;
+            }
+            else
+            {
+                Snackbar.Add("Failed to create training school. Please try again.", Severity.Error);
+                return null;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error creating new training school.");
+            Snackbar.Add($"Error creating training school: {ex.Message}", Severity.Error);
+            return null;
+        }
+        finally
+        {
+            isSavingSchool = false;
+        }
+    }
+
+    private async Task SaveNewSchoolInlineAsync()
+    {
+        await CreateNewSchoolAsync();
+    }
+
+    private void OnTrainingSchoolChanged(TrainingSchoolsDto? school)
+    {
+        selectedSchool = school;
+        request.TrainingSchoolID = school?.TrainingSchoolID;
+    }
+
+    private Task<IEnumerable<TrainingSchoolsDto>> SearchTrainingSchools(string value, CancellationToken token)
+    {
+        var schools = GetFilteredSchools().ToList();
+
+        if (selectedSchool != null && !schools.Any(s => s.TrainingSchoolID == selectedSchool.TrainingSchoolID))
+        {
+            schools.Insert(0, selectedSchool);
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult<IEnumerable<TrainingSchoolsDto>>(schools);
+        }
+
+        var filtered = schools.Where(s =>
+            !string.IsNullOrEmpty(s.SchoolName) && s.SchoolName.Contains(value, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult<IEnumerable<TrainingSchoolsDto>>(filtered);
+    }
+
+    private string GetSchoolText(TrainingSchoolsDto? school) => school?.SchoolName ?? string.Empty;
+
+    private async Task<IEnumerable<TrainingSessionsDto>> SearchTrainingSessions(string value, CancellationToken token)
+    {
+        if (availableSessions == null)
+        {
+            availableSessions = await service.GetTrainingSessionsAsync();
+        }
+
+        var sessionsList = availableSessions != null ? availableSessions.ToList() : new List<TrainingSessionsDto>();
+
+        if (selectedTrainingSession != null && !sessionsList.Any(x => x.TrainingSessionID == selectedTrainingSession.TrainingSessionID))
+        {
+            sessionsList.Insert(0, selectedTrainingSession);
+        }
+
+        if (!sessionsList.Any())
+        {
+            return Enumerable.Empty<TrainingSessionsDto>();
+        }
+
+        IEnumerable<TrainingSessionsDto> resultList = sessionsList;
+
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            resultList = resultList.Where(x =>
+                (!string.IsNullOrEmpty(x.SchoolName) && x.SchoolName.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.Location) && x.Location.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(x.Instructor) && x.Instructor.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+                (x.BeginDate.HasValue && x.BeginDate.Value.ToString("MM/dd/yyyy").Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+                (x.EndDate.HasValue && x.EndDate.Value.ToString("MM/dd/yyyy").Contains(value, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+
+        return resultList.OrderBy(x => GetTrainingSessionText(x), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private string GetTrainingSessionText(TrainingSessionsDto? ts)
+    {
+        if (ts == null) return string.Empty;
+        var name = !string.IsNullOrWhiteSpace(ts.SchoolName) ? ts.SchoolName : (!string.IsNullOrWhiteSpace(ts.Location) ? ts.Location : "Training Session");
+        if (ts.BeginDate.HasValue || ts.EndDate.HasValue)
+        {
+            return $"{name} ({ts.BeginDate:MM/dd/yyyy} - {ts.EndDate:MM/dd/yyyy})".Trim();
+        }
+        return name;
+    }
+
+    private async Task SubmitAssignmentAsync()
+    {
+        if (selectedEmployeeIds.Count == 0)
+        {
+            Snackbar.Add("Please select at least one active employee.", Severity.Warning);
+            return;
+        }
+
+        if (!isNewSession && (selectedTrainingSession == null || selectedTrainingSession.TrainingSessionID <= 0))
+        {
+            Snackbar.Add("Please select an existing training session or switch to 'Add New Session'.", Severity.Error);
+            return;
+        }
+
+        if (isNewSession && isNewSchool)
+        {
+            if (string.IsNullOrWhiteSpace(newSchoolName))
+            {
+                Snackbar.Add("Please enter a School Name or select an existing training school.", Severity.Warning);
+                return;
+            }
+
+            var createdSchool = await CreateNewSchoolAsync();
+            if (createdSchool == null)
+            {
+                return;
+            }
+        }
+
+        isAssigning = true;
+        errorMessage = null;
+        lastResult = null;
+
+        try
+        {
+            request.EmployeeIDs = selectedEmployeeIds.ToList();
+            request.BeginDate = beginDate.HasValue ? DateOnly.FromDateTime(beginDate.Value) : null;
+            request.EndDate = endDate.HasValue ? DateOnly.FromDateTime(endDate.Value) : null;
+            request.ExpireDate = expireDate.HasValue ? DateOnly.FromDateTime(expireDate.Value) : null;
+
+            var result = await service.AssignMultipleTrainingsAsync(request);
+
+            if (result != null)
+            {
+                lastResult = result;
+
+                if (result.TotalConflicts > 0 && result.TotalAssigned > 0)
+                {
+                    Snackbar.Add($"Assigned training to {result.TotalAssigned} employee(s). {result.TotalConflicts} employee(s) skipped due to scheduling conflicts.", Severity.Warning);
+                }
+                else if (result.TotalConflicts > 0 && result.TotalAssigned == 0)
+                {
+                    Snackbar.Add($"Assignment skipped for all selected employees due to scheduling conflicts.", Severity.Error);
+                }
+                else
+                {
+                    Snackbar.Add($"Successfully assigned training session to {result.TotalAssigned} employee(s)!", Severity.Success);
+                }
+
+                // Refresh available training sessions list
+                availableSessions = await service.GetTrainingSessionsAsync();
+            }
+            else
+            {
+                Snackbar.Add("Failed to process training assignment request.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error submitting multiple training assignment.");
+            errorMessage = $"Error processing training assignment: {ex.Message}";
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isAssigning = false;
+        }
+    }
+}
+

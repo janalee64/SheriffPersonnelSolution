@@ -1,0 +1,1384 @@
+@page "/enterrangescores"
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Shared.Models
+@using SheriffPersonnel.Web.Services
+@attribute [Authorize]
+
+@inject SearchService service
+@inject CodeTableService codeTableService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject ILogger<EnterRangeScores> logger
+
+<PageTitle>Enter Range Scores</PageTitle>
+
+<style>
+    .btn-pass:focus,
+    .btn-pass:focus-visible {
+        outline: 3px solid #2e7d32 !important;
+        outline-offset: 2px !important;
+        box-shadow: 0 0 0 4px rgba(46, 125, 50, 0.4) !important;
+        background-color: rgba(46, 125, 50, 0.15) !important;
+        border-color: #2e7d32 !important;
+        z-index: 2 !important;
+    }
+
+    .btn-pass.mud-button-filled:focus,
+    .btn-pass.mud-button-filled:focus-visible {
+        background-color: #1b5e20 !important;
+        color: #ffffff !important;
+        outline: 3px solid #81c784 !important;
+        outline-offset: 2px !important;
+        box-shadow: 0 0 0 4px rgba(46, 125, 50, 0.6) !important;
+    }
+
+    .btn-fail:focus,
+    .btn-fail:focus-visible {
+        outline: 3px solid #d32f2f !important;
+        outline-offset: 2px !important;
+        box-shadow: 0 0 0 4px rgba(211, 47, 47, 0.4) !important;
+        background-color: rgba(211, 47, 47, 0.15) !important;
+        border-color: #d32f2f !important;
+        z-index: 2 !important;
+    }
+
+    .btn-fail.mud-button-filled:focus,
+    .btn-fail.mud-button-filled:focus-visible {
+        background-color: #b71c1c !important;
+        color: #ffffff !important;
+        outline: 3px solid #e57373 !important;
+        outline-offset: 2px !important;
+        box-shadow: 0 0 0 4px rgba(211, 47, 47, 0.6) !important;
+    }
+
+    /* Fix MudSelect popover dropdown width & checkbox spacing */
+    .skills-popover-menu.mud-popover,
+    .mud-popover:has(.skills-popover-menu) {
+        min-width: 260px !important;
+        max-width: 320px !important;
+        width: auto !important;
+    }
+    .skills-popover-menu .mud-list-item,
+    .mud-popover .mud-list-item {
+        padding: 2px 8px !important;
+        min-height: 28px !important;
+    }
+    .skills-popover-menu .mud-list-item .mud-checkbox,
+    .skills-popover-menu .mud-list-item .mud-checkbox.mud-input-content-placement-end,
+    .mud-popover .mud-list-item .mud-checkbox,
+    .mud-popover .mud-list-item .mud-checkbox.mud-input-content-placement-end {
+        gap: 6px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+    }
+    .skills-popover-menu .mud-list-item .mud-checkbox .mud-button-root,
+    .mud-popover .mud-list-item .mud-checkbox .mud-button-root {
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 20px !important;
+        height: 20px !important;
+        min-width: 20px !important;
+        min-height: 20px !important;
+        flex-shrink: 0 !important;
+    }
+    .skills-popover-menu .mud-list-item .mud-checkbox .mud-icon-root,
+    .mud-popover .mud-list-item .mud-checkbox .mud-icon-root {
+        font-size: 1.15rem !important;
+        width: 1.15rem !important;
+        height: 1.15rem !important;
+    }
+    .skills-popover-menu .mud-list-item .mud-checkbox .mud-checkbox-text,
+    .skills-popover-menu .mud-list-item .mud-checkbox > .mud-typography,
+    .skills-popover-menu .mud-list-item .mud-checkbox.mud-input-content-placement-end > .mud-typography,
+    .mud-popover .mud-list-item .mud-checkbox .mud-checkbox-text,
+    .mud-popover .mud-list-item .mud-checkbox > .mud-typography,
+    .mud-popover .mud-list-item .mud-checkbox.mud-input-content-placement-end > .mud-typography {
+        padding-left: 0 !important;
+        margin-left: 0 !important;
+        font-size: 0.8125rem !important;
+        line-height: 1.25 !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        flex-grow: 1 !important;
+        text-align: left !important;
+    }
+</style>
+
+<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+    <div>
+        <MudText Typo="Typo.h4" Class="mb-1">Enter Range Scores</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Record a new Range Event and bulk-enter scores for participating officers.
+        </MudText>
+    </div>
+    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="ResetForm" Disabled="@isSaving" tabindex="-1">
+        Clear & Reset
+    </MudButton>
+</MudStack>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4" CloseIcon="@Icons.Material.Filled.Close" CloseIconClicked="() => errorMessage = null">
+        @errorMessage
+    </MudAlert>
+}
+
+@if (saveSuccessMessage != null)
+{
+    <MudAlert Severity="Severity.Success" Variant="Variant.Filled" Class="mb-4" CloseIcon="@Icons.Material.Filled.Close" CloseIconClicked="() => saveSuccessMessage = null">
+        @saveSuccessMessage
+        <MudButton Variant="Variant.Text" Color="Color.Inherit" Size="Size.Small" OnClick='() => Navigation.NavigateTo("rangestatistics")' Class="ml-2">
+            View Range Statistics Page
+        </MudButton>
+    </MudAlert>
+}
+
+<!-- Top Area: Range Event Details -->
+<MudPaper Class="pa-5 mb-4" Elevation="3" Style="border-top: 4px solid var(--mud-palette-primary);">
+    <MudText Typo="Typo.h6" Class="mb-3 d-flex align-center" Style="gap: 8px;">
+        <MudIcon Icon="@Icons.Material.Filled.EventNote" Color="Color.Primary" />
+        1. Range Event Information
+    </MudText>
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mb-3">
+        Enter details for this range session. These details will apply to all officer scores below.
+    </MudText>
+
+    <MudGrid Spacing="3">
+        <MudItem xs="12" sm="6" md="3">
+            <MudDatePicker @ref="eventDatePicker"
+                           @bind-Date="rangeDate"
+                           Converter="@eventDateConverter"
+                           Label="Event Date *"
+                           Variant="Variant.Outlined"
+                           DateFormat="MM/dd/yyyy"
+                           Required="true"
+                           Editable="true"
+                           Adornment="Adornment.Start"
+                           AdornmentIcon="@Icons.Material.Filled.CalendarToday" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudTextField @bind-Value="eventType"
+                          Label="Event / Session Type *"
+                          Placeholder="e.g. Annual Qualification, Night Shoot"
+                          Variant="Variant.Outlined"
+                          Required="true"
+                          RequiredError="Event type is required" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudTextField @bind-Value="location"
+                          Label="Location / Range Name"
+                          Placeholder="e.g. County Range, Outdoor Bay 1"
+                          Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudAutocomplete T="RangeOfficerDTO"
+                             Value="selectedRangeOfficer"
+                             ValueChanged="OnRangeOfficerChanged"
+                             SearchFunc="SearchRangeOfficers"
+                             ToStringFunc="@(ro => ro == null ? string.Empty : ro.OfficerName)"
+                             Label="Range Officer"
+                             Placeholder="Type or select Range Officer"
+                             Variant="Variant.Outlined"
+                             Clearable="true"
+                             ResetValueOnEmptyText="true"
+                             CoerceText="true"
+                             CoerceValue="false"
+                             SelectValueOnTab="true"
+                             MinCharacters="0" />
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<!-- Scores Entry Rows Area -->
+<MudPaper Class="pa-5 mb-4" Elevation="3">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3 flex-wrap">
+        <div>
+            <MudText Typo="Typo.h6" Class="d-flex align-center" Style="gap: 8px;">
+                <MudIcon Icon="@Icons.Material.Filled.Group" Color="Color.Primary" />
+                2. Officer Scores (@scoreRows.Count)
+            </MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                Select officers and record their qualification scores.
+            </MudText>
+        </div>
+
+        <MudStack Row="true" Spacing="2" Class="mt-2 mt-sm-0">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="AddRow" tabindex="-1">
+                + Add Officer
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="AddFiveRows" tabindex="-1">
+                + Add 5 Rows
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.CleaningServices" OnClick="ClearEmptyRows" Disabled="@(!scoreRows.Any(r => r.SelectedEmployee == null))" tabindex="-1">
+                Remove Empty
+            </MudButton>
+        </MudStack>
+    </MudStack>
+
+    @if (isLoading)
+    {
+        <MudPaper Class="pa-6 d-flex justify-center align-center" Style="min-height: 150px;" Elevation="0">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
+            <MudText Class="ml-3">Loading courses and reference data...</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <div class="d-none d-md-block overflow-x-auto">
+            <!-- Desktop Grid View -->
+            <MudTable Items="scoreRows" Hover="true" Striped="true" Elevation="0" Dense="true" Class="range-scores-table">
+                <HeaderContent>
+                    <MudTh Style="width: 45px; text-align: center;">#</MudTh>
+                    <MudTh Style="min-width: 280px;">Officer / Employee *</MudTh>
+                    <MudTh Style="min-width: 110px;">Unit</MudTh>
+                    <MudTh Style="min-width: 140px;">Course</MudTh>
+                    <MudTh Style="min-width: 180px;">Range Skills</MudTh>
+                    <MudTh Style="min-width: 150px;">Make</MudTh>
+                    <MudTh Style="min-width: 160px;">Model</MudTh>
+                    <MudTh Style="min-width: 170px;">Serial Number</MudTh>
+                    <MudTh Style="min-width: 130px;">Caliber</MudTh>
+                    <MudTh Style="min-width: 160px; text-align: center;">Result (Pass/Fail)</MudTh>
+                    <MudTh Style="width: 60px; text-align: center;">Action</MudTh>
+                </HeaderContent>
+                <RowTemplate Context="row">
+                    <MudTd DataLabel="#" Style="text-align: center;">@(scoreRows.IndexOf(row) + 1)</MudTd>
+                    <MudTd DataLabel="Officer">
+                        <MudAutocomplete T="EmployeeSearchResultDto"
+                                         Value="row.SelectedEmployee"
+                                         ValueChanged="@(e => OnEmployeeSelected(row, e))"
+                                         SearchFunc="SearchEmployees"
+                                         ToStringFunc="@(e => e == null ? string.Empty : (string.IsNullOrWhiteSpace(e.BadgeNumber) ? e.FormattedName : $"{e.FormattedName} (#{e.BadgeNumber})"))"
+                                         Placeholder="Type name or badge #"
+                                         Variant="Variant.Outlined"
+                                         Margin="Margin.Dense"
+                                         Clearable="true"
+                                         ResetValueOnEmptyText="true"
+                                         CoerceText="true"
+                                         CoerceValue="false"
+                                         SelectValueOnTab="true"
+                                         MinCharacters="0"
+                                         ShowProgressIndicator="true"
+                                         Style="min-width: 260px;" />
+                    </MudTd>
+                    <MudTd DataLabel="Unit">
+                        <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                            @(row.SelectedEmployee?.Unit ?? string.Empty)
+                        </MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Course">
+                        <MudAutocomplete T="RangeCourseDTO"
+                                         Value="@(availableCourses.FirstOrDefault(c => c.CourseID == row.CourseID))"
+                                         ValueChanged="@(c => OnCourseSelected(row, c))"
+                                         SearchFunc="SearchCourses"
+                                         ToStringFunc="@(c => c == null ? string.Empty : (!string.IsNullOrWhiteSpace(c.CourseCode) ? c.CourseCode : c.CourseName))"
+                                         Placeholder="-- Select Course --"
+                                         Variant="Variant.Outlined"
+                                         Margin="Margin.Dense"
+                                         Clearable="true"
+                                         ResetValueOnEmptyText="true"
+                                         CoerceText="true"
+                                         CoerceValue="false"
+                                         SelectValueOnTab="true"
+                                         MinCharacters="0"
+                                         @onkeydown="@(e => OnCourseKeyDown(e, row))"
+                                         Style="min-width: 130px;" />
+                    </MudTd>
+                    <MudTd DataLabel="Range Skills">
+                        @if (IsCourseP(row))
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="min-width: 170px;">
+                                <MudSelect T="int"
+                                           @ref="row.SkillsSelectRef"
+                                           MultiSelection="true"
+                                           SelectAll="true"
+                                           SelectAllText="Select All"
+                                           PopoverClass="skills-popover-menu"
+                                           Placeholder="Select Skills"
+                                           Variant="Variant.Outlined"
+                                           Margin="Margin.Dense"
+                                           Dense="true"
+                                           SelectedValues="@row.SelectedSkillIDs"
+                                           SelectedValuesChanged="@(vals => row.SelectedSkillIDs = vals.ToList())"
+                                           MultiSelectionTextFunc="@(selectedList => GetSkillsSelectionSummary(selectedList))"
+                                           Style="flex-grow: 1;">
+                                    @foreach (var skill in availableRangeSkills)
+                                    {
+                                        <MudSelectItem T="int" Value="@skill.RangeSkillID">@skill.SkillName</MudSelectItem>
+                                    }
+                                </MudSelect>
+                                <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               OnClick="@(() => OpenSkillsModal(row))"
+                                               tabindex="-1" />
+                            </MudStack>
+                        }
+                        else
+                        {
+                            <MudText Color="Color.Secondary" Typo="Typo.caption" Class="d-flex align-center justify-center">—</MudText>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Make">
+                        <MudAutocomplete T="string"
+                                         Value="row.SelectedMake"
+                                         ValueChanged="@(m => OnMakeSelected(row, m))"
+                                         SearchFunc="@((val, ct) => SearchRowMakes(row, val, ct))"
+                                         Placeholder="Select Make"
+                                         Variant="Variant.Outlined"
+                                         Margin="Margin.Dense"
+                                         Clearable="true"
+                                         ResetValueOnEmptyText="true"
+                                         CoerceText="true"
+                                         CoerceValue="false"
+                                         SelectValueOnTab="true"
+                                         MinCharacters="0"
+                                         Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)"
+                                         Style="min-width: 135px;" />
+                    </MudTd>
+                    <MudTd DataLabel="Model">
+                        <MudAutocomplete T="string"
+                                         Value="row.SelectedModel"
+                                         ValueChanged="@(m => OnModelSelected(row, m))"
+                                         SearchFunc="@((val, ct) => SearchRowModels(row, val, ct))"
+                                         Placeholder="Select Model"
+                                         Variant="Variant.Outlined"
+                                         Margin="Margin.Dense"
+                                         Clearable="true"
+                                         ResetValueOnEmptyText="true"
+                                         CoerceText="true"
+                                         CoerceValue="false"
+                                         SelectValueOnTab="true"
+                                         MinCharacters="0"
+                                         Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)"
+                                         Style="min-width: 145px;" />
+                    </MudTd>
+                    <MudTd DataLabel="Serial Number">
+                        <MudAutocomplete T="string"
+                                         Value="row.SelectedSerial"
+                                         ValueChanged="@(s => OnSerialSelected(row, s))"
+                                         SearchFunc="@((val, ct) => SearchRowSerials(row, val, ct))"
+                                         Placeholder="Select Serial #"
+                                         Variant="Variant.Outlined"
+                                         Margin="Margin.Dense"
+                                         Clearable="true"
+                                         ResetValueOnEmptyText="true"
+                                         CoerceText="true"
+                                         CoerceValue="false"
+                                         SelectValueOnTab="true"
+                                         MinCharacters="0"
+                                         Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)"
+                                         Style="min-width: 155px;" />
+                    </MudTd>
+                    <MudTd DataLabel="Caliber">
+                        <MudAutocomplete T="string"
+                                         Value="row.SelectedCaliber"
+                                         ValueChanged="@(c => OnCaliberSelected(row, c))"
+                                         SearchFunc="@((val, ct) => SearchRowCalibers(row, val, ct))"
+                                         Placeholder="Select Caliber"
+                                         Variant="Variant.Outlined"
+                                         Margin="Margin.Dense"
+                                         Clearable="true"
+                                         ResetValueOnEmptyText="true"
+                                         CoerceText="true"
+                                         CoerceValue="false"
+                                         SelectValueOnTab="true"
+                                         MinCharacters="0"
+                                         Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)"
+                                         Style="min-width: 115px;" />
+                    </MudTd>
+                    <MudTd DataLabel="Result" Style="text-align: center;">
+                        <MudButtonGroup Size="Size.Small" Style="min-width: 140px;" @onkeydown="(e) => OnResultKeyDown(e, row)">
+                            <MudButton Variant="@(row.PassFail == "Pass" || row.PassFail == "P" ? Variant.Filled : Variant.Outlined)"
+                                       Color="@(row.PassFail == "Pass" || row.PassFail == "P" ? Color.Success : Color.Default)"
+                                       StartIcon="@(row.PassFail == "Pass" || row.PassFail == "P" ? Icons.Material.Filled.Check : null)"
+                                       OnClick="() => TogglePass(row)"
+                                       Class="btn-pass">
+                                Pass
+                            </MudButton>
+                            <MudButton Variant="@(row.PassFail == "Fail" || row.PassFail == "F" ? Variant.Filled : Variant.Outlined)"
+                                       Color="@(row.PassFail == "Fail" || row.PassFail == "F" ? Color.Error : Color.Default)"
+                                       StartIcon="@(row.PassFail == "Fail" || row.PassFail == "F" ? Icons.Material.Filled.Close : null)"
+                                       OnClick="() => ToggleFail(row)"
+                                       Class="btn-fail">
+                                Fail
+                            </MudButton>
+                        </MudButtonGroup>
+                    </MudTd>
+                    <MudTd DataLabel="Action" Style="text-align: center;">
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveRow(row)" tabindex="-1" />
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </div>
+
+        <!-- Mobile Card View (Cell Phone Optimization) -->
+        <div class="d-block d-md-none">
+            @for (int i = 0; i < scoreRows.Count; i++)
+            {
+                var index = i;
+                var row = scoreRows[index];
+                <MudPaper Class="pa-4 mb-3" Elevation="2" Style="border-left: 4px solid var(--mud-palette-primary);">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
+                        <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Filled">Officer #@(index + 1)</MudChip>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveRow(row)" tabindex="-1" />
+                    </MudStack>
+
+                    <MudStack Spacing="3">
+                        <MudAutocomplete T="EmployeeSearchResultDto"
+                                         Value="row.SelectedEmployee"
+                                         ValueChanged="@(e => OnEmployeeSelected(row, e))"
+                                         SearchFunc="SearchEmployees"
+                                         ToStringFunc="@(e => e == null ? string.Empty : (string.IsNullOrWhiteSpace(e.BadgeNumber) ? e.FormattedName : $"{e.FormattedName} (#{e.BadgeNumber})"))"
+                                         Label="Officer Name / Badge #"
+                                         Placeholder="Tap to search officer"
+                                         Variant="Variant.Outlined"
+                                         Clearable="true"
+                                         ResetValueOnEmptyText="true"
+                                         CoerceText="true"
+                                         CoerceValue="false"
+                                         SelectValueOnTab="true"
+                                         MinCharacters="0"
+                                         @onkeydown="@(e => OnCourseKeyDown(e, row))" />
+
+                        @if (row.SelectedEmployee != null && !string.IsNullOrEmpty(row.SelectedEmployee.Unit))
+                        {
+                            <MudTextField Value="@row.SelectedEmployee.Unit" Label="Unit" Variant="Variant.Outlined" ReadOnly="true" Margin="Margin.Dense" />
+                        }
+
+                        <MudAutocomplete T="RangeCourseDTO"
+                                         Value="@(availableCourses.FirstOrDefault(c => c.CourseID == row.CourseID))"
+                                         ValueChanged="@(c => OnCourseSelected(row, c))"
+                                         SearchFunc="SearchCourses"
+                                         ToStringFunc="@(c => c == null ? string.Empty : (!string.IsNullOrWhiteSpace(c.CourseCode) ? c.CourseCode : c.CourseName))"
+                                         Label="Course of Fire"
+                                         Placeholder="-- Select Course --"
+                                         Variant="Variant.Outlined"
+                                         Clearable="true"
+                                         ResetValueOnEmptyText="true"
+                                         CoerceText="true"
+                                         CoerceValue="false"
+                                         SelectValueOnTab="true"
+                                         MinCharacters="0"
+                                         @onkeydown="@(e => OnCourseKeyDown(e, row))" />
+
+                        @if (IsCourseP(row))
+                        {
+                            <MudPaper Class="pa-3 my-2" Elevation="0" Style="background-color: var(--mud-palette-background-grey); border-radius: 6px;">
+                                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2 flex-wrap" Style="gap: 8px;">
+                                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;" Color="Color.Primary">
+                                        <MudIcon Icon="@Icons.Material.Filled.Checklist" Size="Size.Small" Class="mr-1" /> Range Skills (P-Course)
+                                    </MudText>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.OpenInNew" OnClick="@(() => OpenSkillsModal(row))">
+                                        Skills Modal (@row.SelectedSkillIDs.Count)
+                                    </MudButton>
+                                </MudStack>
+                                <MudSelect T="int"
+                                           MultiSelection="true"
+                                           SelectAll="true"
+                                           SelectAllText="Select All"
+                                           PopoverClass="skills-popover-menu"
+                                           Label="Range Skills"
+                                           Placeholder="Tap to select skills"
+                                           Variant="Variant.Outlined"
+                                           Margin="Margin.Dense"
+                                           Dense="true"
+                                           SelectedValues="@row.SelectedSkillIDs"
+                                           SelectedValuesChanged="@(vals => row.SelectedSkillIDs = vals.ToList())"
+                                           MultiSelectionTextFunc="@(selectedList => GetSkillsSelectionSummary(selectedList))">
+                                    @foreach (var skill in availableRangeSkills)
+                                    {
+                                        <MudSelectItem T="int" Value="@skill.RangeSkillID">@skill.SkillName</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudPaper>
+                        }
+
+                        <MudGrid Spacing="2">
+                            <MudItem xs="6">
+                                <MudAutocomplete T="string"
+                                                 Value="row.SelectedMake"
+                                                 ValueChanged="@(m => OnMakeSelected(row, m))"
+                                                 SearchFunc="@((val, ct) => SearchRowMakes(row, val, ct))"
+                                                 Label="Make"
+                                                 Variant="Variant.Outlined"
+                                                 Dense="true"
+                                                 Clearable="true"
+                                                 ResetValueOnEmptyText="true"
+                                                 CoerceText="true"
+                                                 CoerceValue="false"
+                                                 SelectValueOnTab="true"
+                                                 MinCharacters="0"
+                                                 Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)" />
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudAutocomplete T="string"
+                                                 Value="row.SelectedModel"
+                                                 ValueChanged="@(m => OnModelSelected(row, m))"
+                                                 SearchFunc="@((val, ct) => SearchRowModels(row, val, ct))"
+                                                 Label="Model"
+                                                 Variant="Variant.Outlined"
+                                                 Dense="true"
+                                                 Clearable="true"
+                                                 ResetValueOnEmptyText="true"
+                                                 CoerceText="true"
+                                                 CoerceValue="false"
+                                                 SelectValueOnTab="true"
+                                                 MinCharacters="0"
+                                                 Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)" />
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudAutocomplete T="string"
+                                                 Value="row.SelectedSerial"
+                                                 ValueChanged="@(s => OnSerialSelected(row, s))"
+                                                 SearchFunc="@((val, ct) => SearchRowSerials(row, val, ct))"
+                                                 Label="Serial #"
+                                                 Variant="Variant.Outlined"
+                                                 Dense="true"
+                                                 Clearable="true"
+                                                 ResetValueOnEmptyText="true"
+                                                 CoerceText="true"
+                                                 CoerceValue="false"
+                                                 SelectValueOnTab="true"
+                                                 MinCharacters="0"
+                                                 Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)" />
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudAutocomplete T="string"
+                                                 Value="row.SelectedCaliber"
+                                                 ValueChanged="@(c => OnCaliberSelected(row, c))"
+                                                 SearchFunc="@((val, ct) => SearchRowCalibers(row, val, ct))"
+                                                 Label="Caliber"
+                                                 Variant="Variant.Outlined"
+                                                 Dense="true"
+                                                 Clearable="true"
+                                                 ResetValueOnEmptyText="true"
+                                                 CoerceText="true"
+                                                 CoerceValue="false"
+                                                 SelectValueOnTab="true"
+                                                 MinCharacters="0"
+                                                 Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)" />
+                            </MudItem>
+                        </MudGrid>
+
+                        <div>
+                            <MudText Typo="Typo.caption" Class="d-block mb-1 font-weight-bold">Result:</MudText>
+                            <MudButtonGroup Size="Size.Medium" FullWidth="true" @onkeydown="(e) => OnResultKeyDown(e, row)">
+                                <MudButton Variant="@(row.PassFail == "Pass" || row.PassFail == "P" ? Variant.Filled : Variant.Outlined)"
+                                           Color="@(row.PassFail == "Pass" || row.PassFail == "P" ? Color.Success : Color.Default)"
+                                           StartIcon="@(row.PassFail == "Pass" || row.PassFail == "P" ? Icons.Material.Filled.Check : null)"
+                                           OnClick="() => TogglePass(row)"
+                                           Class="btn-pass"
+                                           Style="flex: 1;">
+                                    Pass
+                                </MudButton>
+                                <MudButton Variant="@(row.PassFail == "Fail" || row.PassFail == "F" ? Variant.Filled : Variant.Outlined)"
+                                           Color="@(row.PassFail == "Fail" || row.PassFail == "F" ? Color.Error : Color.Default)"
+                                           StartIcon="@(row.PassFail == "Fail" || row.PassFail == "F" ? Icons.Material.Filled.Close : null)"
+                                           OnClick="() => ToggleFail(row)"
+                                           Class="btn-fail"
+                                           Style="flex: 1;">
+                                    Fail
+                                </MudButton>
+                            </MudButtonGroup>
+                        </div>
+                    </MudStack>
+                </MudPaper>
+            }
+
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="AddRow" FullWidth="true" Class="mt-2 mb-4 pa-3" tabindex="-1">
+                + Add Another Officer
+            </MudButton>
+        </div>
+    }
+</MudPaper>
+
+<!-- Bottom Submission Bar -->
+<MudPaper Class="pa-4 mb-6" Elevation="4" Style="position: sticky; bottom: 12px; z-index: 10; background-color: var(--mud-palette-surface); border: 2px solid var(--mud-palette-primary);">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap" Style="gap: 16px;">
+        <div>
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 700;">
+                Ready to Save?
+            </MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                @ValidRowsCount valid officer entry/entries ready to submit for event: <b>@(string.IsNullOrWhiteSpace(eventType) ? "[No Event Title]" : eventType)</b>
+            </MudText>
+        </div>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Success"
+                   Size="Size.Large"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="SaveAllRangeScoresAsync"
+                   Disabled="@(isSaving || ValidRowsCount == 0 || string.IsNullOrWhiteSpace(eventType))"
+                   accesskey="s"
+                   title="Press Alt+S (or Option+Control+S on Mac) to save without tabbing"
+                   Style="min-width: 220px; font-weight: 700;">
+            @if (isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Saving Range Scores...</span>
+            }
+            else
+            {
+                <span>Save Range Scores (Alt+S)</span>
+            }
+        </MudButton>
+    </MudStack>
+</MudPaper>
+
+@code {
+    private MudDatePicker? eventDatePicker;
+    private DateTime? rangeDate = DateTime.Today;
+    private string eventType = string.Empty;
+    private string? location = string.Empty;
+
+    private MudBlazor.IReversibleConverter<DateTime?, string> eventDateConverter = new TwoDigitYearDateConverter();
+
+    public class TwoDigitYearDateConverter : MudBlazor.IReversibleConverter<DateTime?, string>
+    {
+        public Func<DateTime?, string> SetFunc { get; set; } = date => date?.ToString("MM/dd/yyyy") ?? string.Empty;
+        public Func<string, DateTime?> GetFunc { get; set; } = text => ParseTwoDigitYearDate(text);
+
+        public string Convert(DateTime? value) => value?.ToString("MM/dd/yyyy") ?? string.Empty;
+        public DateTime? ConvertBack(string value) => ParseTwoDigitYearDate(value);
+        public DateTime? Get(string value) => ParseTwoDigitYearDate(value);
+        public string Set(DateTime? value) => Convert(value);
+
+        private static DateTime? ParseTwoDigitYearDate(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return null;
+
+            text = text.Trim();
+
+            string[] formats = new[]
+            {
+                "MM/dd/yyyy", "M/d/yyyy", "MM-dd-yyyy", "M-d-yyyy",
+                "MM/dd/yy",   "M/d/yy",   "MM-dd-yy",   "M-d-yy",
+                "MMddyyyy",   "MMddyy",   "yyyy-MM-dd"
+            };
+
+            if (DateTime.TryParseExact(text, formats, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime parsedDate))
+            {
+                var parts = text.Split(new[] { '/', '-' });
+                if (parts.Length == 3 && parts[2].Length == 2 && int.TryParse(parts[2], out int yy))
+                {
+                    int fullYear = (yy <= 79) ? 2000 + yy : 1900 + yy;
+                    return new DateTime(fullYear, parsedDate.Month, parsedDate.Day);
+                }
+                if (parsedDate.Year < 100)
+                {
+                    int fullYear = (parsedDate.Year <= 79) ? 2000 + parsedDate.Year : 1900 + parsedDate.Year;
+                    return new DateTime(fullYear, parsedDate.Month, parsedDate.Day);
+                }
+                return parsedDate;
+            }
+
+            if (DateTime.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime dt))
+            {
+                var parts = text.Split(new[] { '/', '-' });
+                if (parts.Length == 3 && parts[2].Length == 2 && int.TryParse(parts[2], out int yy))
+                {
+                    int fullYear = (yy <= 79) ? 2000 + yy : 1900 + yy;
+                    return new DateTime(fullYear, dt.Month, dt.Day);
+                }
+                if (dt.Year < 100)
+                {
+                    int fullYear = (dt.Year <= 79) ? 2000 + dt.Year : 1900 + dt.Year;
+                    return new DateTime(fullYear, dt.Month, dt.Day);
+                }
+                return dt;
+            }
+
+            return null;
+        }
+    }
+
+    private RangeOfficerDTO? selectedRangeOfficer;
+    private List<RangeOfficerDTO> availableRangeOfficers = new();
+
+    private List<RangeCourseDTO> availableCourses = new();
+    private List<RangeSkillDTO> availableRangeSkills = new();
+    private List<EmployeeSearchResultDto> allEmployees = new();
+    private List<ScoreEntryRow> scoreRows = new();
+
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string? errorMessage;
+    private string? saveSuccessMessage;
+
+    private int ValidRowsCount => scoreRows.Count(r => r.SelectedEmployee != null && r.SelectedEmployee.EmployeeID > 0);
+
+    public class ScoreEntryRow
+    {
+        public EmployeeSearchResultDto? SelectedEmployee { get; set; }
+        public List<FirearmsDto> EmployeeFirearms { get; set; } = new();
+        public bool IsLoadingFirearms { get; set; }
+
+        public string? SelectedMake { get; set; }
+        public string? SelectedModel { get; set; }
+        public string? SelectedSerial { get; set; }
+        public string? SelectedCaliber { get; set; }
+        public int? SelectedFirearmID { get; set; }
+
+        public int? CourseID { get; set; }
+        public int? RoundsFired { get; set; }
+        public string PassFail { get; set; } = "Pass";
+
+        public List<int> SelectedSkillIDs { get; set; } = new();
+        public MudSelect<int>? SkillsSelectRef { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadReferenceDataAsync();
+        InitializeDefaultRows();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && eventDatePicker != null)
+        {
+            await eventDatePicker.FocusAsync();
+        }
+    }
+
+    private async Task LoadReferenceDataAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var coursesTask = service.GetRangeCoursesAsync();
+            var employeesTask = service.GetActiveEmployeesAsync();
+            var rangeOfficersTask = codeTableService.GetRangeOfficersAsync();
+            var rangeSkillsTask = codeTableService.GetRangeSkillsAsync();
+
+            await Task.WhenAll(coursesTask, employeesTask, rangeOfficersTask, rangeSkillsTask);
+
+            var courses = await coursesTask;
+            availableCourses = courses != null ? courses.Where(c => c.IsActive).ToList() : new();
+
+            var employees = await employeesTask;
+            allEmployees = employees != null
+                ? employees.Where(e => (string.IsNullOrEmpty(e.Status) || string.Equals(e.Status, "Active", StringComparison.OrdinalIgnoreCase) || string.Equals(e.Status, "A", StringComparison.OrdinalIgnoreCase)) && (!e.InactiveDate.HasValue || e.InactiveDate.Value.Date > DateTime.Today)).OrderBy(e => e.LastName).ThenBy(e => e.FirstName).ToList()
+                : new();
+
+            var rangeOfficers = await rangeOfficersTask;
+            availableRangeOfficers = rangeOfficers != null
+                ? rangeOfficers.Where(ro => ro.IsActive).OrderBy(ro => ro.OfficerName).ToList()
+                : new();
+
+            var rangeSkills = await rangeSkillsTask;
+            availableRangeSkills = rangeSkills != null
+                ? rangeSkills.OrderBy(rs => rs.SkillName).ToList()
+                : new();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading range reference options.");
+            errorMessage = $"Failed to load reference data: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void InitializeDefaultRows()
+    {
+        scoreRows.Clear();
+        for (int i = 0; i < 5; i++)
+        {
+            AddRow();
+        }
+    }
+
+    private void AddRow()
+    {
+        scoreRows.Add(new ScoreEntryRow
+        {
+            PassFail = "Pass"
+        });
+    }
+
+    private void AddFiveRows()
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            AddRow();
+        }
+    }
+
+    private void RemoveRow(ScoreEntryRow row)
+    {
+        scoreRows.Remove(row);
+        if (!scoreRows.Any())
+        {
+            AddRow();
+        }
+    }
+
+    private void ClearEmptyRows()
+    {
+        scoreRows.RemoveAll(r => r.SelectedEmployee == null || r.SelectedEmployee.EmployeeID <= 0);
+        if (!scoreRows.Any())
+        {
+            AddRow();
+        }
+    }
+
+    private async Task OnEmployeeSelected(ScoreEntryRow row, EmployeeSearchResultDto? employee)
+    {
+        row.SelectedEmployee = employee;
+        row.EmployeeFirearms.Clear();
+        row.SelectedMake = null;
+        row.SelectedModel = null;
+        row.SelectedSerial = null;
+        row.SelectedCaliber = null;
+        row.SelectedFirearmID = null;
+
+        if (employee != null && employee.EmployeeID > 0)
+        {
+            row.IsLoadingFirearms = true;
+            try
+            {
+                var firearms = await service.GetFirearmsByEmployeeIdAsync(employee.EmployeeID);
+                row.EmployeeFirearms = firearms != null ? firearms.ToList() : new List<FirearmsDto>();
+
+                var distinctMakes = GetAvailableMakes(row);
+                if (distinctMakes.Count == 1)
+                {
+                    OnMakeSelected(row, distinctMakes.First());
+                }
+                else if (row.EmployeeFirearms.Count == 1)
+                {
+                    var f = row.EmployeeFirearms.First();
+                    row.SelectedMake = f.MakeName;
+                    row.SelectedModel = f.ModelNumber;
+                    row.SelectedSerial = f.SerialNumber;
+                    row.SelectedCaliber = f.Caliber;
+                    row.SelectedFirearmID = f.FirearmID;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error fetching firearms for employee {EmployeeID}", employee.EmployeeID);
+            }
+            finally
+            {
+                row.IsLoadingFirearms = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private Task<IEnumerable<RangeOfficerDTO>> SearchRangeOfficers(string value, CancellationToken cancellationToken)
+    {
+        if (availableRangeOfficers == null || !availableRangeOfficers.Any())
+        {
+            return Task.FromResult(Enumerable.Empty<RangeOfficerDTO>());
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult<IEnumerable<RangeOfficerDTO>>(availableRangeOfficers);
+        }
+
+        return Task.FromResult(availableRangeOfficers.Where(ro => ro.OfficerName.Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private void OnRangeOfficerChanged(RangeOfficerDTO? officer)
+    {
+        selectedRangeOfficer = officer;
+    }
+
+    private Task<IEnumerable<RangeCourseDTO>> SearchCourses(string value, CancellationToken cancellationToken)
+    {
+        if (availableCourses == null || !availableCourses.Any())
+        {
+            return Task.FromResult(Enumerable.Empty<RangeCourseDTO>());
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult<IEnumerable<RangeCourseDTO>>(availableCourses);
+        }
+
+        return Task.FromResult(availableCourses.Where(c =>
+            (!string.IsNullOrEmpty(c.CourseCode) && c.CourseCode.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(c.CourseName) && c.CourseName.Contains(value, StringComparison.OrdinalIgnoreCase))));
+    }
+
+    private List<string> GetAvailableMakes(ScoreEntryRow row)
+    {
+        if (row.EmployeeFirearms == null) return new List<string>();
+        return row.EmployeeFirearms
+            .Select(f => f.MakeName)
+            .Where(m => !string.IsNullOrWhiteSpace(m))
+            .Distinct()
+            .ToList()!;
+    }
+
+    private List<string> GetAvailableModels(ScoreEntryRow row)
+    {
+        if (row.EmployeeFirearms == null) return new List<string>();
+        var query = row.EmployeeFirearms.AsEnumerable();
+        if (!string.IsNullOrEmpty(row.SelectedMake))
+        {
+            query = query.Where(f => string.Equals(f.MakeName, row.SelectedMake, StringComparison.OrdinalIgnoreCase));
+        }
+        return query
+            .Select(f => f.ModelNumber)
+            .Where(m => !string.IsNullOrWhiteSpace(m))
+            .Distinct()
+            .ToList();
+    }
+
+    private List<string> GetAvailableSerials(ScoreEntryRow row)
+    {
+        if (row.EmployeeFirearms == null) return new List<string>();
+        var query = row.EmployeeFirearms.AsEnumerable();
+        if (!string.IsNullOrEmpty(row.SelectedMake))
+        {
+            query = query.Where(f => string.Equals(f.MakeName, row.SelectedMake, StringComparison.OrdinalIgnoreCase));
+        }
+        if (!string.IsNullOrEmpty(row.SelectedModel))
+        {
+            query = query.Where(f => string.Equals(f.ModelNumber, row.SelectedModel, StringComparison.OrdinalIgnoreCase));
+        }
+        return query
+            .Select(f => f.SerialNumber)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct()
+            .ToList();
+    }
+
+    private List<string> GetAvailableCalibers(ScoreEntryRow row)
+    {
+        if (row.EmployeeFirearms == null) return new List<string>();
+        var query = row.EmployeeFirearms.AsEnumerable();
+        if (!string.IsNullOrEmpty(row.SelectedMake))
+        {
+            query = query.Where(f => string.Equals(f.MakeName, row.SelectedMake, StringComparison.OrdinalIgnoreCase));
+        }
+        if (!string.IsNullOrEmpty(row.SelectedModel))
+        {
+            query = query.Where(f => string.Equals(f.ModelNumber, row.SelectedModel, StringComparison.OrdinalIgnoreCase));
+        }
+        if (!string.IsNullOrEmpty(row.SelectedSerial))
+        {
+            query = query.Where(f => string.Equals(f.SerialNumber, row.SelectedSerial, StringComparison.OrdinalIgnoreCase));
+        }
+        return query
+            .Select(f => f.Caliber)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Distinct()
+            .ToList();
+    }
+
+    private Task<IEnumerable<string>> SearchRowMakes(ScoreEntryRow row, string value, CancellationToken cancellationToken)
+    {
+        var makes = GetAvailableMakes(row);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult<IEnumerable<string>>(makes);
+        }
+        return Task.FromResult(makes.Where(m => m.StartsWith(value, StringComparison.OrdinalIgnoreCase) || m.Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private Task<IEnumerable<string>> SearchRowModels(ScoreEntryRow row, string value, CancellationToken cancellationToken)
+    {
+        var models = GetAvailableModels(row);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult<IEnumerable<string>>(models);
+        }
+        return Task.FromResult(models.Where(m => m.StartsWith(value, StringComparison.OrdinalIgnoreCase) || m.Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private Task<IEnumerable<string>> SearchRowSerials(ScoreEntryRow row, string value, CancellationToken cancellationToken)
+    {
+        var serials = GetAvailableSerials(row);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult<IEnumerable<string>>(serials);
+        }
+        return Task.FromResult(serials.Where(s => s.StartsWith(value, StringComparison.OrdinalIgnoreCase) || s.Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private Task<IEnumerable<string>> SearchRowCalibers(ScoreEntryRow row, string value, CancellationToken cancellationToken)
+    {
+        var calibers = GetAvailableCalibers(row);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult<IEnumerable<string>>(calibers);
+        }
+        return Task.FromResult(calibers.Where(c => c.StartsWith(value, StringComparison.OrdinalIgnoreCase) || c.Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private void OnMakeSelected(ScoreEntryRow row, string? make)
+    {
+        row.SelectedMake = make;
+        if (string.IsNullOrEmpty(make))
+        {
+            row.SelectedModel = null;
+            row.SelectedSerial = null;
+            row.SelectedCaliber = null;
+            row.SelectedFirearmID = null;
+            return;
+        }
+
+        var matching = row.EmployeeFirearms
+            .Where(f => string.Equals(f.MakeName, make, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (matching.Count == 1)
+        {
+            var f = matching.First();
+            row.SelectedModel = f.ModelNumber;
+            row.SelectedSerial = f.SerialNumber;
+            row.SelectedCaliber = f.Caliber;
+            row.SelectedFirearmID = f.FirearmID;
+        }
+        else if (matching.Count > 1)
+        {
+            var models = matching.Select(f => f.ModelNumber).Where(m => !string.IsNullOrWhiteSpace(m)).Distinct().ToList();
+            row.SelectedModel = models.Count == 1 ? models.First() : (!string.IsNullOrEmpty(row.SelectedModel) && models.Contains(row.SelectedModel) ? row.SelectedModel : null);
+
+            var serials = matching.Select(f => f.SerialNumber).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
+            row.SelectedSerial = serials.Count == 1 ? serials.First() : (!string.IsNullOrEmpty(row.SelectedSerial) && serials.Contains(row.SelectedSerial) ? row.SelectedSerial : null);
+
+            var calibers = matching.Select(f => f.Caliber).Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().ToList();
+            row.SelectedCaliber = calibers.Count == 1 ? calibers.First() : (!string.IsNullOrEmpty(row.SelectedCaliber) && calibers.Contains(row.SelectedCaliber) ? row.SelectedCaliber : null);
+
+            UpdateSelectedFirearmId(row);
+        }
+    }
+
+    private void OnModelSelected(ScoreEntryRow row, string? model)
+    {
+        row.SelectedModel = model;
+        AutoPopulateFromMatch(row);
+    }
+
+    private void OnSerialSelected(ScoreEntryRow row, string? serial)
+    {
+        row.SelectedSerial = serial;
+        AutoPopulateFromMatch(row);
+    }
+
+    private void OnCaliberSelected(ScoreEntryRow row, string? caliber)
+    {
+        row.SelectedCaliber = caliber;
+        AutoPopulateFromMatch(row);
+    }
+
+    private void AutoPopulateFromMatch(ScoreEntryRow row)
+    {
+        var matching = row.EmployeeFirearms.AsEnumerable();
+        if (!string.IsNullOrEmpty(row.SelectedMake))
+            matching = matching.Where(f => string.Equals(f.MakeName, row.SelectedMake, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(row.SelectedModel))
+            matching = matching.Where(f => string.Equals(f.ModelNumber, row.SelectedModel, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(row.SelectedSerial))
+            matching = matching.Where(f => string.Equals(f.SerialNumber, row.SelectedSerial, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(row.SelectedCaliber))
+            matching = matching.Where(f => string.Equals(f.Caliber, row.SelectedCaliber, StringComparison.OrdinalIgnoreCase));
+
+        var list = matching.ToList();
+        if (list.Count == 1)
+        {
+            var f = list.First();
+            if (string.IsNullOrEmpty(row.SelectedMake)) row.SelectedMake = f.MakeName;
+            if (string.IsNullOrEmpty(row.SelectedModel)) row.SelectedModel = f.ModelNumber;
+            if (string.IsNullOrEmpty(row.SelectedSerial)) row.SelectedSerial = f.SerialNumber;
+            if (string.IsNullOrEmpty(row.SelectedCaliber)) row.SelectedCaliber = f.Caliber;
+            row.SelectedFirearmID = f.FirearmID;
+        }
+        else
+        {
+            UpdateSelectedFirearmId(row);
+        }
+    }
+
+    private void UpdateSelectedFirearmId(ScoreEntryRow row)
+    {
+        var matching = row.EmployeeFirearms.AsEnumerable();
+        if (!string.IsNullOrEmpty(row.SelectedMake))
+            matching = matching.Where(f => string.Equals(f.MakeName, row.SelectedMake, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(row.SelectedModel))
+            matching = matching.Where(f => string.Equals(f.ModelNumber, row.SelectedModel, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(row.SelectedSerial))
+            matching = matching.Where(f => string.Equals(f.SerialNumber, row.SelectedSerial, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(row.SelectedCaliber))
+            matching = matching.Where(f => string.Equals(f.Caliber, row.SelectedCaliber, StringComparison.OrdinalIgnoreCase));
+
+        var list = matching.ToList();
+        if (list.Count == 1)
+        {
+            row.SelectedFirearmID = list.First().FirearmID;
+        }
+        else
+        {
+            row.SelectedFirearmID = null;
+        }
+    }
+
+    private Task<IEnumerable<EmployeeSearchResultDto>> SearchEmployees(string value, CancellationToken cancellationToken)
+    {
+        if (allEmployees == null || !allEmployees.Any())
+        {
+            return Task.FromResult(Enumerable.Empty<EmployeeSearchResultDto>());
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult<IEnumerable<EmployeeSearchResultDto>>(allEmployees);
+        }
+
+        var term = value.Trim();
+        var filtered = allEmployees.Where(e =>
+            (!string.IsNullOrEmpty(e.FormattedName) && e.FormattedName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(e.FirstName) && e.FirstName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(e.LastName) && e.LastName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(e.BadgeNumber) && e.BadgeNumber.Contains(term, StringComparison.OrdinalIgnoreCase))
+        );
+
+        return Task.FromResult(filtered);
+    }
+
+    private void TogglePass(ScoreEntryRow row)
+    {
+        row.PassFail = (string.Equals(row.PassFail, "Pass", StringComparison.OrdinalIgnoreCase) || string.Equals(row.PassFail, "P", StringComparison.OrdinalIgnoreCase)) ? string.Empty : "Pass";
+    }
+
+    private void ToggleFail(ScoreEntryRow row)
+    {
+        row.PassFail = (string.Equals(row.PassFail, "Fail", StringComparison.OrdinalIgnoreCase) || string.Equals(row.PassFail, "F", StringComparison.OrdinalIgnoreCase)) ? string.Empty : "Fail";
+    }
+
+    private void OnResultKeyDown(KeyboardEventArgs e, ScoreEntryRow row)
+    {
+        if (e.Key.Equals("p", StringComparison.OrdinalIgnoreCase))
+        {
+            TogglePass(row);
+        }
+        else if (e.Key.Equals("f", StringComparison.OrdinalIgnoreCase))
+        {
+            ToggleFail(row);
+        }
+    }
+
+    private async Task ResetForm()
+    {
+        rangeDate = DateTime.Today;
+        eventType = string.Empty;
+        location = string.Empty;
+        selectedRangeOfficer = null;
+        saveSuccessMessage = null;
+        errorMessage = null;
+        InitializeDefaultRows();
+        Snackbar.Add("Form cleared.", Severity.Normal);
+        if (eventDatePicker != null)
+        {
+            await eventDatePicker.FocusAsync();
+        }
+    }
+
+    private async Task SaveAllRangeScoresAsync()
+    {
+        errorMessage = null;
+        saveSuccessMessage = null;
+
+        if (rangeDate == null)
+        {
+            errorMessage = "Please enter a valid Range Event Date.";
+            Snackbar.Add(errorMessage, Severity.Error);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(eventType))
+        {
+            errorMessage = "Please enter an Event / Session Type (e.g. Handgun Qualification).";
+            Snackbar.Add(errorMessage, Severity.Error);
+            return;
+        }
+
+        var validRows = scoreRows.Where(r => r.SelectedEmployee != null && r.SelectedEmployee.EmployeeID > 0).ToList();
+        if (!validRows.Any())
+        {
+            errorMessage = "Please select at least one Officer before saving.";
+            Snackbar.Add(errorMessage, Severity.Error);
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            // Step 1: Create Range Event
+            var rangeEventDto = new RangeEventDTO
+            {
+                RangeDate = DateOnly.FromDateTime(rangeDate.Value),
+                EventType = eventType.Trim(),
+                Location = string.IsNullOrWhiteSpace(location) ? null : location.Trim(),
+                RangeOfficer = selectedRangeOfficer != null
+                    ? new RangeOfficer
+                    {
+                        RangeOfficerID = selectedRangeOfficer.RangeOfficerID,
+                        OfficerName = string.IsNullOrWhiteSpace(selectedRangeOfficer.OfficerName) ? "Unknown" : selectedRangeOfficer.OfficerName,
+                        IsActive = selectedRangeOfficer.IsActive
+                    }
+                    : null
+            };
+
+            var createdEvent = await service.CreateRangeEventAsync(rangeEventDto);
+            if (createdEvent == null || createdEvent.RangeEventID <= 0)
+            {
+                throw new Exception("Failed to create Range Event header record.");
+            }
+
+            // Step 2: Create Range Statistics for each officer
+            int savedCount = 0;
+            foreach (var row in validRows)
+            {
+                var statDto = new RangeStatisticDTO
+                {
+                    RangeEventID = createdEvent.RangeEventID,
+                    RangeDate = createdEvent.RangeDate,
+                    EmployeeID = row.SelectedEmployee!.EmployeeID,
+                    FirearmID = row.SelectedFirearmID,
+                    CourseID = row.CourseID,
+                    RoundsFired = row.RoundsFired,
+                    PassFail = string.IsNullOrWhiteSpace(row.PassFail) ? "Pass" : row.PassFail,
+                    SelectedSkillIDs = row.SelectedSkillIDs?.ToList() ?? new List<int>()
+                };
+
+                var createdStat = await service.CreateRangeStatisticAsync(statDto);
+                if (createdStat != null)
+                {
+                    savedCount++;
+                }
+            }
+
+            saveSuccessMessage = $"Successfully created Range Event '{createdEvent.EventType}' on {createdEvent.RangeDate:MM/dd/yyyy} and saved {savedCount} officer score record(s)!";
+            Snackbar.Add(saveSuccessMessage, Severity.Success);
+
+            // Reset scores list for next batch
+            eventType = string.Empty;
+            selectedRangeOfficer = null;
+            InitializeDefaultRows();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error saving bulk range statistics.");
+            errorMessage = $"Error saving range scores: {ex.Message}";
+            Snackbar.Add(errorMessage, Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private bool IsCourseP(ScoreEntryRow row)
+    {
+        if (!row.CourseID.HasValue) return false;
+        var course = availableCourses.FirstOrDefault(c => c.CourseID == row.CourseID.Value);
+        return course != null && string.Equals(course.CourseCode, "P", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void OnCourseSelected(ScoreEntryRow row, RangeCourseDTO? course)
+    {
+        row.CourseID = course?.CourseID;
+        if (!IsCourseP(row))
+        {
+            row.SelectedSkillIDs.Clear();
+        }
+        StateHasChanged();
+    }
+
+    private async Task OnCourseKeyDown(KeyboardEventArgs e, ScoreEntryRow row)
+    {
+        if (e.Key == "Tab" && !e.ShiftKey)
+        {
+            // Yield and delay to allow MudAutocomplete to commit the selection (e.g. "P")
+            // and invoke OnCourseSelected before checking if Course is "P".
+            await Task.Yield();
+            await Task.Delay(50);
+            if (IsCourseP(row))
+            {
+                if (row.SkillsSelectRef != null)
+                {
+                    await row.SkillsSelectRef.FocusAsync();
+                }
+                else
+                {
+                    // Retry once after another brief delay if DOM rendering is still completing
+                    await Task.Delay(50);
+                    if (row.SkillsSelectRef != null)
+                    {
+                        await row.SkillsSelectRef.FocusAsync();
+                    }
+                }
+            }
+        }
+    }
+
+    private string GetSkillsSelectionSummary(IReadOnlyList<string> selectedValues)
+    {
+        if (selectedValues == null || !selectedValues.Any())
+        {
+            return "0 Skills";
+        }
+
+        var skillNames = new List<string>();
+        foreach (var valStr in selectedValues)
+        {
+            if (int.TryParse(valStr, out int id))
+            {
+                var skill = availableRangeSkills.FirstOrDefault(s => s.RangeSkillID == id);
+                if (skill != null)
+                {
+                    skillNames.Add(skill.SkillName);
+                }
+            }
+        }
+
+        if (!skillNames.Any()) return $"{selectedValues.Count} Skills";
+        if (skillNames.Count == 1) return skillNames[0];
+        return $"{skillNames.Count} Skills ({string.Join(", ", skillNames)})";
+    }
+
+    private async Task OpenSkillsModal(ScoreEntryRow row)
+    {
+        var officerName = row.SelectedEmployee != null
+            ? (string.IsNullOrWhiteSpace(row.SelectedEmployee.BadgeNumber)
+                ? row.SelectedEmployee.FormattedName
+                : $"{row.SelectedEmployee.FormattedName} (#{row.SelectedEmployee.BadgeNumber})")
+            : "Officer";
+
+        var parameters = new DialogParameters<SelectRangeSkillsModal>
+        {
+            { x => x.OfficerName, officerName },
+            { x => x.AvailableSkills, availableRangeSkills },
+            { x => x.SelectedSkillIDs, new HashSet<int>(row.SelectedSkillIDs) }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<SelectRangeSkillsModal>("Select Range Skills", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is List<int> selectedSkills)
+        {
+            row.SelectedSkillIDs = selectedSkills;
+            StateHasChanged();
+        }
+    }
+}

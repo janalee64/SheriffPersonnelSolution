@@ -1,0 +1,250 @@
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@inject SearchService service
+@inject ISnackbar Snackbar
+@inject ILogger<AddEmployeeDocumentModal> logger
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(DocumentRecord.DocumentID == 0 ? Icons.Material.Filled.CloudUpload : Icons.Material.Filled.Edit)" Class="mr-2" />
+            @(DocumentRecord.DocumentID == 0 ? "Upload Employee Document" : "Edit Document Details")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <EditForm Model="DocumentRecord" OnValidSubmit="SaveDocumentAsync">
+            <DataAnnotationsValidator />
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4" CloseIcon="@Icons.Material.Filled.Close" CloseIconClicked="() => errorMessage = null">
+                    @errorMessage
+                </MudAlert>
+            }
+
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="DocumentRecord.Title"
+                                  For="@(() => DocumentRecord.Title)"
+                                  Label="Document Title"
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  RequiredError="Title is required"
+                                  Placeholder="e.g. Annual Certification, Background Check, ID Copy" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="int"
+                               @bind-Value="DocumentRecord.DocumentTypeID"
+                               For="@(() => DocumentRecord.DocumentTypeID)"
+                               Label="Document Type"
+                               Variant="Variant.Outlined"
+                               Required="true"
+                               RequiredError="Document Type is required">
+                        <MudSelectItem T="int" Value="0">-- Select Document Type --</MudSelectItem>
+                        @if (AvailableDocumentTypes != null)
+                        {
+                            @foreach (var type in AvailableDocumentTypes)
+                            {
+                                <MudSelectItem T="int" Value="@type.DocumentTypeID">@type.DocumentType</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" Class="d-flex align-center">
+                    @if (DocumentRecord.DocumentID > 0 && selectedFile == null)
+                    {
+                        <MudText Typo="Typo.body2">
+                            <b>Current File:</b> @DocumentRecord.FileName (@FormatFileSize(DocumentRecord.FileSizeBytes))
+                        </MudText>
+                    }
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudPaper Class="pa-4 border-dashed border-2 d-flex flex-column align-center justify-center" Style="background-color: var(--mud-palette-background-gray); border-color: var(--mud-palette-lines-default);">
+                        <InputFile id="fileInput" OnChange="HandleFileSelected" style="display:none;" />
+                        
+                        <MudIconButton HtmlTag="label"
+                                       for="fileInput"
+                                       Icon="@Icons.Material.Filled.CloudUpload"
+                                       Color="Color.Primary"
+                                       Size="Size.Large" />
+                        
+                        <MudText Typo="Typo.subtitle1" Class="mt-2">
+                            @(selectedFile != null ? selectedFile.Name : (DocumentRecord.DocumentID > 0 ? "Click to replace file (Optional)" : "Click to select document file"))
+                        </MudText>
+
+                        @if (selectedFile != null)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                Size: @FormatFileSize(selectedFile.Size) | Type: @selectedFile.ContentType
+                            </MudText>
+                        }
+                        else if (DocumentRecord.DocumentID == 0)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                Supports PDF, Word, Excel, Images, Text documents (Max 50 MB)
+                            </MudText>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Save" OnClick="SaveDocumentAsync" Disabled="isSaving">
+            @if (isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Saving...</span>
+            }
+            else
+            {
+                <span>@(DocumentRecord.DocumentID == 0 ? "Upload Document" : "Save Changes")</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public int EmployeeId { get; set; }
+    [Parameter] public EmployeeDocumentDto DocumentRecord { get; set; } = new();
+    [Parameter] public IEnumerable<DocumentTypeDto>? AvailableDocumentTypes { get; set; }
+
+    private IBrowserFile? selectedFile;
+    private bool isSaving = false;
+    private string? errorMessage;
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        errorMessage = null;
+        selectedFile = e.File;
+        if (selectedFile != null)
+        {
+            if (string.IsNullOrWhiteSpace(DocumentRecord.Title))
+            {
+                // Auto-populate Title from filename if title is empty
+                var nameWithoutExt = System.IO.Path.GetFileNameWithoutExtension(selectedFile.Name);
+                DocumentRecord.Title = nameWithoutExt;
+            }
+        }
+    }
+
+    private async Task SaveDocumentAsync()
+    {
+        errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(DocumentRecord.Title))
+        {
+            errorMessage = "Document Title is required.";
+            return;
+        }
+
+        if (DocumentRecord.DocumentTypeID <= 0)
+        {
+            errorMessage = "Please select a Document Type.";
+            return;
+        }
+
+        if (DocumentRecord.DocumentID == 0 && selectedFile == null)
+        {
+            errorMessage = "Please select a file to upload.";
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            DocumentRecord.EmployeeID = EmployeeId;
+
+            if (selectedFile != null)
+            {
+                const long maxAllowedSize = 50 * 1024 * 1024; // 50 MB
+                if (selectedFile.Size > maxAllowedSize)
+                {
+                    errorMessage = "File size exceeds maximum allowed limit of 50 MB.";
+                    isSaving = false;
+                    return;
+                }
+
+                using var stream = selectedFile.OpenReadStream(maxAllowedSize: maxAllowedSize);
+                using var ms = new System.IO.MemoryStream();
+                await stream.CopyToAsync(ms);
+
+                DocumentRecord.FileName = selectedFile.Name;
+                DocumentRecord.FileSizeBytes = selectedFile.Size;
+                DocumentRecord.MimeType = string.IsNullOrWhiteSpace(selectedFile.ContentType)
+                    ? GetMimeTypeFromExtension(selectedFile.Name)
+                    : selectedFile.ContentType;
+                DocumentRecord.FileData = ms.ToArray();
+            }
+
+            if (DocumentRecord.DocumentID == 0)
+            {
+                logger.LogInformation("Uploading new document for Employee ID {EmployeeID}.", EmployeeId);
+                var created = await service.UploadDocumentAsync(DocumentRecord);
+                Snackbar.Add("Document uploaded successfully!", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(created));
+            }
+            else
+            {
+                logger.LogInformation("Updating document ID {DocumentID}.", DocumentRecord.DocumentID);
+                var updated = await service.UploadDocumentAsync(DocumentRecord); // Or update method
+                Snackbar.Add("Document updated successfully!", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(updated));
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error saving document record.");
+            errorMessage = $"Error saving document: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes <= 0) return "0 B";
+        string[] suffixes = { "B", "KB", "MB", "GB", "TB" };
+        int i = 0;
+        double dblBytes = bytes;
+        while (dblBytes >= 1024 && i < suffixes.Length - 1)
+        {
+            dblBytes /= 1024;
+            i++;
+        }
+        return $"{dblBytes:0.##} {suffixes[i]}";
+    }
+
+    private static string GetMimeTypeFromExtension(string fileName)
+    {
+        var ext = System.IO.Path.GetExtension(fileName)?.ToLowerInvariant();
+        return ext switch
+        {
+            ".pdf" => "application/pdf",
+            ".doc" => "application/msword",
+            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".xls" => "application/vnd.ms-excel",
+            ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".gif" => "image/gif",
+            ".txt" => "text/plain",
+            _ => "application/octet-stream"
+        };
+    }
+}
+

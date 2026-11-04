@@ -1,0 +1,23 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="print-layout-container pa-4">
+    @Body
+</div>
+
+<style>
+    @@media print {
+        .no-print {
+            display: none !important;
+        }
+        body {
+            background-color: white !important;
+            color: black !important;
+            font-family: Arial, sans-serif !important;
+        }
+    }
+</style>

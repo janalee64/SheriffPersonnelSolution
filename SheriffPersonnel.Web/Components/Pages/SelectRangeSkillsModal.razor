@@ -1,0 +1,162 @@
+@using SheriffPersonnel.Shared.DTOs
+@inject ISnackbar Snackbar
+
+<style>
+    .tight-skills-grid .skill-row-item {
+        user-select: none;
+        border-radius: 4px;
+        padding-left: 4px !important;
+        padding-right: 4px !important;
+    }
+    .tight-skills-grid .skill-row-item:hover {
+        background-color: var(--mud-palette-action-default-hover);
+    }
+    .tight-skills-grid .skill-chk {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .tight-skills-grid .skill-chk .mud-button-root {
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 20px !important;
+        height: 20px !important;
+        min-width: 20px !important;
+        min-height: 20px !important;
+    }
+    .tight-skills-grid .skill-chk .mud-icon-root {
+        font-size: 1.25rem !important;
+    }
+    .tight-skills-grid .skill-name-text {
+        font-size: 0.875rem !important;
+        line-height: 1.25 !important;
+        color: var(--mud-palette-text-primary);
+        white-space: normal !important;
+        word-break: break-word !important;
+    }
+    .tight-skills-grid .mud-grid-item {
+        padding-top: 1px !important;
+        padding-bottom: 1px !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+</style>
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6" Class="d-flex align-center" Style="gap: 8px;">
+            <MudIcon Icon="@Icons.Material.Filled.Checklist" Color="Color.Primary" />
+            Select Range Skills @(string.IsNullOrWhiteSpace(OfficerName) ? "" : $" - {OfficerName}")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Check all Range Skills demonstrated during this course of fire.
+        </MudText>
+
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3 flex-wrap" Style="gap: 8px;">
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary" OnClick="SelectAll">
+                    Select All
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary" OnClick="ClearAll">
+                    Clear All
+                </MudButton>
+            </MudStack>
+            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Filled">
+                @tempSelectedIDs.Count / @AvailableSkills.Count Selected
+            </MudChip>
+        </MudStack>
+
+        @if (!AvailableSkills.Any())
+        {
+            <MudAlert Severity="Severity.Info" Class="my-2">
+                No Range Skills available in system records.
+            </MudAlert>
+        }
+        else
+        {
+            <MudPaper Class="pa-3 max-vh-50 overflow-y-auto tight-skills-grid" Outlined="true">
+                <MudGrid Spacing="0">
+                    @foreach (var skill in AvailableSkills)
+                    {
+                        var isChecked = tempSelectedIDs.Contains(skill.RangeSkillID);
+                        <MudItem xs="12">
+                            <div class="d-flex align-center cursor-pointer py-1 skill-row-item" style="gap: 6px;" @onclick="@(_ => ToggleSkill(skill.RangeSkillID, !isChecked))">
+                                <MudCheckBox T="bool"
+                                             Value="@isChecked"
+                                             ValueChanged="@(checkedState => ToggleSkill(skill.RangeSkillID, checkedState))"
+                                             Color="Color.Primary"
+                                             Dense="true"
+                                             Class="skill-chk" />
+                                <MudText Typo="Typo.body2" Class="skill-name-text">@skill.SkillName</MudText>
+                            </div>
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudPaper>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Check" OnClick="Submit">
+            Done (@tempSelectedIDs.Count)
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public string OfficerName { get; set; } = string.Empty;
+
+    [Parameter]
+    public List<RangeSkillDTO> AvailableSkills { get; set; } = new();
+
+    [Parameter]
+    public HashSet<int> SelectedSkillIDs { get; set; } = new();
+
+    private HashSet<int> tempSelectedIDs = new();
+
+    protected override void OnInitialized()
+    {
+        if (SelectedSkillIDs != null)
+        {
+            tempSelectedIDs = new HashSet<int>(SelectedSkillIDs);
+        }
+    }
+
+    private void ToggleSkill(int skillId, bool isChecked)
+    {
+        if (isChecked)
+        {
+            tempSelectedIDs.Add(skillId);
+        }
+        else
+        {
+            tempSelectedIDs.Remove(skillId);
+        }
+    }
+
+    private void SelectAll()
+    {
+        tempSelectedIDs = AvailableSkills.Select(s => s.RangeSkillID).ToHashSet();
+    }
+
+    private void ClearAll()
+    {
+        tempSelectedIDs.Clear();
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private void Submit()
+    {
+        MudDialog.Close(DialogResult.Ok(tempSelectedIDs.ToList()));
+    }
+}
+

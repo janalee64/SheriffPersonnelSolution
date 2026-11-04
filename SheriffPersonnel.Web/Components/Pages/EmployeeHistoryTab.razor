@@ -1,0 +1,189 @@
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@inject SearchService service
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject ILogger<EmployeeHistoryTab> logger
+
+<MudStack Spacing="4" Class="mt-4">
+    @if (IsEdit && EmployeeId > 0)
+    {
+        <MudPaper Class="pa-6" Elevation="3">
+            @if (isLoading)
+            {
+                <MudPaper Class="pa-6 d-flex justify-center align-center" Style="min-height: 200px;" Elevation="0">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                    <MudText Class="ml-4">Loading employee history...</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                    <MudText Typo="Typo.h6">Employee History / Changes</MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddChangeForm">
+                        Add History Record
+                    </MudButton>
+                </MudStack>
+
+                <MudTable Items="employeeChanges" Hover="true" Striped="true" Elevation="0" AllowUnsorted="true">
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeChangesDto, object>(x => x.HistoryDate)">History Date</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeChangesDto, object>(x => x.ProgramName ?? string.Empty)">Program</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeChangesDto, object>(x => x.RankName ?? string.Empty)">Rank</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeChangesDto, object>(x => x.UnitName ?? string.Empty)">Unit</MudTableSortLabel></MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="changeContext">
+                        <MudTd DataLabel="History Date">@changeContext.HistoryDate.ToString("MM/dd/yyyy")</MudTd>
+                        <MudTd DataLabel="Program">@(string.IsNullOrWhiteSpace(changeContext.ProgramName) ? "-" : changeContext.ProgramName)</MudTd>
+                        <MudTd DataLabel="Rank">@(string.IsNullOrWhiteSpace(changeContext.RankName) ? "-" : changeContext.RankName)</MudTd>
+                        <MudTd DataLabel="Unit">@(string.IsNullOrWhiteSpace(changeContext.UnitName) ? "-" : changeContext.UnitName)</MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudTooltip Text="Edit History">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditChangeForm(changeContext))" />
+                            </MudTooltip>
+                            <MudTooltip Text="Delete History">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteChangeAsync(changeContext.HistoryID))" />
+                            </MudTooltip>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText Class="pa-4 text-center">No history / change records found for this employee.</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            }
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Class="pa-6" Elevation="3">
+            <MudText Class="text-center text-muted">History records can be added after saving the new employee.</MudText>
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    [Parameter] public int EmployeeId { get; set; }
+    [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public IEnumerable<ProgramsDto>? AvailablePrograms { get; set; }
+    [Parameter] public IEnumerable<RanksDto>? AvailableRanks { get; set; }
+    [Parameter] public IEnumerable<UnitsDto>? AvailableUnits { get; set; }
+
+    private List<EmployeeChangesDto> employeeChanges = new();
+    private bool isLoading = true;
+    private int _lastLoadedEmployeeId;
+    private bool _lastLoadedIsEdit;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsEdit && EmployeeId > 0 && (EmployeeId != _lastLoadedEmployeeId || IsEdit != _lastLoadedIsEdit))
+        {
+            _lastLoadedEmployeeId = EmployeeId;
+            _lastLoadedIsEdit = IsEdit;
+            await LoadChangesAsync();
+        }
+    }
+
+    private async Task LoadChangesAsync()
+    {
+        isLoading = true;
+        try
+        {
+            var changes = await service.GetEmployeeChangesByEmployeeIdAsync(EmployeeId);
+            employeeChanges = changes.ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading history records for employee {EmployeeID}.", EmployeeId);
+            Snackbar.Add($"Failed to load history records: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OpenAddChangeForm()
+    {
+        var parameters = new DialogParameters<AddEmployeeHistoryModal>
+        {
+            { x => x.EmployeeId, EmployeeId },
+            { x => x.HistoryRecord, new EmployeeChangesDto { EmployeeID = EmployeeId, HistoryDate = DateTime.Now } },
+            { x => x.AvailablePrograms, AvailablePrograms },
+            { x => x.AvailableRanks, AvailableRanks },
+            { x => x.AvailableUnits, AvailableUnits }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<AddEmployeeHistoryModal>("Add History Record", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            await LoadChangesAsync();
+        }
+    }
+
+    private async Task OpenEditChangeForm(EmployeeChangesDto change)
+    {
+        var parameters = new DialogParameters<AddEmployeeHistoryModal>
+        {
+            { x => x.EmployeeId, EmployeeId },
+            { x => x.HistoryRecord, new EmployeeChangesDto
+                {
+                    HistoryID = change.HistoryID,
+                    EmployeeID = change.EmployeeID,
+                    HistoryDate = change.HistoryDate,
+                    ProgramID = change.ProgramID,
+                    RankID = change.RankID,
+                    UnitID = change.UnitID,
+                    LastUserID = change.LastUserID,
+                    ProgramName = change.ProgramName,
+                    RankName = change.RankName,
+                    UnitName = change.UnitName
+                }
+            },
+            { x => x.AvailablePrograms, AvailablePrograms },
+            { x => x.AvailableRanks, AvailableRanks },
+            { x => x.AvailableUnits, AvailableUnits }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<AddEmployeeHistoryModal>("Edit History Record", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            await LoadChangesAsync();
+        }
+    }
+
+    private async Task DeleteChangeAsync(int historyId)
+    {
+        bool? confirm = await DialogService.ShowMessageBoxAsync(
+            "Confirm Delete",
+            "Are you sure you want to delete this history record?",
+            yesText: "Delete", cancelText: "Cancel");
+
+        if (confirm != true) return;
+
+        try
+        {
+            var success = await service.DeleteEmployeeChangeAsync(historyId);
+            if (success)
+            {
+                Snackbar.Add("History record deleted successfully!", Severity.Success);
+                await LoadChangesAsync();
+            }
+            else
+            {
+                Snackbar.Add("Failed to delete history record.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error deleting employee change record.");
+            Snackbar.Add($"Error deleting history record: {ex.Message}", Severity.Error);
+        }
+    }
+}

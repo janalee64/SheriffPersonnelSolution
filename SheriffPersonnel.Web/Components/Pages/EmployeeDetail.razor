@@ -1,0 +1,487 @@
+@page "/employee/add"
+@page "/employee/edit/{Id:int}"
+@using System.ComponentModel.DataAnnotations
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@inject SearchService service
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject ILogger<EmployeeDetail> logger
+
+@attribute [Authorize(Roles = "Administrator, Personnel, Inventory, Range, Training, Equipment, SSN")]
+
+<PageTitle>@(IsEdit ? "Edit Employee" : "Add New Employee")</PageTitle>
+
+<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">@(IsEdit ? (!string.IsNullOrWhiteSpace(employee.FirstName) || !string.IsNullOrWhiteSpace(employee.LastName) ? $"Edit Employee: {employee.FirstName} {employee.LastName}".Trim() : "Edit Employee") : "Add New Employee")</MudText>
+    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="Cancel" Disabled="@isSaving">
+        Back to List
+    </MudButton>
+</MudStack>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4" CloseIcon="@Icons.Material.Filled.Close" CloseIconClicked="() => errorMessage = null">
+        @errorMessage
+    </MudAlert>
+}
+
+@if (isLoading)
+{
+    <MudPaper Class="pa-6 d-flex justify-center align-center" Style="min-height: 200px;">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Class="ml-4">Loading employee data...</MudText>
+    </MudPaper>
+}
+else
+{
+<style>
+    .folder-styled-tabs .mud-tabs-tabbar {
+        background-color: var(--mud-palette-background-gray) !important;
+        border-bottom: 2px solid var(--mud-palette-primary) !important;
+        padding: 6px 8px 0 8px !important;
+        gap: 6px !important;
+    }
+    .folder-styled-tabs .mud-tab {
+        border: 1px solid #cbd5e1 !important;
+        border-bottom: none !important;
+        border-top-left-radius: 8px !important;
+        border-top-right-radius: 8px !important;
+        background-color: #f1f5f9 !important;
+        color: #334155 !important;
+        font-weight: 600 !important;
+        padding: 10px 22px !important;
+        margin-right: 4px !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    .folder-styled-tabs .mud-tab .mud-icon-root {
+        color: #64748b !important;
+        margin-right: 6px !important;
+    }
+    .folder-styled-tabs .mud-tab:hover:not(.mud-tab-active) {
+        background-color: #e2e8f0 !important;
+        color: var(--mud-palette-primary) !important;
+    }
+    .folder-styled-tabs .mud-tab:hover:not(.mud-tab-active) .mud-icon-root {
+        color: var(--mud-palette-primary) !important;
+    }
+    .folder-styled-tabs .mud-tab.mud-tab-active {
+        background-color: var(--mud-palette-primary) !important;
+        color: #ffffff !important;
+        border: 2px solid var(--mud-palette-primary) !important;
+        border-bottom: 2px solid var(--mud-palette-primary) !important;
+        margin-bottom: -2px !important;
+        box-shadow: 0 -2px 6px rgba(0,0,0,0.12) !important;
+        font-weight: 700 !important;
+    }
+    .folder-styled-tabs .mud-tab.mud-tab-active .mud-icon-root {
+        color: #ffffff !important;
+    }
+    .folder-styled-tabs .mud-tabs-panels {
+        border: 2px solid var(--mud-palette-primary) !important;
+        border-top: none !important;
+        border-bottom-left-radius: 8px !important;
+        border-bottom-right-radius: 8px !important;
+        background-color: var(--mud-palette-surface) !important;
+        padding: 8px !important;
+    }
+</style>
+
+    <EditForm Model="@employee" OnValidSubmit="HandleSave">
+        <DataAnnotationsValidator />
+
+        <MudTabs Elevation="0" ApplyEffectsToContainer="true" Class="folder-styled-tabs mb-4">
+            <MudTabPanel Text="Employee Details" Icon="@Icons.Material.Filled.Person">
+                <MudStack Spacing="4" Class="mt-4">
+                    <!-- Personal Information -->
+                    <MudPaper Class="pa-6" Elevation="3">
+                        <MudGrid>
+                            <MudItem xs="12" sm="8" md="9">
+                                <MudText Typo="Typo.h6" Class="mb-4">Personal Information</MudText>
+                                <MudGrid>
+                                    <MudItem xs="12" sm="4">
+                                        <MudTextField @bind-Value="employee.FirstName" For="@(() => employee.FirstName)" Label="First Name" Variant="Variant.Outlined" Required="true" RequiredError="First Name is required" />
+                                    </MudItem>
+                                    <MudItem xs="12" sm="4">
+                                        <MudTextField @bind-Value="employee.MiddleInitial" For="@(() => employee.MiddleInitial)" Label="Middle Initial" Variant="Variant.Outlined" MaxLength="10" />
+                                    </MudItem>
+                                    <MudItem xs="12" sm="4">
+                                        <MudTextField @bind-Value="employee.LastName" For="@(() => employee.LastName)" Label="Last Name" Variant="Variant.Outlined" Required="true" RequiredError="Last Name is required" />
+                                    </MudItem>
+                                    <AuthorizeView Roles="SSN" Context="authContext">
+                                        <Authorized>
+                                            <MudItem xs="12" sm="6">
+                                                <MudTextField @bind-Value="employee.SSN" For="@(() => employee.SSN)" Label="SSN" Variant="Variant.Outlined" Placeholder="XXX-XX-XXXX" />
+                                            </MudItem>
+                                        </Authorized>
+                                    </AuthorizeView>
+                                    <MudItem xs="12" sm="6">
+                                        <MudDatePicker @bind-Date="employee.DOB" For="@(() => employee.DOB)" Label="Date of Birth" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" />
+                                    </MudItem>
+                                </MudGrid>
+                            </MudItem>
+                            <MudItem xs="12" sm="4" md="3" Class="d-flex justify-center align-start">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    @if (employee.EmployeeImage != null && employee.EmployeeImage.Length > 0)
+                                    {
+                                        <img src="data:image/png;base64,@Convert.ToBase64String(employee.EmployeeImage)" alt="Employee Image" style="max-height: 200px; max-width: 200px; object-fit: contain; border-radius: 8px; border: 1px solid #ccc;" />
+                                    }
+                                    else
+                                    {
+                                        <MudPaper Elevation="0" Class="d-flex flex-column align-center justify-center border-dashed border-2 pa-4" Style="width: 200px; height: 200px; border-color: var(--mud-palette-lines-default); border-radius: 8px; background-color: var(--mud-palette-background-gray);">
+                                            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Large" Color="Color.Default" />
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">No image uploaded</MudText>
+                                        </MudPaper>
+                                    }
+                                    <MudStack Spacing="1" Justify="Justify.Center">
+                                        <InputFile id="employeeImageInput" OnChange="HandleImageUpload" accept="image/*" style="display:none;" />
+                                        <MudTooltip Text="Upload Photo">
+                                            <MudIconButton HtmlTag="label" for="employeeImageInput" Icon="@Icons.Material.Filled.CloudUpload" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Medium" />
+                                        </MudTooltip>
+                                        @if (employee.EmployeeImage != null && employee.EmployeeImage.Length > 0)
+                                        {
+                                            <MudTooltip Text="Remove Image">
+                                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Variant="Variant.Outlined" Size="Size.Medium" OnClick="RemoveImage" />
+                                            </MudTooltip>
+                                        }
+                                    </MudStack>
+                                </MudStack>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+
+                    <!-- Employment Details -->
+                    <MudPaper Class="pa-6" Elevation="3">
+                        <MudText Typo="Typo.h6" Class="mb-4">Employment Details</MudText>
+                        <MudGrid>
+                            <MudItem xs="12" sm="6" md="4">
+                                <MudTextField @bind-Value="employee.BadgeNumber" For="@(() => employee.BadgeNumber)" Label="Badge Number" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="4">
+                                <MudTextField @bind-Value="employee.PTBNumber" For="@(() => employee.PTBNumber)" Label="PTB Number" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="4">
+                                <MudTextField @bind-Value="employee.CountyEmpNo" For="@(() => employee.CountyEmpNo)" Label="County Emp No" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="4">
+                                <MudSelect T="int?" @bind-Value="employee.StatusID" For="@(() => employee.StatusID)" Label="Status" Variant="Variant.Outlined" Clearable="true">
+                                    <MudSelectItem T="int?" Value="@((int?)null)">-- Select Status --</MudSelectItem>
+                                    @if (availableStatuses != null)
+                                    {
+                                        @foreach (var status in GetFilteredStatuses())
+                                        {
+                                            <MudSelectItem T="int?" Value="@status.StatusID">
+                                                @(status.StatusDescription ?? status.StatusCode)
+                                            </MudSelectItem>
+                                        }
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudDatePicker @bind-Date="employee.HireDate" For="@(() => employee.HireDate)" Label="Hire Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudDatePicker @bind-Date="employee.InactiveDate" For="@(() => employee.InactiveDate)" Label="Inactive Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudCheckBox T="bool" @bind-Value="employee.EmployeeFlag" Label="Sheriff Employee Flag" Color="Color.Primary" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+
+                    <!-- Contact Information -->
+                    <MudPaper Class="pa-6" Elevation="3">
+                        <MudText Typo="Typo.h6" Class="mb-4">Contact Information</MudText>
+                        <MudGrid>
+                            <MudItem xs="12" sm="4">
+                                <MudTextField @bind-Value="employee.WorkEmail" For="@(() => employee.WorkEmail)" Label="Work Email" Variant="Variant.Outlined" InputType="InputType.Email" />
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudTextField @bind-Value="employee.WorkPhone" For="@(() => employee.WorkPhone)" Label="Work Phone" Variant="Variant.Outlined" InputType="InputType.Telephone" />
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudTextField @bind-Value="employee.HomePhone" For="@(() => employee.HomePhone)" Label="Home Phone" Variant="Variant.Outlined" InputType="InputType.Telephone" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+
+                    <!-- Home Address -->
+                    <MudPaper Class="pa-6" Elevation="3">
+                        <MudText Typo="Typo.h6" Class="mb-4">Home Address</MudText>
+                        <MudGrid>
+                            <MudItem xs="12">
+                                <MudTextField @bind-Value="employee.HomeAddressLine1" For="@(() => employee.HomeAddressLine1)" Label="Address Line 1" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" sm="5">
+                                <MudTextField @bind-Value="employee.HomeCity" For="@(() => employee.HomeCity)" Label="City" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" sm="3">
+                                <MudTextField @bind-Value="employee.HomeState" For="@(() => employee.HomeState)" Label="State" Variant="Variant.Outlined" MaxLength="2" />
+                            </MudItem>
+                            <MudItem xs="12" sm="4">
+                                <MudTextField @bind-Value="employee.HomeZipCode" For="@(() => employee.HomeZipCode)" Label="Zip Code" Variant="Variant.Outlined" MaxLength="10" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+                </MudStack>
+            </MudTabPanel>
+
+            @if (IsEdit)
+            {
+                <MudTabPanel Text="Employee History" Icon="@Icons.Material.Filled.History">
+                    <EmployeeHistoryTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" AvailablePrograms="@availablePrograms" AvailableRanks="@availableRanks" AvailableUnits="@availableUnits" />
+                </MudTabPanel>
+
+                <MudTabPanel Text="Inventory Assignments" Icon="@Icons.Material.Filled.Inventory">
+                    <EmployeeInventoryTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" AvailableInventoryItems="@availableInventoryItems" />
+                </MudTabPanel>
+
+                <MudTabPanel Text="Firearms" Icon="@Icons.Material.Filled.Security">
+                    <EmployeeFirearmsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" AvailableMakes="@availableMakes" AvailableStatuses="@availableStatuses" />
+                </MudTabPanel>
+
+                <MudTabPanel Text="Range Statistics" Icon="@Icons.Material.Filled.SportsScore">
+                    <EmployeeRangeStatisticsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" AvailableCourses="@availableRangeCourses" AvailableEvents="@availableRangeEvents" AvailableFirearms="@availableFirearms" />
+                </MudTabPanel>
+
+                <MudTabPanel Text="Trainings" Icon="@Icons.Material.Filled.School">
+                    <EmployeeTrainingsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" AvailableTrainingSessions="@availableTrainingSessions" />
+                </MudTabPanel>
+
+                <MudTabPanel Text="Documents" Icon="@Icons.Material.Filled.InsertDriveFile">
+                    <EmployeeDocumentsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" />
+                </MudTabPanel>
+            }
+
+        </MudTabs>
+
+        <!-- Form Actions -->
+        <MudPaper Class="pa-4 d-flex justify-end gap-3" Elevation="3">
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="Cancel" Disabled="@isSaving">
+                Cancel
+            </MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="@isSaving">
+                @if (isSaving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    <span>Saving...</span>
+                }
+                else
+                {
+                    <span>Save Employee</span>
+                }
+            </MudButton>
+        </MudPaper>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private bool IsEdit => Id.HasValue && Id.Value > 0;
+    private EmployeeDetailDto employee = new();
+    private IEnumerable<StatusesDto>? availableStatuses;
+    private IEnumerable<ProgramsDto>? availablePrograms;
+    private IEnumerable<RanksDto>? availableRanks;
+    private IEnumerable<UnitsDto>? availableUnits;
+
+    private IEnumerable<StatusesDto> GetFilteredStatuses()
+    {
+        return availableStatuses ?? Enumerable.Empty<StatusesDto>();
+    }
+    private IEnumerable<InventoryItemsDto>? availableInventoryItems;
+    private IEnumerable<MakesDto>? availableMakes;
+    private IEnumerable<RangeCourseDTO>? availableRangeCourses;
+    private IEnumerable<RangeEventDTO>? availableRangeEvents;
+    private IEnumerable<FirearmsDto>? availableFirearms;
+    private IEnumerable<TrainingSessionsDto>? availableTrainingSessions;
+
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id.HasValue && employee.EmployeeID != Id.Value)
+        {
+            await LoadDataAsync();
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            availableStatuses = await service.GetAvailableStatusesAsync();
+            availablePrograms = await service.GetProgramsAsync();
+            availableRanks = await service.GetRanksAsync();
+            availableUnits = await service.GetUnitsAsync();
+            availableInventoryItems = await service.GetInventoryItemsAsync(onlyActive: true);
+            availableMakes = await service.GetMakesAsync();
+            availableRangeCourses = await service.GetRangeCoursesAsync();
+            availableRangeEvents = await service.GetRangeEventsAsync();
+            availableTrainingSessions = await service.GetTrainingSessionsAsync();
+
+            if (IsEdit)
+            {
+                availableFirearms = await service.GetFirearmsByEmployeeIdAsync(Id!.Value);
+                logger.LogInformation("Loading employee details for ID {EmployeeID}.", Id!.Value);
+                var fetched = await service.GetEmployeeByIdAsync(Id.Value);
+
+
+                if (fetched == null)
+                {
+                    errorMessage = $"Employee with ID {Id.Value} was not found.";
+                    Snackbar.Add(errorMessage, Severity.Error);
+                }
+                else
+                {
+                    employee = fetched;
+                }
+            }
+            else
+            {
+                var activeStatus = availableStatuses?.FirstOrDefault(s =>
+                    string.Equals(s.StatusCode, "Active", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase));
+
+                employee = new EmployeeDetailDto
+                {
+                    EmployeeFlag = true,
+                    StatusID = activeStatus?.StatusID
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading data for EmployeeDetail page.");
+            errorMessage = $"Failed to load employee details: {ex.Message}";
+            Snackbar.Add(errorMessage, Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleSave()
+    {
+        errorMessage = null;
+
+        if (employee.DOB.HasValue && employee.DOB.Value.Date > DateTime.Today)
+        {
+            errorMessage = "Date of Birth cannot be in the future.";
+            Snackbar.Add(errorMessage, Severity.Error);
+            return;
+        }
+
+        if (employee.HireDate.HasValue && employee.InactiveDate.HasValue && employee.InactiveDate.Value.Date < employee.HireDate.Value.Date)
+        {
+            errorMessage = "Inactive Date cannot be earlier than Hire Date.";
+            Snackbar.Add(errorMessage, Severity.Error);
+            return;
+        }
+
+        if (!IsEdit && (!employee.StatusID.HasValue || employee.StatusID <= 0))
+        {
+            if (availableStatuses == null)
+            {
+                availableStatuses = await service.GetAvailableStatusesAsync();
+            }
+            var activeStatus = availableStatuses?.FirstOrDefault(s =>
+                string.Equals(s.StatusCode, "Active", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase));
+            if (activeStatus != null)
+            {
+                employee.StatusID = activeStatus.StatusID;
+            }
+        }
+
+        isSaving = true;
+
+        try
+        {
+            if (IsEdit)
+            {
+                logger.LogInformation("Updating employee ID {EmployeeID}.", employee.EmployeeID);
+                var updated = await service.UpdateEmployeeAsync(employee.EmployeeID, employee);
+
+                if (updated != null)
+                {
+                    Snackbar.Add("Employee updated successfully!", Severity.Success);
+                    Navigation.NavigateTo("/");
+                }
+                else
+                {
+                    errorMessage = "Failed to update employee. Please check input values and try again.";
+                    Snackbar.Add(errorMessage, Severity.Error);
+                }
+            }
+            else
+            {
+                logger.LogInformation("Creating new employee.");
+                var created = await service.CreateEmployeeAsync(employee);
+
+                if (created != null)
+                {
+                    Snackbar.Add("Employee created successfully!", Severity.Success);
+                    Navigation.NavigateTo($"/employee/edit/{created.EmployeeID}");
+                }
+                else
+                {
+                    errorMessage = "Failed to create employee. Please check input values and try again.";
+                    Snackbar.Add(errorMessage, Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error occurred while saving employee record.");
+            errorMessage = $"Error saving employee: {ex.Message}";
+            Snackbar.Add(errorMessage, Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private async Task HandleImageUpload(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file != null)
+            {
+                using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+                using var ms = new System.IO.MemoryStream();
+                await stream.CopyToAsync(ms);
+                employee.EmployeeImage = ms.ToArray();
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error uploading employee image.");
+            Snackbar.Add($"Error uploading image: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void RemoveImage()
+    {
+        employee.EmployeeImage = null;
+    }
+}

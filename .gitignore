@@ -1,0 +1,40 @@
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa]rm/
+[Aa]rm64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio Tooling
+.vs/
+_ReSharper*/
+*.csproj.user
+*.usersecrets
+
+# .NET Core specific
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ASP.NET Core local secrets and development settings
+usersecrets.json
+appsettings.Development.json
+
+# Rider / JetBrains IDEs
+.idea/
+*.sln.iml

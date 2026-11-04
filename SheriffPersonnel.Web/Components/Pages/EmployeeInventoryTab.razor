@@ -1,0 +1,193 @@
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@inject SearchService service
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject ILogger<EmployeeInventoryTab> logger
+
+<MudStack Spacing="4" Class="mt-4">
+    @if (IsEdit && EmployeeId > 0)
+    {
+        <MudPaper Class="pa-6" Elevation="3">
+            @if (isLoading)
+            {
+                <MudPaper Class="pa-6 d-flex justify-center align-center" Style="min-height: 200px;" Elevation="0">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                    <MudText Class="ml-4">Loading inventory assignments...</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                    <MudText Typo="Typo.h6">Employee Inventory Assignments</MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddAssignmentForm">
+                        Add Inventory Item
+                    </MudButton>
+                </MudStack>
+
+                <MudTable Items="employeeAssignments" Hover="true" Striped="true" Elevation="0" AllowUnsorted="true">
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeInventoryAssignmentsDto, object>(x => x.ProductName ?? string.Empty)">Item</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeInventoryAssignmentsDto, object>(x => x.CategoryName ?? string.Empty)">Category</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeInventoryAssignmentsDto, object>(x => x.SerialNumber ?? string.Empty)">Serial Number</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeInventoryAssignmentsDto, object>(x => x.Quantity)">Qty</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeInventoryAssignmentsDto, object>(x => x.IssueDate)">Issue Date</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeInventoryAssignmentsDto, object>(x => x.ReturnDate ?? DateTime.MinValue)">Return Date</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeInventoryAssignmentsDto, object>(x => x.ExpireDate ?? DateTime.MinValue)">Expire Date</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeInventoryAssignmentsDto, object>(x => x.Notes ?? string.Empty)">Notes</MudTableSortLabel></MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="assignmentContext">
+                        <MudTd DataLabel="Item">@(string.IsNullOrWhiteSpace(assignmentContext.ProductName) ? "-" : assignmentContext.ProductName)</MudTd>
+                        <MudTd DataLabel="Category">@(string.IsNullOrWhiteSpace(assignmentContext.CategoryName) ? "-" : assignmentContext.CategoryName)</MudTd>
+                        <MudTd DataLabel="Serial Number">@(string.IsNullOrWhiteSpace(assignmentContext.SerialNumber) ? "-" : assignmentContext.SerialNumber)</MudTd>
+                        <MudTd DataLabel="Qty">@assignmentContext.Quantity</MudTd>
+                        <MudTd DataLabel="Issue Date">@assignmentContext.IssueDate.ToString("MM/dd/yyyy")</MudTd>
+                        <MudTd DataLabel="Return Date">@(assignmentContext.ReturnDate.HasValue ? assignmentContext.ReturnDate.Value.ToString("MM/dd/yyyy") : "-")</MudTd>
+                        <MudTd DataLabel="Expire Date">@(assignmentContext.ExpireDate.HasValue ? assignmentContext.ExpireDate.Value.ToString("MM/dd/yyyy") : "-")</MudTd>
+                        <MudTd DataLabel="Notes">@(string.IsNullOrWhiteSpace(assignmentContext.Notes) ? "-" : assignmentContext.Notes)</MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudTooltip Text="Edit Assignment">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditAssignmentForm(assignmentContext))" />
+                            </MudTooltip>
+                            <MudTooltip Text="Delete Assignment">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteAssignmentAsync(assignmentContext.EmpInventoryID))" />
+                            </MudTooltip>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText Class="pa-4 text-center">No inventory assignments found for this employee.</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            }
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Class="pa-6" Elevation="3">
+            <MudText Class="text-center text-muted">Inventory assignment records can be added after saving the new employee.</MudText>
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    [Parameter] public int EmployeeId { get; set; }
+    [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public IEnumerable<InventoryItemsDto>? AvailableInventoryItems { get; set; }
+
+    private List<EmployeeInventoryAssignmentsDto> employeeAssignments = new();
+    private bool isLoading = true;
+    private int _lastLoadedEmployeeId;
+    private bool _lastLoadedIsEdit;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsEdit && EmployeeId > 0 && (EmployeeId != _lastLoadedEmployeeId || IsEdit != _lastLoadedIsEdit))
+        {
+            _lastLoadedEmployeeId = EmployeeId;
+            _lastLoadedIsEdit = IsEdit;
+            await LoadAssignmentsAsync();
+        }
+    }
+
+    private async Task LoadAssignmentsAsync()
+    {
+        isLoading = true;
+        try
+        {
+            var assignments = await service.GetEmployeeInventoryAssignmentsByEmployeeIdAsync(EmployeeId);
+            employeeAssignments = assignments.ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading inventory assignments for employee {EmployeeID}.", EmployeeId);
+            Snackbar.Add($"Failed to load inventory assignments: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OpenAddAssignmentForm()
+    {
+        var parameters = new DialogParameters<AddInventoryItemModal>
+        {
+            { x => x.EmployeeId, EmployeeId },
+            { x => x.Assignment, new EmployeeInventoryAssignmentsDto { EmployeeID = EmployeeId, Quantity = 1, IssueDate = DateTime.Now } },
+            { x => x.AvailableInventoryItems, AvailableInventoryItems }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<AddInventoryItemModal>("Add Inventory Item", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            await LoadAssignmentsAsync();
+        }
+    }
+
+    private async Task OpenEditAssignmentForm(EmployeeInventoryAssignmentsDto assignment)
+    {
+        var parameters = new DialogParameters<AddInventoryItemModal>
+        {
+            { x => x.EmployeeId, EmployeeId },
+            { x => x.Assignment, new EmployeeInventoryAssignmentsDto
+                {
+                    EmpInventoryID = assignment.EmpInventoryID,
+                    EmployeeID = assignment.EmployeeID,
+                    InventoryID = assignment.InventoryID,
+                    Quantity = assignment.Quantity,
+                    SerialNumber = assignment.SerialNumber,
+                    IssueDate = assignment.IssueDate,
+                    ReturnDate = assignment.ReturnDate,
+                    ExpireDate = assignment.ExpireDate,
+                    Notes = assignment.Notes,
+                    LastUserID = assignment.LastUserID,
+                    ProductName = assignment.ProductName,
+                    CategoryName = assignment.CategoryName
+                }
+            },
+            { x => x.AvailableInventoryItems, AvailableInventoryItems }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<AddInventoryItemModal>("Edit Inventory Item", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            await LoadAssignmentsAsync();
+        }
+    }
+
+    private async Task DeleteAssignmentAsync(int empInventoryId)
+    {
+        bool? confirm = await DialogService.ShowMessageBoxAsync(
+            "Confirm Delete",
+            "Are you sure you want to delete this inventory assignment?",
+            yesText: "Delete", cancelText: "Cancel");
+
+        if (confirm != true) return;
+
+        try
+        {
+            var success = await service.DeleteEmployeeInventoryAssignmentAsync(empInventoryId);
+            if (success)
+            {
+                Snackbar.Add("Inventory assignment deleted successfully!", Severity.Success);
+                await LoadAssignmentsAsync();
+            }
+            else
+            {
+                Snackbar.Add("Failed to delete inventory assignment.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error deleting employee inventory assignment.");
+            Snackbar.Add($"Error deleting inventory assignment: {ex.Message}", Severity.Error);
+        }
+    }
+}

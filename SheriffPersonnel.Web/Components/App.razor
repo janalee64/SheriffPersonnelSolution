@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <ResourcePreloader />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="@Assets["_content/MudBlazor/MudBlazor.min.css"]" />
+    <link rel="stylesheet" href="@Assets["SheriffPersonnel.Web.styles.css"]" />
+    <style>
+        .mud-table-head th,
+        .mud-table-head .mud-table-cell {
+            background-color: var(--mud-palette-primary) !important;
+            color: var(--mud-palette-primary-text, #ffffff) !important;
+            font-weight: 700 !important;
+            font-size: 0.875rem !important;
+            line-height: 1.5 !important;
+            vertical-align: middle !important;
+        }
+
+        .mud-table-head .mud-button-root,
+        .mud-table-head .mud-table-sort-label,
+        .mud-table-head .mud-table-sort-label .mud-button-root,
+        .mud-table-head .mud-table-sort-label .mud-button-label,
+        .mud-table-head .mud-icon-root,
+        .mud-table-head .mud-svg-icon {
+            color: var(--mud-palette-primary-text, #ffffff) !important;
+            font-weight: 700 !important;
+            font-size: 0.875rem !important;
+            line-height: 1.5 !important;
+            fill: var(--mud-palette-primary-text, #ffffff) !important;
+        }
+
+        .mud-table-head .mud-table-sort-label:hover,
+        .mud-table-head .mud-button-root:hover {
+            color: var(--mud-palette-primary-text, #ffffff) !important;
+            background-color: transparent !important;
+        }
+
+        .mud-table-root tr, .mud-input-control {
+            scroll-margin-bottom: 120px;
+            scroll-margin-top: 80px;
+        }
+    </style>
+    <ImportMap />
+    <link rel="icon" type="image/ico" href="favicon.ico" />
+    <HeadOutlet @rendermode="InteractiveServer" />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    <ReconnectModal />
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script src="@Assets["_content/MudBlazor/MudBlazor.min.js"]"></script>
+    <script>
+        window.downloadFileFromByteArray = (fileName, base64String, contentType) => {
+            const link = document.createElement('a');
+            link.download = fileName;
+            link.href = `data:${contentType};base64,${base64String}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        // Scroll focused elements into view above sticky bottom action bar
+        document.addEventListener('focusin', function (e) {
+            var elem = e.target;
+            if (elem && typeof elem.getBoundingClientRect === 'function') {
+                setTimeout(function () {
+                    var rect = elem.getBoundingClientRect();
+                    var viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+                    // If bottom of focused element is within 120px of bottom of viewport
+                    if (rect.bottom > (viewportHeight - 120)) {
+                        elem.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+                    }
+                }, 50);
+            }
+        }, true);
+
+        // Global hotkey 'N' for setting date picker fields to the current date (excluding birth date fields)
+        document.addEventListener('keydown', function (e) {
+            if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                var target = e.target;
+                if (!target || target.tagName !== 'INPUT') return;
+
+                // Find associated MudBlazor input control or date picker container
+                var pickerContainer = target.closest('.mud-picker, .mud-picker-input-text, .mud-input-control');
+                if (!pickerContainer) return;
+
+                // Verify it is a date picker field
+                var isMudPicker = target.closest('.mud-picker, .mud-picker-input-text') !== null;
+                var hasCalendarAdornment = pickerContainer.querySelector('.mud-input-adornment svg, .mud-picker-icon') !== null;
+                var inputTypeDate = target.getAttribute('type') === 'date';
+
+                if (!isMudPicker && !hasCalendarAdornment && !inputTypeDate) return;
+
+                // Check if this date field is Date of Birth / DOB (EXCLUDED)
+                var label = pickerContainer.querySelector('label, .mud-input-label');
+                var labelText = (label ? label.innerText : '').toLowerCase();
+                var placeholderText = (target.getAttribute('placeholder') || '').toLowerCase();
+                var ariaLabel = (target.getAttribute('aria-label') || '').toLowerCase();
+
+                var isBirthDate = labelText.includes('birth') || labelText.includes('dob') ||
+                                    placeholderText.includes('birth') || placeholderText.includes('dob') ||
+                                    ariaLabel.includes('birth') || ariaLabel.includes('dob') ||
+                                    target.hasAttribute('data-no-today-hotkey') ||
+                                    pickerContainer.hasAttribute('data-no-today-hotkey');
+
+                if (isBirthDate) return;
+
+                // Prevent typing 'n' / 'N' into the input box
+                e.preventDefault();
+
+                // Format current local date as MM/dd/yyyy
+                var today = new Date();
+                var month = String(today.getMonth() + 1).padStart(2, '0');
+                var day = String(today.getDate()).padStart(2, '0');
+                var year = today.getFullYear();
+                var formattedDate = month + '/' + day + '/' + year;
+
+                // Set value via native setter so framework binding detects changes
+                var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                if (nativeSetter) {
+                    nativeSetter.call(target, formattedDate);
+                } else {
+                    target.value = formattedDate;
+                }
+
+                // Dispatch DOM events so MudBlazor updates the bound C# property
+                target.dispatchEvent(new Event('input', { bubbles: true }));
+                target.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, true);
+    </script>
+</body>
+
+</html>

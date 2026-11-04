@@ -1,0 +1,268 @@
+@page "/employee/documents"
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@inject SearchService service
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IJSRuntime JSRuntime
+@inject ILogger<EmployeeDocumentsTab> logger
+
+@attribute [Authorize(Roles = "Administrator, Personnel, Inventory, Range, Training, Equipment, SSN")]
+
+<MudStack Spacing="4" Class="mt-4">
+    @if (IsEdit && EmployeeId > 0)
+    {
+        <MudPaper Class="pa-6" Elevation="3">
+            @if (isLoading)
+            {
+                <MudPaper Class="pa-6 d-flex justify-center align-center" Style="min-height: 200px;" Elevation="0">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                    <MudText Class="ml-4">Loading employee documents...</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                    <MudText Typo="Typo.h6">Employee Documents</MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudUpload" OnClick="OpenUploadDocumentForm">
+                        Upload Document
+                    </MudButton>
+                </MudStack>
+
+                <MudTable Items="documents" Hover="true" Striped="true" Elevation="0" AllowUnsorted="true">
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeDocumentDto, object>(x => x.Title ?? string.Empty)">Title</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeDocumentDto, object>(x => x.DocumentTypeName ?? string.Empty)">Type</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeDocumentDto, object>(x => x.FileName ?? string.Empty)">File Name</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeDocumentDto, object>(x => x.FileSizeBytes)">Size</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeDocumentDto, object>(x => x.UploadedByName ?? string.Empty)">Uploaded By</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeDocumentDto, object>(x => x.UploadDate ?? DateTime.MinValue)">Upload Date</MudTableSortLabel></MudTh>
+                        <MudTh Style="width: 140px;">Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="docContext">
+                        <MudTd DataLabel="Title"><b>@docContext.Title</b></MudTd>
+                        <MudTd DataLabel="Type">
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Outlined">
+                                @(string.IsNullOrWhiteSpace(docContext.DocumentTypeName) ? "General" : docContext.DocumentTypeName)
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="File Name">@docContext.FileName</MudTd>
+                        <MudTd DataLabel="Size">@FormatFileSize(docContext.FileSizeBytes)</MudTd>
+                        <MudTd DataLabel="Uploaded By">@(string.IsNullOrWhiteSpace(docContext.UploadedByName) ? "-" : docContext.UploadedByName)</MudTd>
+                        <MudTd DataLabel="Upload Date">@(docContext.UploadDate.HasValue ? docContext.UploadDate.Value.ToString("MM/dd/yyyy hh:mm tt") : "-")</MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudTooltip Text="Download Document">
+                                <MudIconButton Icon="@Icons.Material.Filled.Download" Color="Color.Primary" Size="Size.Small" OnClick="@(() => DownloadDocumentAsync(docContext))" Disabled="@isDownloading" />
+                            </MudTooltip>
+                            <MudTooltip Text="Edit Document">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Secondary" Size="Size.Small" OnClick="@(() => OpenEditDocumentForm(docContext))" />
+                            </MudTooltip>
+                            <MudTooltip Text="Delete Document">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteDocumentAsync(docContext))" />
+                            </MudTooltip>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText Class="pa-4 text-center text-muted">No documents uploaded for this employee.</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            }
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Class="pa-6" Elevation="3">
+            <MudText Class="text-center text-muted">Documents can be uploaded after saving the new employee.</MudText>
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    [Parameter] public int EmployeeId { get; set; }
+    [Parameter] public bool IsEdit { get; set; } = true;
+    [Parameter] public IEnumerable<DocumentTypeDto>? AvailableDocumentTypes { get; set; }
+
+    private List<EmployeeDocumentDto> documents = new();
+    private bool isLoading = true;
+    private bool isDownloading = false;
+    private int _lastLoadedEmployeeId;
+    private bool _lastLoadedIsEdit;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AvailableDocumentTypes == null)
+        {
+            AvailableDocumentTypes = await service.GetDocumentTypesAsync();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsEdit && EmployeeId > 0 && (EmployeeId != _lastLoadedEmployeeId || IsEdit != _lastLoadedIsEdit))
+        {
+            _lastLoadedEmployeeId = EmployeeId;
+            _lastLoadedIsEdit = IsEdit;
+            await LoadDocumentsAsync();
+        }
+    }
+
+    private async Task LoadDocumentsAsync()
+    {
+        isLoading = true;
+        try
+        {
+            var result = await service.GetEmployeeDocumentsByEmployeeIdAsync(EmployeeId);
+            documents = result
+                .OrderByDescending(d => d.UploadDate ?? DateTime.MinValue)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading document records for employee {EmployeeID}.", EmployeeId);
+            Snackbar.Add($"Failed to load documents: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OpenUploadDocumentForm()
+    {
+        if (AvailableDocumentTypes == null || !AvailableDocumentTypes.Any())
+        {
+            AvailableDocumentTypes = await service.GetDocumentTypesAsync();
+        }
+
+        var parameters = new DialogParameters<AddEmployeeDocumentModal>
+        {
+            { x => x.EmployeeId, EmployeeId },
+            { x => x.DocumentRecord, new EmployeeDocumentDto { EmployeeID = EmployeeId } },
+            { x => x.AvailableDocumentTypes, AvailableDocumentTypes }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<AddEmployeeDocumentModal>("Upload Employee Document", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            await LoadDocumentsAsync();
+        }
+    }
+
+    private async Task OpenEditDocumentForm(EmployeeDocumentDto doc)
+    {
+        if (AvailableDocumentTypes == null || !AvailableDocumentTypes.Any())
+        {
+            AvailableDocumentTypes = await service.GetDocumentTypesAsync();
+        }
+
+        var parameters = new DialogParameters<AddEmployeeDocumentModal>
+        {
+            { x => x.EmployeeId, EmployeeId },
+            { x => x.DocumentRecord, new EmployeeDocumentDto
+                {
+                    DocumentID = doc.DocumentID,
+                    EmployeeID = doc.EmployeeID,
+                    Title = doc.Title,
+                    DocumentTypeID = doc.DocumentTypeID,
+                    FileName = doc.FileName,
+                    FileSizeBytes = doc.FileSizeBytes,
+                    MimeType = doc.MimeType,
+                    UploadedBy = doc.UploadedBy,
+                    UploadDate = doc.UploadDate
+                }
+            },
+            { x => x.AvailableDocumentTypes, AvailableDocumentTypes }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<AddEmployeeDocumentModal>("Edit Document Details", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            await LoadDocumentsAsync();
+        }
+    }
+
+    private async Task DownloadDocumentAsync(EmployeeDocumentDto doc)
+    {
+        if (isDownloading) return;
+
+        isDownloading = true;
+        try
+        {
+            logger.LogInformation("Downloading document ID {DocumentID} for Employee ID {EmployeeID}.", doc.DocumentID, EmployeeId);
+            
+            var fullDoc = await service.GetDocumentByIdAsync(doc.DocumentID);
+            if (fullDoc == null || fullDoc.FileData == null || fullDoc.FileData.Length == 0)
+            {
+                Snackbar.Add("Failed to download document content: File data is empty or missing.", Severity.Error);
+                return;
+            }
+
+            var base64 = Convert.ToBase64String(fullDoc.FileData);
+            var mime = string.IsNullOrWhiteSpace(doc.MimeType) ? "application/octet-stream" : doc.MimeType;
+            var fileName = string.IsNullOrWhiteSpace(doc.FileName) ? doc.Title : doc.FileName;
+
+            await JSRuntime.InvokeVoidAsync("downloadFileFromByteArray", fileName, base64, mime);
+            Snackbar.Add($"Document '{fileName}' downloaded.", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error downloading document ID {DocumentID}.", doc.DocumentID);
+            Snackbar.Add($"Error downloading document: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isDownloading = false;
+        }
+    }
+
+    private async Task DeleteDocumentAsync(EmployeeDocumentDto doc)
+    {
+        bool? confirm = await DialogService.ShowMessageBoxAsync(
+            "Confirm Delete",
+            $"Are you sure you want to delete document '{doc.Title}' ({doc.FileName})?",
+            yesText: "Delete", cancelText: "Cancel");
+
+        if (confirm == true)
+        {
+            try
+            {
+                logger.LogInformation("Deleting document ID {DocumentID}.", doc.DocumentID);
+                var success = await service.DeleteDocumentAsync(doc.DocumentID);
+                if (success)
+                {
+                    Snackbar.Add("Document deleted successfully.", Severity.Success);
+                    await LoadDocumentsAsync();
+                }
+                else
+                {
+                    Snackbar.Add("Failed to delete document.", Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error deleting document ID {DocumentID}.", doc.DocumentID);
+                Snackbar.Add($"Error deleting document: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes <= 0) return "0 B";
+        string[] suffixes = { "B", "KB", "MB", "GB", "TB" };
+        int i = 0;
+        double dblBytes = bytes;
+        while (dblBytes >= 1024 && i < suffixes.Length - 1)
+        {
+            dblBytes /= 1024;
+            i++;
+        }
+        return $"{dblBytes:0.##} {suffixes[i]}";
+    }
+}

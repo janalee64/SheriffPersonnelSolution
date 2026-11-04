@@ -1,0 +1,552 @@
+@page "/multipleequipment"
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@attribute [Authorize(Roles = "Equipment")]
+
+@inject SearchService SearchService
+@inject CodeTableService CodeTableService
+@inject ISnackbar Snackbar
+@inject ILogger<MultipleEquipment> Logger
+
+<PageTitle>Multiple Equipment</PageTitle>
+
+<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+    <div>
+        <MudText Typo="Typo.h4">Multiple Equipment</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Assign multiple inventory items / equipment to multiple active employees.</MudText>
+    </div>
+    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadDataAsync" Disabled="@isLoading">
+        Refresh Data
+    </MudButton>
+</MudStack>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4" CloseIcon="@Icons.Material.Filled.Close" CloseIconClicked="() => errorMessage = null">
+        @errorMessage
+    </MudAlert>
+}
+
+@if (lastResult != null)
+{
+    <MudPaper Class="pa-4 mb-6" Elevation="2" Style="border-left: 6px solid var(--mud-palette-success);">
+        <MudText Typo="Typo.h6" Class="mb-2">Assignment Summary</MudText>
+        <MudAlert Severity="Severity.Success" Variant="Variant.Filled" Class="mb-0">
+            <b>Success!</b> Assigned <b>@lastResult.TotalItemsAssigned</b> equipment item(s) to <b>@lastResult.TotalEmployeesAssigned</b> employee(s) (total of <b>@lastResult.TotalAssignmentsCreated</b> inventory record(s) created).
+        </MudAlert>
+    </MudPaper>
+}
+
+<MudGrid>
+    <!-- Left Column: Equipment Selection & Assignment Details -->
+    <MudItem xs="12" md="6">
+        <!-- Equipment Items Selection -->
+        <MudPaper Class="pa-5 mb-4" Elevation="3">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudText Typo="Typo.h6" Style="display: flex; align-items: center; gap: 8px;">
+                    <MudIcon Icon="@Icons.Material.Filled.Build" Color="Color.Primary" />
+                    Select Equipment Items
+                </MudText>
+                <MudChip T="string" Color="Color.Info" Size="Size.Small">
+                    Selected: @selectedInventoryIds.Count / @(inventoryItems?.Count() ?? 0)
+                </MudChip>
+            </MudStack>
+
+            <MudGrid Class="mb-3">
+                <MudItem xs="12" sm="7">
+                    <MudTextField T="string" @bind-Value="equipmentSearchTerm" Placeholder="Search by item name, SKU, brand..." Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+                </MudItem>
+                <MudItem xs="12" sm="5">
+                    <MudSelect T="int?" Value="selectedCategoryId" ValueChanged="OnCategoryFilterChanged" Label="Category" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                        <MudSelectItem T="int?" Value="@((int?)null)">All Categories</MudSelectItem>
+                        @if (categories != null)
+                        {
+                            @foreach (var cat in categories.Where(c => c.IsActive))
+                            {
+                                <MudSelectItem T="int?" Value="@((int?)cat.CategoryID)">@cat.CategoryName</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" OnClick="SelectAllEquipment">Select All Filtered</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Size="Size.Small" OnClick="DeselectAllEquipment">Clear Selection</MudButton>
+            </MudStack>
+
+            @if (isLoading)
+            {
+                <MudPaper Class="pa-6 d-flex justify-center align-center" Style="min-height: 200px;" Elevation="0">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
+                    <MudText Class="ml-3">Loading inventory items...</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <div style="max-height: 320px; overflow-y: auto; border: 1px solid var(--mud-palette-lines-default); border-radius: 4px;">
+                    <MudTable T="InventoryItemsDto" Items="FilteredInventoryItems" Dense="true" Hover="true" Striped="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh Style="width: 50px;">
+                                <MudCheckBox T="bool" Value="IsAllFilteredEquipmentSelected" ValueChanged="ToggleSelectAllFilteredEquipment" Color="Color.Primary" />
+                            </MudTh>
+                            <MudTh>Item Name / SKU</MudTh>
+                            <MudTh>Category</MudTh>
+                            <MudTh>Stock</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>
+                                <MudCheckBox T="bool" Value="@selectedInventoryIds.Contains(context.InventoryID)" ValueChanged="@((bool isChecked) => ToggleEquipmentSelection(context.InventoryID, isChecked))" Color="Color.Primary" />
+                            </MudTd>
+                            <MudTd DataLabel="Item Name / SKU">
+                                <MudText Typo="Typo.body2" Style="font-weight: 600;">@context.ProductName</MudText>
+                                @if (!string.IsNullOrWhiteSpace(context.SKU))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">SKU: @context.SKU</MudText>
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="Category">
+                                @(string.IsNullOrWhiteSpace(context.CategoryName) ? "-" : context.CategoryName)
+                            </MudTd>
+                            <MudTd DataLabel="Stock">
+                                @(context.StockQuantity.HasValue ? context.StockQuantity.Value.ToString() : "-")
+                            </MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent>
+                            <MudText Class="pa-4 text-center">No equipment items found.</MudText>
+                        </NoRecordsContent>
+                    </MudTable>
+                </div>
+            }
+        </MudPaper>
+
+        <!-- Assignment Details -->
+        <MudPaper Class="pa-5 mb-4" Elevation="3">
+            <MudText Typo="Typo.h6" Class="mb-3" Style="display: flex; align-items: center; gap: 8px;">
+                <MudIcon Icon="@Icons.Material.Filled.Assignment" Color="Color.Primary" />
+                Assignment Details
+            </MudText>
+
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="issueDate" Label="Issue Date *" Variant="Variant.Outlined" Clearable="false" Editable="true" DateFormat="MM/dd/yyyy" Required="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="int" @bind-Value="assignmentQuantity" Label="Quantity Per Employee *" Variant="Variant.Outlined" Min="1" Required="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="serialNumber" Label="Serial Number" Variant="Variant.Outlined" MaxLength="100" HelperText="Optional (applies to assigned records)" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="expireDate" Label="Expire Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="returnDate" Label="Return Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="notes" Label="Notes" Variant="Variant.Outlined" MaxLength="255" />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    </MudItem>
+
+    <!-- Right Column: Active Employees Selection -->
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-5 mb-4" Elevation="3">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudText Typo="Typo.h6" Style="display: flex; align-items: center; gap: 8px;">
+                    <MudIcon Icon="@Icons.Material.Filled.Group" Color="Color.Primary" />
+                    Select Active Employees
+                </MudText>
+                <MudChip T="string" Color="Color.Info" Size="Size.Small">
+                    Selected: @selectedEmployeeIds.Count / @(activeEmployees?.Count() ?? 0)
+                </MudChip>
+            </MudStack>
+
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudTextField T="string" @bind-Value="employeeSearchTerm" Placeholder="Search by name or badge..." Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" OnClick="SelectAllEmployees">Select All</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Size="Size.Small" OnClick="DeselectAllEmployees">Clear</MudButton>
+            </MudStack>
+
+            @if (isLoading)
+            {
+                <MudPaper Class="pa-6 d-flex justify-center align-center" Style="min-height: 250px;" Elevation="0">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
+                    <MudText Class="ml-3">Loading active employees...</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <div style="max-height: 540px; overflow-y: auto; border: 1px solid var(--mud-palette-lines-default); border-radius: 4px;">
+                    <MudTable T="EmployeeSearchResultDto" Items="FilteredEmployees" Dense="true" Hover="true" Striped="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh Style="width: 50px;">
+                                <MudCheckBox T="bool" Value="IsAllFilteredEmployeesSelected" ValueChanged="ToggleSelectAllFilteredEmployees" Color="Color.Primary" />
+                            </MudTh>
+                            <MudTh>Photo</MudTh>
+                            <MudTh>Name</MudTh>
+                            <MudTh>Badge #</MudTh>
+                            <MudTh>Status</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>
+                                <MudCheckBox T="bool" Value="@selectedEmployeeIds.Contains(context.EmployeeID)" ValueChanged="@((bool isChecked) => ToggleEmployeeSelection(context.EmployeeID, isChecked))" Color="Color.Primary" />
+                            </MudTd>
+                            <MudTd DataLabel="Photo">
+                                @if (context.EmployeeImage != null && context.EmployeeImage.Length > 0)
+                                {
+                                    <MudAvatar Size="Size.Small">
+                                        <MudImage Src="@($"data:image/png;base64,{Convert.ToBase64String(context.EmployeeImage)}")" Alt="Photo" />
+                                    </MudAvatar>
+                                }
+                                else
+                                {
+                                    <MudAvatar Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+                                    </MudAvatar>
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="Name">
+                                <MudText Typo="Typo.body2" Style="font-weight: 600;">@context.FirstName @context.LastName</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Badge #">
+                                @if (!string.IsNullOrWhiteSpace(context.BadgeNumber))
+                                {
+                                    <MudChip T="string" Color="Color.Dark" Size="Size.Small">@context.BadgeNumber</MudChip>
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="Status">
+                                @if (!string.IsNullOrWhiteSpace(context.Status))
+                                {
+                                    <MudChip T="string" Color="GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                                }
+                            </MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent>
+                            <MudText Class="pa-4 text-center">No active employees found.</MudText>
+                        </NoRecordsContent>
+                    </MudTable>
+                </div>
+            }
+
+            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Success"
+                           Size="Size.Large"
+                           StartIcon="@Icons.Material.Filled.CheckCircle"
+                           OnClick="SubmitAssignmentAsync"
+                           Disabled="@(isAssigning || selectedInventoryIds.Count == 0 || selectedEmployeeIds.Count == 0)">
+                    @if (isAssigning)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Assigning Equipment...</span>
+                    }
+                    else
+                    {
+                        <span>Assign Equipment (@selectedInventoryIds.Count Item(s) to @selectedEmployeeIds.Count Employee(s))</span>
+                    }
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private Color GetStatusColor(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+            return Color.Default;
+
+        var s = status.Trim().ToLowerInvariant();
+
+        if (s.Contains("inactive") || s.Contains("terminated") || s.Contains("resigned") || s == "inact" || s == "term")
+        {
+            return Color.Default;
+        }
+
+        if (s.Contains("retired") || s == "ret")
+        {
+            return Color.Info;
+        }
+
+        if (s.Contains("active") || s == "act")
+        {
+            return Color.Success;
+        }
+
+        return Color.Default;
+    }
+
+    private IEnumerable<InventoryItemsDto>? inventoryItems;
+    private IEnumerable<CategoriesDto>? categories;
+    private IEnumerable<EmployeeSearchResultDto>? activeEmployees;
+
+    private HashSet<int> selectedInventoryIds = new();
+    private HashSet<int> selectedEmployeeIds = new();
+
+    private bool isLoading = false;
+    private bool isAssigning = false;
+    private string? errorMessage;
+
+    private string equipmentSearchTerm = string.Empty;
+    private string employeeSearchTerm = string.Empty;
+    private int? selectedCategoryId;
+
+    // Assignment Details fields
+    private DateTime? issueDate = DateTime.Today;
+    private int assignmentQuantity = 1;
+    private string? serialNumber;
+    private DateTime? expireDate;
+    private DateTime? returnDate;
+    private string? notes;
+
+    private MultipleEquipmentAssignmentResultDto? lastResult;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var taskInventory = SearchService.GetInventoryItemsAsync(onlyActive: true);
+            var taskCategories = CodeTableService.GetCategoriesAsync();
+            var taskEmployees = SearchService.GetActiveEmployeesAsync();
+
+            await Task.WhenAll(taskInventory, taskCategories, taskEmployees);
+
+            inventoryItems = await taskInventory;
+            categories = (await taskCategories).OrderBy(c => c.CategoryName).ToList();
+            activeEmployees = await taskEmployees;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading data for Multiple Equipment page.");
+            errorMessage = $"Failed to load initial data: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OnCategoryFilterChanged(int? categoryId)
+    {
+        selectedCategoryId = categoryId;
+    }
+
+    private IEnumerable<InventoryItemsDto> FilteredInventoryItems
+    {
+        get
+        {
+            if (inventoryItems == null) return Enumerable.Empty<InventoryItemsDto>();
+
+            var catId = selectedCategoryId;
+            var list = inventoryItems.Where(x => !catId.HasValue || x.CategoryID == catId.Value);
+
+            if (string.IsNullOrWhiteSpace(equipmentSearchTerm)) return list;
+
+            var term = equipmentSearchTerm.Trim();
+            return list.Where(i =>
+                (!string.IsNullOrEmpty(i.ProductName) && i.ProductName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(i.SKU) && i.SKU.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(i.BrandName) && i.BrandName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(i.CategoryName) && i.CategoryName.Contains(term, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+    }
+
+    private bool IsAllFilteredEquipmentSelected
+    {
+        get
+        {
+            var filtered = FilteredInventoryItems.ToList();
+            return filtered.Any() && filtered.All(i => selectedInventoryIds.Contains(i.InventoryID));
+        }
+    }
+
+    private void ToggleSelectAllFilteredEquipment(bool isChecked)
+    {
+        var filtered = FilteredInventoryItems.ToList();
+        if (isChecked)
+        {
+            foreach (var item in filtered)
+            {
+                selectedInventoryIds.Add(item.InventoryID);
+            }
+        }
+        else
+        {
+            foreach (var item in filtered)
+            {
+                selectedInventoryIds.Remove(item.InventoryID);
+            }
+        }
+    }
+
+    private void SelectAllEquipment()
+    {
+        foreach (var item in FilteredInventoryItems)
+        {
+            selectedInventoryIds.Add(item.InventoryID);
+        }
+    }
+
+    private void DeselectAllEquipment()
+    {
+        selectedInventoryIds.Clear();
+    }
+
+    private void ToggleEquipmentSelection(int inventoryId, bool isChecked)
+    {
+        if (isChecked)
+        {
+            selectedInventoryIds.Add(inventoryId);
+        }
+        else
+        {
+            selectedInventoryIds.Remove(inventoryId);
+        }
+    }
+
+    private IEnumerable<EmployeeSearchResultDto> FilteredEmployees
+    {
+        get
+        {
+            if (activeEmployees == null) return Enumerable.Empty<EmployeeSearchResultDto>();
+
+            var list = activeEmployees.Where(e =>
+                string.IsNullOrEmpty(e.Status) ||
+                (!e.Status.Contains("Inactive", StringComparison.OrdinalIgnoreCase) &&
+                 !e.Status.Contains("Terminated", StringComparison.OrdinalIgnoreCase) &&
+                 !e.Status.Contains("Retired", StringComparison.OrdinalIgnoreCase) &&
+                 !e.Status.Contains("Resigned", StringComparison.OrdinalIgnoreCase))
+            );
+
+            if (string.IsNullOrWhiteSpace(employeeSearchTerm)) return list;
+
+            var term = employeeSearchTerm.Trim();
+            return list.Where(e =>
+                (!string.IsNullOrEmpty(e.FirstName) && e.FirstName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(e.LastName) && e.LastName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(e.BadgeNumber) && e.BadgeNumber.Contains(term, StringComparison.OrdinalIgnoreCase))
+            );
+        }
+    }
+
+    private bool IsAllFilteredEmployeesSelected
+    {
+        get
+        {
+            var filtered = FilteredEmployees.ToList();
+            return filtered.Any() && filtered.All(e => selectedEmployeeIds.Contains(e.EmployeeID));
+        }
+    }
+
+    private void ToggleSelectAllFilteredEmployees(bool isChecked)
+    {
+        var filtered = FilteredEmployees.ToList();
+        if (isChecked)
+        {
+            foreach (var emp in filtered)
+            {
+                selectedEmployeeIds.Add(emp.EmployeeID);
+            }
+        }
+        else
+        {
+            foreach (var emp in filtered)
+            {
+                selectedEmployeeIds.Remove(emp.EmployeeID);
+            }
+        }
+    }
+
+    private void SelectAllEmployees()
+    {
+        foreach (var emp in FilteredEmployees)
+        {
+            selectedEmployeeIds.Add(emp.EmployeeID);
+        }
+    }
+
+    private void DeselectAllEmployees()
+    {
+        selectedEmployeeIds.Clear();
+    }
+
+    private void ToggleEmployeeSelection(int employeeId, bool isChecked)
+    {
+        if (isChecked)
+        {
+            selectedEmployeeIds.Add(employeeId);
+        }
+        else
+        {
+            selectedEmployeeIds.Remove(employeeId);
+        }
+    }
+
+    private async Task SubmitAssignmentAsync()
+    {
+        if (selectedInventoryIds.Count == 0)
+        {
+            Snackbar.Add("Please select at least one equipment item.", Severity.Warning);
+            return;
+        }
+
+        if (selectedEmployeeIds.Count == 0)
+        {
+            Snackbar.Add("Please select at least one active employee.", Severity.Warning);
+            return;
+        }
+
+        isAssigning = true;
+        errorMessage = null;
+        lastResult = null;
+
+        try
+        {
+            var request = new MultipleEquipmentAssignmentRequestDto
+            {
+                EmployeeIDs = selectedEmployeeIds.ToList(),
+                InventoryIDs = selectedInventoryIds.ToList(),
+                IssueDate = issueDate ?? DateTime.Today,
+                Quantity = assignmentQuantity > 0 ? assignmentQuantity : 1,
+                SerialNumber = serialNumber,
+                ExpireDate = expireDate,
+                ReturnDate = returnDate,
+                Notes = notes
+            };
+
+            var result = await SearchService.AssignMultipleEquipmentAsync(request);
+
+            if (result != null)
+            {
+                lastResult = result;
+                Snackbar.Add($"Successfully assigned {result.TotalItemsAssigned} equipment item(s) to {result.TotalEmployeesAssigned} employee(s)!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Failed to process equipment assignment request.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error submitting multiple equipment assignment.");
+            errorMessage = $"Error processing equipment assignment: {ex.Message}";
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isAssigning = false;
+        }
+    }
+}
+

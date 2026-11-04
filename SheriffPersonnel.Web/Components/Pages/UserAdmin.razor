@@ -1,0 +1,453 @@
+@page "/admin/users"
+@page "/admin/user"
+@using System.ComponentModel.DataAnnotations
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@attribute [Authorize(Roles = "Administrator")]
+
+@inject UserAdminService UserService
+@inject ISnackbar Snackbar
+@inject ILogger<UserAdmin> Logger
+
+<PageTitle>User Administration</PageTitle>
+
+<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+    <div>
+        <MudText Typo="Typo.h4">User Administration</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Manage system users, Entra ID mappings, and role assignments.</MudText>
+    </div>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="OpenCreateDialog">
+        Add New User
+    </MudButton>
+</MudStack>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4" CloseIcon="@Icons.Material.Filled.Close" CloseIconClicked="() => errorMessage = null">
+        @errorMessage
+    </MudAlert>
+}
+
+<MudPaper Class="pa-4 mb-4" Elevation="2">
+    <MudGrid>
+        <MudItem xs="12" sm="8" md="6">
+            <MudTextField @bind-Value="searchString" Placeholder="Search users by name, UPN, Entra ID..." Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+        </MudItem>
+        <MudItem xs="12" sm="4" md="6" Class="d-flex justify-end">
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadDataAsync" Disabled="@isLoading">
+                Refresh
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudPaper Elevation="3">
+    <MudTable Items="FilteredUsers" Hover="true" Striped="true" Loading="@isLoading" Filter="new Func<UserDTO, bool>(FilterUserPredicate)">
+        <HeaderContent>
+            <MudTh><MudTableSortLabel SortBy="new Func<UserDTO, object>(x => x.UserID)">ID</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<UserDTO, object>(x => x.DisplayName)">Display Name</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<UserDTO, object>(x => x.UserPrincipalName)">User Principal Name</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<UserDTO, object>(x => x.EntraObjectID ?? string.Empty)">Entra Object ID</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<UserDTO, object>(x => x.EmployeeID ?? 0)">Employee ID</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<UserDTO, object>(x => x.IsActive)">Status</MudTableSortLabel></MudTh>
+            <MudTh>Assigned Roles</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="ID">@context.UserID</MudTd>
+            <MudTd DataLabel="Display Name">
+                <MudText Typo="Typo.body2" Style="font-weight: 600;">@context.DisplayName</MudText>
+            </MudTd>
+            <MudTd DataLabel="User Principal Name">@context.UserPrincipalName</MudTd>
+            <MudTd DataLabel="Entra Object ID">
+                @if (!string.IsNullOrWhiteSpace(context.EntraObjectID))
+                {
+                    <MudText Typo="Typo.caption" Style="font-family: monospace;">@context.EntraObjectID</MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Not linked</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Employee ID">
+                @if (context.EmployeeID.HasValue)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">#@context.EmployeeID</MudChip>
+                }
+                else
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">N/A</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Status">
+                @if (context.IsActive)
+                {
+                    <MudChip T="string" Color="Color.Success" Size="Size.Small">Active</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Color="Color.Default" Size="Size.Small">Inactive</MudChip>
+                }
+            </MudTd>
+            <MudTd DataLabel="Assigned Roles">
+                @if (context.Roles != null && context.Roles.Any())
+                {
+                    <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
+                        @foreach (var role in context.Roles)
+                        {
+                            <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Filled">@role.RoleName</MudChip>
+                        }
+                    </MudStack>
+                }
+                else
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">No roles assigned</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Actions">
+                <MudTooltip Text="Edit User">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditDialog(context)" />
+                </MudTooltip>
+                <MudTooltip Text="Delete User">
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => ConfirmDelete(context)" />
+                </MudTooltip>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4 text-center">No user accounts found matching your query.</MudText>
+        </NoRecordsContent>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+        </PagerContent>
+    </MudTable>
+</MudPaper>
+
+@* Add/Edit Dialog *@
+<MudDialog @bind-Visible="isDialogVisible" Options="dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(isEditMode ? Icons.Material.Filled.Edit : Icons.Material.Filled.PersonAdd)" Class="mr-2" />
+            @(isEditMode ? $"Edit User: {editingUser.DisplayName}" : "Add New User")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <EditForm Model="userFormModel" OnValidSubmit="SaveUserAsync">
+            <DataAnnotationsValidator />
+
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="userFormModel.DisplayName" Label="Display Name" Variant="Variant.Outlined" Required="true" RequiredError="Display name is required" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="userFormModel.UserPrincipalName" Label="User Principal Name (Email)" Variant="Variant.Outlined" Required="true" RequiredError="User principal name is required" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="userFormModel.EntraObjectID" Label="Entra Object ID" Variant="Variant.Outlined" HelperText="Entra ID GUID identifier" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField @bind-Value="userFormModel.EmployeeID" Label="Employee ID" Variant="Variant.Outlined" Clearable="true" HelperText="Associated Employee record ID (optional)" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudCheckBox T="bool" @bind-Value="userFormModel.IsActive" Label="User Account Active" Color="Color.Success" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Assign User Roles</MudText>
+                    <MudPaper Class="pa-3" Outlined="true">
+                        @if (availableRoles != null && availableRoles.Any())
+                        {
+                            <MudGrid>
+                                @foreach (var role in availableRoles)
+                                {
+                                    <MudItem xs="12" sm="6">
+                                        <MudCheckBox T="bool" Value="@IsRoleSelected(role.RoleID)" ValueChanged="@((bool selected) => ToggleRoleSelection(role.RoleID, selected))" Color="Color.Primary">
+                                            <b>@role.RoleName</b>
+                                            @if (!string.IsNullOrWhiteSpace(role.RoleDescription))
+                                            {
+                                                <MudText Typo="Typo.caption" Class="d-block text-muted">@role.RoleDescription</MudText>
+                                            }
+                                        </MudCheckBox>
+                                    </MudItem>
+                                }
+                            </MudGrid>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Loading available roles...</MudText>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="CloseDialog">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveUserAsync" Disabled="@isSaving">
+            @if (isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Saving...</span>
+            }
+            else
+            {
+                <span>Save</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* Delete Confirmation Dialog *@
+<MudDialog @bind-Visible="isDeleteDialogVisible">
+    <TitleContent>
+        <MudText Typo="Typo.h6" Color="Color.Error">Confirm Delete User</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText>Are you sure you want to delete user account <b>@userToDelete?.DisplayName</b> (@userToDelete?.UserPrincipalName)?</MudText>
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 d-block">This action will remove the user record and all associated role assignments.</MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="() => isDeleteDialogVisible = false">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteUserAsync" Disabled="@isDeleting">
+            @if (isDeleting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Deleting...</span>
+            }
+            else
+            {
+                <span>Delete</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<UserDTO> users = new();
+    private List<RoleDTO> availableRoles = new();
+    private string searchString = string.Empty;
+    private bool isLoading = false;
+    private string? errorMessage;
+
+    // Add / Edit Dialog state
+    private bool isDialogVisible = false;
+    private bool isEditMode = false;
+    private bool isSaving = false;
+    private UserDTO editingUser = new();
+    private UserFormModel userFormModel = new();
+    private DialogOptions dialogOptions = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+
+    // Delete Dialog state
+    private bool isDeleteDialogVisible = false;
+    private bool isDeleting = false;
+    private UserDTO? userToDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var userListTask = UserService.GetUsersAsync();
+            var roleListTask = UserService.GetRolesAsync();
+
+            await Task.WhenAll(userListTask, roleListTask);
+
+            users = (await userListTask).ToList();
+            availableRoles = (await roleListTask).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load user administration data.");
+            errorMessage = $"Error loading users or roles: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private IEnumerable<UserDTO> FilteredUsers => users;
+
+    private bool FilterUserPredicate(UserDTO user)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+
+        var term = searchString.Trim().ToLowerInvariant();
+
+        return (user.DisplayName?.ToLowerInvariant().Contains(term) ?? false) ||
+               (user.UserPrincipalName?.ToLowerInvariant().Contains(term) ?? false) ||
+               (user.EntraObjectID?.ToLowerInvariant().Contains(term) ?? false) ||
+               (user.EmployeeID.HasValue && user.EmployeeID.Value.ToString().Contains(term)) ||
+               (user.Roles != null && user.Roles.Any(r => r.RoleName.ToLowerInvariant().Contains(term)));
+    }
+
+    private void OpenCreateDialog()
+    {
+        isEditMode = false;
+        userFormModel = new UserFormModel
+        {
+            IsActive = true,
+            RoleIDs = new List<int>()
+        };
+        isDialogVisible = true;
+    }
+
+    private void OpenEditDialog(UserDTO user)
+    {
+        isEditMode = true;
+        editingUser = user;
+        userFormModel = new UserFormModel
+        {
+            UserID = user.UserID,
+            DisplayName = user.DisplayName,
+            UserPrincipalName = user.UserPrincipalName,
+            EntraObjectID = user.EntraObjectID,
+            EmployeeID = user.EmployeeID,
+            IsActive = user.IsActive,
+            RoleIDs = user.RoleIDs != null ? new List<int>(user.RoleIDs) : new List<int>()
+        };
+        isDialogVisible = true;
+    }
+
+    private void CloseDialog()
+    {
+        isDialogVisible = false;
+    }
+
+    private bool IsRoleSelected(int roleId)
+    {
+        return userFormModel.RoleIDs.Contains(roleId);
+    }
+
+    private void ToggleRoleSelection(int roleId, bool isSelected)
+    {
+        if (isSelected && !userFormModel.RoleIDs.Contains(roleId))
+        {
+            userFormModel.RoleIDs.Add(roleId);
+        }
+        else if (!isSelected && userFormModel.RoleIDs.Contains(roleId))
+        {
+            userFormModel.RoleIDs.Remove(roleId);
+        }
+    }
+
+    private async Task SaveUserAsync()
+    {
+        if (string.IsNullOrWhiteSpace(userFormModel.DisplayName) || string.IsNullOrWhiteSpace(userFormModel.UserPrincipalName))
+        {
+            Snackbar.Add("Please fill out all required fields.", Severity.Warning);
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            var dto = new UserCreateUpdateDto
+            {
+                DisplayName = userFormModel.DisplayName.Trim(),
+                UserPrincipalName = userFormModel.UserPrincipalName.Trim(),
+                EntraObjectID = string.IsNullOrWhiteSpace(userFormModel.EntraObjectID) ? null : userFormModel.EntraObjectID.Trim(),
+                EmployeeID = userFormModel.EmployeeID,
+                IsActive = userFormModel.IsActive,
+                RoleIDs = userFormModel.RoleIDs
+            };
+
+            if (isEditMode)
+            {
+                var updated = await UserService.UpdateUserAsync(userFormModel.UserID, dto);
+                if (updated != null)
+                {
+                    Snackbar.Add($"User '{updated.DisplayName}' updated successfully.", Severity.Success);
+                }
+            }
+            else
+            {
+                var created = await UserService.CreateUserAsync(dto);
+                if (created != null)
+                {
+                    Snackbar.Add($"User '{created.DisplayName}' created successfully.", Severity.Success);
+                }
+            }
+
+            isDialogVisible = false;
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving user.");
+            Snackbar.Add($"Failed to save user: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void ConfirmDelete(UserDTO user)
+    {
+        userToDelete = user;
+        isDeleteDialogVisible = true;
+    }
+
+    private async Task DeleteUserAsync()
+    {
+        if (userToDelete == null) return;
+
+        isDeleting = true;
+
+        try
+        {
+            var success = await UserService.DeleteUserAsync(userToDelete.UserID);
+            if (success)
+            {
+                Snackbar.Add($"User '{userToDelete.DisplayName}' was deleted.", Severity.Success);
+                await LoadDataAsync();
+            }
+            else
+            {
+                Snackbar.Add("Failed to delete user.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting user.");
+            Snackbar.Add($"Error deleting user: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isDeleting = false;
+            isDeleteDialogVisible = false;
+            userToDelete = null;
+        }
+    }
+
+    private class UserFormModel
+    {
+        public int UserID { get; set; }
+
+        [Required(ErrorMessage = "Display name is required")]
+        public string DisplayName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "User principal name is required")]
+        [EmailAddress(ErrorMessage = "Invalid email address format")]
+        public string UserPrincipalName { get; set; } = string.Empty;
+
+        public string? EntraObjectID { get; set; }
+
+        public int? EmployeeID { get; set; }
+
+        public bool IsActive { get; set; } = true;
+
+        public List<int> RoleIDs { get; set; } = new List<int>();
+    }
+}

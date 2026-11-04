@@ -1,0 +1,169 @@
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@inject SearchService service
+@inject ISnackbar Snackbar
+@inject ILogger<AddEmployeeHistoryModal> logger
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(HistoryRecord.HistoryID == 0 ? Icons.Material.Filled.Add : Icons.Material.Filled.Edit)" Class="mr-2" />
+            @(HistoryRecord.HistoryID == 0 ? "Add History Record" : "Edit History Record")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <EditForm Model="HistoryRecord" OnValidSubmit="SaveHistoryAsync">
+            <DataAnnotationsValidator />
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="historyDate" Label="History Date" Variant="Variant.Outlined" Required="true" DateFormat="MM/dd/yyyy" Editable="true" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="int?" @bind-Value="HistoryRecord.ProgramID" Label="Program" Variant="Variant.Outlined" Clearable="true">
+                        <MudSelectItem T="int?" Value="@((int?)null)">-- Select Program --</MudSelectItem>
+                        @if (AvailablePrograms != null)
+                        {
+                            @foreach (var prog in GetFilteredPrograms())
+                            {
+                                <MudSelectItem T="int?" Value="@prog.ProgramID">@prog.DisplayName</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="int?" @bind-Value="HistoryRecord.RankID" Label="Rank" Variant="Variant.Outlined" Clearable="true">
+                        <MudSelectItem T="int?" Value="@((int?)null)">-- Select Rank --</MudSelectItem>
+                        @if (AvailableRanks != null)
+                        {
+                            @foreach (var r in GetFilteredRanks())
+                            {
+                                <MudSelectItem T="int?" Value="@r.RankID">@r.RankName</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="int?" @bind-Value="HistoryRecord.UnitID" Label="Unit" Variant="Variant.Outlined" Clearable="true">
+                        <MudSelectItem T="int?" Value="@((int?)null)">-- Select Unit --</MudSelectItem>
+                        @if (AvailableUnits != null)
+                        {
+                            @foreach (var u in GetFilteredUnits())
+                            {
+                                <MudSelectItem T="int?" Value="@u.UnitID">@u.UnitName</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="Cancel" Disabled="@isSaving">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Check" OnClick="SaveHistoryAsync" Disabled="@isSaving">
+            @if (isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Saving...</span>
+            }
+            else
+            {
+                <span>Save</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public int EmployeeId { get; set; }
+
+    [Parameter]
+    public EmployeeChangesDto HistoryRecord { get; set; } = new();
+
+    [Parameter]
+    public IEnumerable<ProgramsDto>? AvailablePrograms { get; set; }
+
+    [Parameter]
+    public IEnumerable<RanksDto>? AvailableRanks { get; set; }
+
+    [Parameter]
+    public IEnumerable<UnitsDto>? AvailableUnits { get; set; }
+
+    private IEnumerable<ProgramsDto> GetFilteredPrograms() =>
+        AvailablePrograms?.Where(p => p.IsActive || p.ProgramID == HistoryRecord.ProgramID) ?? Enumerable.Empty<ProgramsDto>();
+
+    private IEnumerable<RanksDto> GetFilteredRanks() =>
+        AvailableRanks?.Where(r => r.IsActive || r.RankID == HistoryRecord.RankID) ?? Enumerable.Empty<RanksDto>();
+
+    private IEnumerable<UnitsDto> GetFilteredUnits() =>
+        AvailableUnits?.Where(u => u.IsActive || u.UnitID == HistoryRecord.UnitID) ?? Enumerable.Empty<UnitsDto>();
+
+    private DateTime? historyDate;
+    private bool isSaving = false;
+
+    protected override void OnInitialized()
+    {
+        historyDate = HistoryRecord.HistoryID == 0 ? DateTime.Today : HistoryRecord.HistoryDate;
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task SaveHistoryAsync()
+    {
+        if (!historyDate.HasValue)
+        {
+            Snackbar.Add("History Date is required.", Severity.Error);
+            return;
+        }
+
+        HistoryRecord.EmployeeID = EmployeeId;
+        HistoryRecord.HistoryDate = historyDate.Value;
+        isSaving = true;
+
+        try
+        {
+            if (HistoryRecord.HistoryID == 0)
+            {
+                var result = await service.CreateEmployeeChangeAsync(HistoryRecord);
+                if (result != null)
+                {
+                    Snackbar.Add("Employee history record created successfully!", Severity.Success);
+                    MudDialog.Close(DialogResult.Ok(result));
+                }
+                else
+                {
+                    Snackbar.Add("Failed to create history record.", Severity.Error);
+                }
+            }
+            else
+            {
+                var result = await service.UpdateEmployeeChangeAsync(HistoryRecord.HistoryID, HistoryRecord);
+                if (result != null)
+                {
+                    Snackbar.Add("Employee history record updated successfully!", Severity.Success);
+                    MudDialog.Close(DialogResult.Ok(result));
+                }
+                else
+                {
+                    Snackbar.Add("Failed to update history record.", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error saving employee history record.");
+            Snackbar.Add($"Failed to save history record: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}
+

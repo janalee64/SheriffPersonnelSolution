@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "SheriffPersonnel Web (HTTPS)",
+      "type": "dotnet",
+      "request": "launch",
+      "project": "${workspaceFolder}/SheriffPersonnel.Web/SheriffPersonnel.Web.csproj",
+      "launchSettingsProfile": "https"
+    },
+    {
+      "name": "SheriffPersonnel API (HTTPS)",
+      "type": "dotnet",
+      "request": "launch",
+      "project": "${workspaceFolder}/SheriffPersonnel.API/SheriffPersonnel.API.csproj",
+      "launchSettingsProfile": "https"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "SheriffPersonnel Web + API",
+      "configurations": [
+        "SheriffPersonnel Web (HTTPS)",
+        "SheriffPersonnel API (HTTPS)"
+      ],
+      "stopAll": true
+    }
+  ]
+}

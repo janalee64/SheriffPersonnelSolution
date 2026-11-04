@@ -1,0 +1,263 @@
+@page "/print/employee-trainings/{EmployeeId:int}"
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@layout PrintLayout
+
+@inject SearchService service
+@inject IJSRuntime JSRuntime
+@inject ILogger<PrintEmployeeTrainings> logger
+
+@attribute [Authorize(Roles = "Administrator, Personnel, Inventory, Range, Training, Equipment, SSN")]
+
+<PageTitle>Employee Trainings Report</PageTitle>
+
+@if (isLoading)
+{
+    <div class="pa-6 d-flex justify-center align-center">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        <MudText Class="ml-4">Loading training records...</MudText>
+    </div>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        @errorMessage
+    </MudAlert>
+}
+else
+{
+    <div class="print-header">
+        <div class="d-flex justify-space-between align-center mb-4 no-print">
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Print" OnClick="TriggerPrint">
+                    Print Report
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Close" OnClick="CloseWindow">
+                    Close Window
+                </MudButton>
+            </MudStack>
+        </div>
+
+        <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 8px; color: #111;">Employee Training Report</h1>
+
+        @if (employee != null)
+        {
+            <div class="employee-info-box mb-4 pa-3" style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;">
+                <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 14px; color: #333;">
+                    <div><strong>Employee Name:</strong> @FormattedEmployeeName</div>
+                    <div><strong>Badge Number:</strong> @(string.IsNullOrWhiteSpace(employee.BadgeNumber) ? "N/A" : employee.BadgeNumber)</div>
+                    <div><strong>Status:</strong> @(string.IsNullOrWhiteSpace(employee.StatusDescription) ? "N/A" : employee.StatusDescription)</div>
+                    <div><strong>Hire Date:</strong> @(employee.HireDate?.ToString("MM/dd/yyyy") ?? "N/A")</div>
+                </div>
+            </div>
+        }
+
+        <div style="font-size: 16px; margin-bottom: 12px; color: #111; display: flex; justify-content: space-between; align-items: center;">
+            <span><strong>Total Training Records:</strong> @(trainings?.Count ?? 0)</span>
+            <span style="font-size: 18px; font-weight: bold; color: #0d6efd;">Total Hours Completed: @TotalHoursCompleted.ToString("N2")</span>
+        </div>
+    </div>
+
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>School / Provider</th>
+                <th>Location</th>
+                <th>Instructor</th>
+                <th>Dates</th>
+                <th style="text-align: right;">Hours Completed</th>
+                <th>Expire Date</th>
+                <th>Order Number</th>
+                <th style="text-align: right;">Reg. Cost</th>
+                <th style="text-align: right;">Travel Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (trainings != null && trainings.Any())
+            {
+                @foreach (var item in trainings)
+                {
+                    <tr>
+                        <td>@(string.IsNullOrWhiteSpace(item.SchoolName) ? "-" : item.SchoolName)</td>
+                        <td>@(string.IsNullOrWhiteSpace(item.Location) ? "-" : item.Location)</td>
+                        <td>@(string.IsNullOrWhiteSpace(item.Instructor) ? "-" : item.Instructor)</td>
+                        <td>
+                            @if (item.BeginDate.HasValue || item.EndDate.HasValue)
+                            {
+                                @($"{item.BeginDate:MM/dd/yyyy} - {item.EndDate:MM/dd/yyyy}")
+                            }
+                            else
+                            {
+                                @("-")
+                            }
+                        </td>
+                        <td style="text-align: right;">@(item.HoursCompleted.HasValue ? item.HoursCompleted.Value.ToString("F2") : "-")</td>
+                        <td>@(item.ExpireDate.HasValue ? item.ExpireDate.Value.ToString("MM/dd/yyyy") : "-")</td>
+                        <td>@(string.IsNullOrWhiteSpace(item.OrderNumber) ? "-" : item.OrderNumber)</td>
+                        <td style="text-align: right;">@item.RegistrationCost.ToString("C2")</td>
+                        <td style="text-align: right;">@item.TravelCost.ToString("C2")</td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 16px;">No training records found for this employee.</td>
+                </tr>
+            }
+        </tbody>
+        @if (trainings != null && trainings.Any())
+        {
+            <tfoot>
+                <tr style="font-weight: bold; background-color: #f2f2f2;">
+                    <td colspan="4" style="text-align: right;">Totals:</td>
+                    <td style="text-align: right;">@TotalHoursCompleted.ToString("N2")</td>
+                    <td colspan="2"></td>
+                    <td style="text-align: right;">@TotalRegistrationCost.ToString("C2")</td>
+                    <td style="text-align: right;">@TotalTravelCost.ToString("C2")</td>
+                </tr>
+            </tfoot>
+        }
+    </table>
+}
+
+<style>
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        font-size: 13px;
+    }
+
+    .report-table th, .report-table td {
+        border: 1px solid #ccc;
+        padding: 8px 10px;
+        text-align: left;
+    }
+
+    .report-table th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+
+    @@media print {
+        .no-print {
+            display: none !important;
+        }
+
+        body {
+            background-color: white !important;
+            color: black !important;
+            margin: 0;
+            padding: 10px;
+            font-size: 12px;
+        }
+
+        .report-table {
+            font-size: 11px;
+        }
+
+        .report-table th, .report-table td {
+            border: 1px solid #666 !important;
+            padding: 6px 8px !important;
+        }
+
+        .report-table th, .report-table tfoot tr {
+            background-color: #eee !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public int EmployeeId { get; set; }
+
+    private EmployeeDetailDto? employee;
+    private List<EmployeeTrainingsDto> trainings = new();
+    private bool isLoading = true;
+    private string? errorMessage;
+    private bool printTriggered = false;
+
+    private decimal TotalHoursCompleted => trainings?.Sum(t => t.HoursCompleted ?? 0m) ?? 0m;
+    private decimal TotalRegistrationCost => trainings?.Sum(t => t.RegistrationCost) ?? 0m;
+    private decimal TotalTravelCost => trainings?.Sum(t => t.TravelCost) ?? 0m;
+
+    private string FormattedEmployeeName
+    {
+        get
+        {
+            if (employee == null) return string.Empty;
+            if (!string.IsNullOrWhiteSpace(employee.LastName))
+            {
+                var firstMiddle = string.Join(" ", new[] { employee.FirstName, employee.MiddleInitial }.Where(s => !string.IsNullOrWhiteSpace(s)));
+                return !string.IsNullOrWhiteSpace(firstMiddle) ? $"{employee.LastName}, {firstMiddle}" : employee.LastName;
+            }
+            return employee.FirstName ?? string.Empty;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (EmployeeId <= 0)
+            {
+                errorMessage = "Invalid Employee ID specified.";
+                return;
+            }
+
+            employee = await service.GetEmployeeByIdAsync(EmployeeId);
+            var result = await service.GetEmployeeTrainingsByEmployeeIdAsync(EmployeeId);
+            trainings = result
+                .OrderByDescending(t => t.BeginDate ?? DateOnly.MinValue)
+                .ThenBy(t => t.SchoolName ?? string.Empty)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading employee trainings printable report for employee ID {EmployeeID}.", EmployeeId);
+            errorMessage = $"Error loading report data: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!isLoading && string.IsNullOrEmpty(errorMessage) && !printTriggered)
+        {
+            printTriggered = true;
+            StateHasChanged();
+            await Task.Delay(300); // Give DOM a brief moment to stabilize before print dialog
+            await TriggerPrint();
+        }
+    }
+
+    private async Task TriggerPrint()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("window.print");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not trigger window.print directly.");
+        }
+    }
+
+    private async Task CloseWindow()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("window.close");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not close browser window automatically.");
+        }
+    }
+}

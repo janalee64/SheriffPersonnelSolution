@@ -1,0 +1,237 @@
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@inject SearchService service
+@inject ISnackbar Snackbar
+@inject ILogger<AddRangeStatisticModal> logger
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(RangeStat.RangeID == 0 ? Icons.Material.Filled.Add : Icons.Material.Filled.Edit)" Class="mr-2" />
+            @(RangeStat.RangeID == 0 ? "Add Range Statistic" : "Edit Range Statistic")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <EditForm Model="RangeStat" OnValidSubmit="SaveRangeStatAsync">
+            <DataAnnotationsValidator />
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudAutocomplete T="RangeEventDTO"
+                                     Value="selectedRangeEvent"
+                                     ValueChanged="OnRangeEventChanged"
+                                     SearchFunc="SearchRangeEvents"
+                                     ToStringFunc="GetRangeEventText"
+                                     Label="Range Event"
+                                     Variant="Variant.Outlined"
+                                     ResetValueOnEmptyText="true"
+                                     CoerceText="true"
+                                     CoerceValue="false"
+                                     Clearable="true"
+                                     Required="true"
+                                     RequiredError="Range Event is required"
+                                     AdornmentIcon="@Icons.Material.Filled.Search"
+                                     AdornmentColor="Color.Primary" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="int?" @bind-Value="RangeStat.CourseID" Label="Range Course" Variant="Variant.Outlined" Clearable="true">
+                        <MudSelectItem T="int?" Value="@((int?)null)">-- Select Course --</MudSelectItem>
+                        @if (AvailableCourses != null)
+                        {
+                            @foreach (var course in AvailableCourses)
+                            {
+                                <MudSelectItem T="int?" Value="@course.CourseID">@course.CourseName</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="int?" @bind-Value="RangeStat.FirearmID" Label="Firearm" Variant="Variant.Outlined" Clearable="true">
+                        <MudSelectItem T="int?" Value="@((int?)null)">-- Select Firearm --</MudSelectItem>
+                        @if (AvailableFirearms != null)
+                        {
+                            @foreach (var firearm in AvailableFirearms)
+                            {
+                                var label = $"{firearm.MakeName} {firearm.ModelNumber} (S/N: {firearm.SerialNumber})".Trim();
+                                <MudSelectItem T="int?" Value="@firearm.FirearmID">@label</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="int?" @bind-Value="RangeStat.RoundsFired" Label="Rounds Fired" Variant="Variant.Outlined" Min="0" Max="10000" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string" @bind-Value="RangeStat.PassFail" Label="Pass / Fail Result" Variant="Variant.Outlined" Clearable="true">
+                        <MudSelectItem T="string" Value="@((string?)null)">-- Select Result --</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Pass")">Pass</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Fail")">Fail</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("N/A")">N/A</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="Cancel" Disabled="@isSaving">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Check" OnClick="SaveRangeStatAsync" Disabled="@isSaving">
+            @if (isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Saving...</span>
+            }
+            else
+            {
+                <span>Save</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public int EmployeeId { get; set; }
+
+    [Parameter]
+    public RangeStatisticDTO RangeStat { get; set; } = new();
+
+    [Parameter]
+    public IEnumerable<RangeCourseDTO>? AvailableCourses { get; set; }
+
+    [Parameter]
+    public IEnumerable<RangeEventDTO>? AvailableEvents { get; set; }
+
+    [Parameter]
+    public IEnumerable<FirearmsDto>? AvailableFirearms { get; set; }
+
+    private RangeEventDTO? selectedRangeEvent;
+    private bool isSaving = false;
+
+    protected override void OnInitialized()
+    {
+        NormalizePassFail();
+        InitSelectedEvent();
+    }
+
+    protected override void OnParametersSet()
+    {
+        NormalizePassFail();
+        InitSelectedEvent();
+    }
+
+    private void NormalizePassFail()
+    {
+        if (string.Equals(RangeStat.PassFail, "P", StringComparison.OrdinalIgnoreCase))
+        {
+            RangeStat.PassFail = "Pass";
+        }
+        else if (string.Equals(RangeStat.PassFail, "F", StringComparison.OrdinalIgnoreCase))
+        {
+            RangeStat.PassFail = "Fail";
+        }
+    }
+
+    private void InitSelectedEvent()
+    {
+        if (selectedRangeEvent == null && RangeStat.RangeEventID > 0 && AvailableEvents != null)
+        {
+            selectedRangeEvent = AvailableEvents.FirstOrDefault(x => x.RangeEventID == RangeStat.RangeEventID);
+        }
+    }
+
+    private void OnRangeEventChanged(RangeEventDTO? ev)
+    {
+        selectedRangeEvent = ev;
+        RangeStat.RangeEventID = ev?.RangeEventID ?? 0;
+    }
+
+    private Task<IEnumerable<RangeEventDTO>> SearchRangeEvents(string value, CancellationToken token)
+    {
+        if (AvailableEvents == null || !AvailableEvents.Any())
+        {
+            return Task.FromResult(Enumerable.Empty<RangeEventDTO>());
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult(AvailableEvents);
+        }
+
+        var filtered = AvailableEvents.Where(x =>
+            GetRangeEventText(x).Contains(value, StringComparison.OrdinalIgnoreCase) ||
+            (!string.IsNullOrEmpty(x.EventType) && x.EventType.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(x.Location) && x.Location.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(x.Notes) && x.Notes.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            (x.RangeDate != default && x.RangeDate.ToString("MM/dd/yyyy").Contains(value, StringComparison.OrdinalIgnoreCase))
+        );
+
+        return Task.FromResult(filtered);
+    }
+
+    private string GetRangeEventText(RangeEventDTO? ev)
+    {
+        if (ev == null) return string.Empty;
+        var eventType = string.IsNullOrWhiteSpace(ev.EventType) ? "Event" : ev.EventType;
+        var location = string.IsNullOrWhiteSpace(ev.Location) ? "" : $" ({ev.Location})";
+        return $"{ev.RangeDate:MM/dd/yyyy} - {eventType}{location}".Trim();
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task SaveRangeStatAsync()
+    {
+        if (RangeStat.RangeEventID <= 0)
+        {
+            Snackbar.Add("Range Event selection is required.", Severity.Error);
+            return;
+        }
+
+        RangeStat.EmployeeID = EmployeeId;
+        isSaving = true;
+
+        try
+        {
+            if (RangeStat.RangeID == 0)
+            {
+                var result = await service.CreateRangeStatisticAsync(RangeStat);
+                if (result != null)
+                {
+                    Snackbar.Add("Range statistic added successfully!", Severity.Success);
+                    MudDialog.Close(DialogResult.Ok(result));
+                }
+                else
+                {
+                    Snackbar.Add("Failed to create range statistic.", Severity.Error);
+                }
+            }
+            else
+            {
+                var result = await service.UpdateRangeStatisticAsync(RangeStat.RangeID, RangeStat);
+                if (result != null)
+                {
+                    Snackbar.Add("Range statistic updated successfully!", Severity.Success);
+                    MudDialog.Close(DialogResult.Ok(result));
+                }
+                else
+                {
+                    Snackbar.Add("Failed to update range statistic.", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error saving range statistic.");
+            Snackbar.Add($"Failed to save range statistic: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}
+

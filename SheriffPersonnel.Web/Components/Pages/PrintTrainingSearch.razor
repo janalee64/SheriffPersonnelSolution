@@ -1,0 +1,285 @@
+@page "/print/training-search"
+@using System.Web
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@layout PrintLayout
+
+@inject SearchService service
+@inject IJSRuntime JSRuntime
+@inject ILogger<PrintTrainingSearch> logger
+
+@attribute [Authorize(Roles = "Administrator, Personnel, Inventory, Range, Training, Equipment, SSN")]
+
+<PageTitle>Training Search - Printable Report</PageTitle>
+
+@if (isLoading)
+{
+    <div class="pa-6 d-flex justify-center align-center">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        <MudText Class="ml-4">Loading training search report...</MudText>
+    </div>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        @errorMessage
+    </MudAlert>
+}
+else
+{
+    <div class="print-header">
+        <div class="d-flex justify-space-between align-center mb-4 no-print">
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Print" OnClick="TriggerPrint">
+                    Print Report
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Close" OnClick="CloseWindow">
+                    Close Window
+                </MudButton>
+            </MudStack>
+        </div>
+
+        <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 8px; color: #111;">Training Search Report</h1>
+
+        <div style="font-size: 14px; margin-bottom: 6px; color: #333;">
+            <strong>Search Criteria:</strong> @GetFiltersSummary()
+        </div>
+
+        <div style="font-size: 14px; margin-bottom: 16px; color: #333;">
+            <strong>Total Records Found:</strong> @(searchResults?.Count ?? 0)
+        </div>
+    </div>
+
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Employee Name</th>
+                <th>School Name</th>
+                <th>Begin Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (searchResults != null && searchResults.Any())
+            {
+                @foreach (var item in searchResults)
+                {
+                    <tr>
+                        <td>@(string.IsNullOrWhiteSpace(item.EmployeeName) ? "-" : item.EmployeeName)</td>
+                        <td>@(string.IsNullOrWhiteSpace(item.SchoolName) ? "-" : item.SchoolName)</td>
+                        <td>@(item.BeginDate.HasValue ? item.BeginDate.Value.ToString("MM/dd/yyyy") : "-")</td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="3" style="text-align: center; padding: 16px;">No training records found matching the specified criteria.</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<style>
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        font-size: 13px;
+    }
+
+    .report-table th, .report-table td {
+        border: 1px solid #ccc;
+        padding: 8px 10px;
+        text-align: left;
+    }
+
+    .report-table th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+
+    @@media print {
+        .no-print {
+            display: none !important;
+        }
+
+        body {
+            background-color: white !important;
+            color: black !important;
+            margin: 0;
+            padding: 10px;
+            font-size: 12px;
+        }
+
+        .report-table {
+            font-size: 11px;
+        }
+
+        .report-table th, .report-table td {
+            border: 1px solid #666 !important;
+            padding: 6px 8px !important;
+        }
+
+        .report-table th {
+            background-color: #eee !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    }
+</style>
+
+@code {
+    [SupplyParameterFromQuery(Name = "schoolName")]
+    public string? SchoolName { get; set; }
+
+    [SupplyParameterFromQuery(Name = "trainingSchoolId")]
+    public int? TrainingSchoolID { get; set; }
+
+    [SupplyParameterFromQuery(Name = "statusId")]
+    public int? StatusID { get; set; }
+
+    [SupplyParameterFromQuery(Name = "programId")]
+    public int? ProgramID { get; set; }
+
+    [SupplyParameterFromQuery(Name = "unitId")]
+    public int? UnitID { get; set; }
+
+    [SupplyParameterFromQuery(Name = "startDate")]
+    public string? StartDateString { get; set; }
+
+    [SupplyParameterFromQuery(Name = "endDate")]
+    public string? EndDateString { get; set; }
+
+    private TrainingBySchoolRequestDto searchRequest = new();
+    private List<TrainingBySchoolDto>? searchResults;
+    private IEnumerable<StatusesDto>? availableStatuses;
+    private IEnumerable<ProgramsDto>? availablePrograms;
+    private IEnumerable<UnitsDto>? availableUnits;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private bool printTriggered = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            availableStatuses = await service.GetAvailableStatusesAsync();
+            availablePrograms = await service.GetProgramsAsync();
+            availableUnits = await service.GetUnitsAsync();
+
+            DateOnly? startDate = null;
+            if (!string.IsNullOrWhiteSpace(StartDateString) && DateOnly.TryParse(StartDateString, out var parsedStart))
+            {
+                startDate = parsedStart;
+            }
+
+            DateOnly? endDate = null;
+            if (!string.IsNullOrWhiteSpace(EndDateString) && DateOnly.TryParse(EndDateString, out var parsedEnd))
+            {
+                endDate = parsedEnd;
+            }
+
+            searchRequest = new TrainingBySchoolRequestDto
+            {
+                SchoolName = SchoolName,
+                TrainingSchoolID = TrainingSchoolID,
+                StatusID = StatusID,
+                ProgramID = ProgramID,
+                UnitID = UnitID,
+                StartDate = startDate,
+                EndDate = endDate
+            };
+
+            var results = await service.GetTrainingBySchoolAsync(searchRequest);
+            searchResults = results != null ? results.ToList() : new List<TrainingBySchoolDto>();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading training search printable report.");
+            errorMessage = $"Error loading report data: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!isLoading && string.IsNullOrEmpty(errorMessage) && !printTriggered)
+        {
+            printTriggered = true;
+            StateHasChanged();
+            await Task.Delay(300); // Give DOM a brief moment to stabilize before print dialog
+            await TriggerPrint();
+        }
+    }
+
+    private async Task TriggerPrint()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("window.print");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not trigger window.print directly.");
+        }
+    }
+
+    private async Task CloseWindow()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("window.close");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not close browser window automatically.");
+        }
+    }
+
+    private string GetFiltersSummary()
+    {
+        var filters = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.SchoolName))
+            filters.Add($"School Name: \"{searchRequest.SchoolName.Trim()}\"");
+
+        if (searchRequest.StatusID.HasValue && availableStatuses != null)
+        {
+            var st = availableStatuses.FirstOrDefault(s => s.StatusID == searchRequest.StatusID.Value);
+            if (st != null)
+            {
+                filters.Add($"Status: \"{st.StatusDescription ?? st.StatusCode}\"");
+            }
+        }
+
+        if (searchRequest.ProgramID.HasValue && availablePrograms != null)
+        {
+            var prog = availablePrograms.FirstOrDefault(p => p.ProgramID == searchRequest.ProgramID.Value);
+            if (prog != null)
+            {
+                filters.Add($"Program: \"{prog.DisplayName ?? prog.ProgramName}\"");
+            }
+        }
+
+        if (searchRequest.UnitID.HasValue && availableUnits != null)
+        {
+            var u = availableUnits.FirstOrDefault(unit => unit.UnitID == searchRequest.UnitID.Value);
+            if (u != null)
+            {
+                filters.Add($"Unit: \"{u.UnitName}\"");
+            }
+        }
+
+        if (searchRequest.StartDate.HasValue)
+            filters.Add($"Start Date: \"{searchRequest.StartDate.Value:MM/dd/yyyy}\"");
+
+        if (searchRequest.EndDate.HasValue)
+            filters.Add($"End Date: \"{searchRequest.EndDate.Value:MM/dd/yyyy}\"");
+
+        return filters.Any() ? string.Join(" | ", filters) : "All Training Records";
+    }
+}

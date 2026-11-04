@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/SheriffPersonnel.API/">
+    <Project Path="SheriffPersonnel.API/SheriffPersonnel.API.csproj" />
+  </Folder>
+  <Folder Name="/SheriffPersonnel.Shared/">
+    <Project Path="SheriffPersonnel.Shared/SheriffPersonnel.Shared.csproj" />
+  </Folder>
+  <Folder Name="/SheriffPersonnel.Web/">
+    <Project Path="SheriffPersonnel.Web/SheriffPersonnel.Web.csproj" />
+  </Folder>
+</Solution>

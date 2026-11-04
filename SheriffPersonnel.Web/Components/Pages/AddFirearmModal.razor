@@ -1,0 +1,178 @@
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@inject SearchService service
+@inject ISnackbar Snackbar
+@inject ILogger<AddFirearmModal> logger
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(Firearm.FirearmID == 0 ? Icons.Material.Filled.Add : Icons.Material.Filled.Edit)" Class="mr-2" />
+            @(Firearm.FirearmID == 0 ? "Add Firearm" : "Edit Firearm")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <EditForm Model="Firearm" OnValidSubmit="SaveFirearmAsync">
+            <DataAnnotationsValidator />
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="int?" @bind-Value="Firearm.MakeID" Label="Make" Variant="Variant.Outlined" Clearable="true">
+                        <MudSelectItem T="int?" Value="@((int?)null)">-- Select Make --</MudSelectItem>
+                        @if (AvailableMakes != null)
+                        {
+                            @foreach (var make in AvailableMakes)
+                            {
+                                <MudSelectItem T="int?" Value="@make.MakeID">@make.MakeName</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="Firearm.ModelNumber" For="@(() => Firearm.ModelNumber)" Label="Model Number" Variant="Variant.Outlined" Required="true" RequiredError="Model number is required" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="Firearm.SerialNumber" For="@(() => Firearm.SerialNumber)" Label="Serial Number" Variant="Variant.Outlined" Required="true" RequiredError="Serial number is required" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="Firearm.Caliber" For="@(() => Firearm.Caliber)" Label="Caliber" Variant="Variant.Outlined" Required="true" RequiredError="Caliber is required" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="int" @bind-Value="Firearm.StatusID" Label="Status" Variant="Variant.Outlined" Required="true" RequiredError="Status is required">
+                        @if (AvailableStatuses != null)
+                        {
+                            @foreach (var st in GetFilteredStatuses())
+                            {
+                                <MudSelectItem T="int" Value="@st.StatusID">@(st.StatusDescription ?? st.StatusCode)</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Firearm.Notes" Label="Notes" Variant="Variant.Outlined" Lines="2" />
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="Cancel" Disabled="@isSaving">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Check" OnClick="SaveFirearmAsync" Disabled="@isSaving">
+            @if (isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Saving...</span>
+            }
+            else
+            {
+                <span>Save</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public int EmployeeId { get; set; }
+
+    [Parameter]
+    public FirearmsDto Firearm { get; set; } = new();
+
+    [Parameter]
+    public IEnumerable<MakesDto>? AvailableMakes { get; set; }
+
+    [Parameter]
+    public IEnumerable<StatusesDto>? AvailableStatuses { get; set; }
+
+    private bool isSaving = false;
+
+    private bool IsEditRecord => Firearm != null && Firearm.FirearmID > 0;
+
+    private IEnumerable<StatusesDto> GetFilteredStatuses() =>
+        AvailableStatuses ?? Enumerable.Empty<StatusesDto>();
+
+    protected override void OnInitialized()
+    {
+        var statuses = GetFilteredStatuses();
+        if (Firearm.StatusID == 0 && statuses.Any())
+        {
+            Firearm.StatusID = statuses.First().StatusID;
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task SaveFirearmAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Firearm.SerialNumber))
+        {
+            Snackbar.Add("Serial number is required.", Severity.Error);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Firearm.ModelNumber))
+        {
+            Snackbar.Add("Model number is required.", Severity.Error);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Firearm.Caliber))
+        {
+            Snackbar.Add("Caliber is required.", Severity.Error);
+            return;
+        }
+
+        if (Firearm.StatusID <= 0)
+        {
+            Snackbar.Add("Status is required.", Severity.Error);
+            return;
+        }
+
+        Firearm.EmployeeID = EmployeeId;
+        isSaving = true;
+
+        try
+        {
+            if (Firearm.FirearmID == 0)
+            {
+                var result = await service.CreateFirearmAsync(Firearm);
+                if (result != null)
+                {
+                    Snackbar.Add("Firearm record added successfully!", Severity.Success);
+                    MudDialog.Close(DialogResult.Ok(result));
+                }
+                else
+                {
+                    Snackbar.Add("Failed to create firearm record.", Severity.Error);
+                }
+            }
+            else
+            {
+                var result = await service.UpdateFirearmAsync(Firearm.FirearmID, Firearm);
+                if (result != null)
+                {
+                    Snackbar.Add("Firearm record updated successfully!", Severity.Success);
+                    MudDialog.Close(DialogResult.Ok(result));
+                }
+                else
+                {
+                    Snackbar.Add("Failed to update firearm record.", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error saving firearm record.");
+            Snackbar.Add($"Failed to save firearm: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}
+

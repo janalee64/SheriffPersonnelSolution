@@ -1,0 +1,241 @@
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@inject SearchService service
+@inject CodeTableService codeTableService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject ILogger<EmployeeRangeStatisticsTab> logger
+
+<MudStack Spacing="4" Class="mt-4">
+    @if (IsEdit && EmployeeId > 0)
+    {
+        <MudPaper Class="pa-6" Elevation="3">
+            @if (isLoading)
+            {
+                <MudPaper Class="pa-6 d-flex justify-center align-center" Style="min-height: 200px;" Elevation="0">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                    <MudText Class="ml-4">Loading range statistics...</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                    <MudText Typo="Typo.h6">Range Statistics</MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddRangeStatForm">
+                        Add Range Record
+                    </MudButton>
+                </MudStack>
+
+                <MudTable Items="rangeStats" Hover="true" Striped="true" Elevation="0" AllowUnsorted="true">
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel SortBy="new Func<RangeStatisticDTO, object>(x => x.RangeDate ?? DateOnly.MinValue)">Range Event</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<RangeStatisticDTO, object>(x => x.CourseName ?? string.Empty)">Course</MudTableSortLabel></MudTh>
+                        <MudTh>Range Skills</MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<RangeStatisticDTO, object>(x => x.FirearmDescription ?? string.Empty)">Firearm</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<RangeStatisticDTO, object>(x => x.PassFail ?? string.Empty)">Result</MudTableSortLabel></MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="statContext">
+                        <MudTd DataLabel="Range Event">
+                            @(statContext.RangeDate.HasValue ? statContext.RangeDate.Value.ToString("MM/dd/yyyy") : "-")
+                            @(!string.IsNullOrWhiteSpace(statContext.EventDescription) ? $" ({statContext.EventDescription})" : "")
+                        </MudTd>
+                        <MudTd DataLabel="Course">@(string.IsNullOrWhiteSpace(statContext.CourseName) ? "-" : statContext.CourseName)</MudTd>
+                        <MudTd DataLabel="Range Skills">@(GetSkillsText(statContext))</MudTd>
+                        <MudTd DataLabel="Firearm">@(string.IsNullOrWhiteSpace(statContext.FirearmDescription) ? "-" : statContext.FirearmDescription)</MudTd>
+                        <MudTd DataLabel="Result">
+                            @if (string.Equals(statContext.PassFail, "Pass", StringComparison.OrdinalIgnoreCase) || string.Equals(statContext.PassFail, "P", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Filled">Pass</MudChip>
+                            }
+                            else if (string.Equals(statContext.PassFail, "Fail", StringComparison.OrdinalIgnoreCase) || string.Equals(statContext.PassFail, "F", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">Fail</MudChip>
+                            }
+                            else
+                            {
+                                @(string.IsNullOrWhiteSpace(statContext.PassFail) ? "-" : statContext.PassFail)
+                            }
+                        </MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudTooltip Text="Edit Record">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditRangeStatForm(statContext))" />
+                            </MudTooltip>
+                            <MudTooltip Text="Delete Record">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteRangeStatAsync(statContext.RangeID))" />
+                            </MudTooltip>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText Class="pa-4 text-center">No range statistics recorded for this employee.</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            }
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Class="pa-6" Elevation="3">
+            <MudText Class="text-center text-muted">Range statistics can be added after saving the new employee.</MudText>
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    [Parameter] public int EmployeeId { get; set; }
+    [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public IEnumerable<RangeCourseDTO>? AvailableCourses { get; set; }
+    [Parameter] public IEnumerable<RangeEventDTO>? AvailableEvents { get; set; }
+    [Parameter] public IEnumerable<FirearmsDto>? AvailableFirearms { get; set; }
+
+    private List<RangeStatisticDTO> rangeStats = new();
+    private List<RangeSkillDTO> availableRangeSkills = new();
+    private bool isLoading = true;
+    private int _lastLoadedEmployeeId;
+    private bool _lastLoadedIsEdit;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsEdit && EmployeeId > 0 && (EmployeeId != _lastLoadedEmployeeId || IsEdit != _lastLoadedIsEdit))
+        {
+            _lastLoadedEmployeeId = EmployeeId;
+            _lastLoadedIsEdit = IsEdit;
+            await LoadRangeStatsAsync();
+        }
+    }
+
+    private async Task LoadRangeStatsAsync()
+    {
+        isLoading = true;
+        try
+        {
+            var statsTask = service.GetRangeStatisticsByEmployeeIdAsync(EmployeeId);
+            var skillsTask = codeTableService.GetRangeSkillsAsync();
+
+            await Task.WhenAll(statsTask, skillsTask);
+
+            var result = await statsTask;
+            rangeStats = result
+                .OrderByDescending(r => r.RangeDate ?? DateOnly.MinValue)
+                .ToList();
+
+            var skills = await skillsTask;
+            availableRangeSkills = skills != null ? skills.ToList() : new();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading range statistics for employee {EmployeeID}.", EmployeeId);
+            Snackbar.Add($"Failed to load range statistics: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string GetSkillsText(RangeStatisticDTO stat)
+    {
+        if (stat.SelectedSkillIDs == null || !stat.SelectedSkillIDs.Any())
+        {
+            return "-";
+        }
+
+        var skillNames = availableRangeSkills
+            .Where(s => stat.SelectedSkillIDs.Contains(s.RangeSkillID))
+            .Select(s => s.SkillName)
+            .ToList();
+
+        return skillNames.Any() ? string.Join(", ", skillNames) : "-";
+    }
+
+    private async Task OpenAddRangeStatForm()
+    {
+        var firearms = AvailableFirearms ?? await service.GetFirearmsByEmployeeIdAsync(EmployeeId);
+
+        var parameters = new DialogParameters<AddRangeStatisticModal>
+        {
+            { x => x.EmployeeId, EmployeeId },
+            { x => x.RangeStat, new RangeStatisticDTO { EmployeeID = EmployeeId } },
+            { x => x.AvailableCourses, AvailableCourses },
+            { x => x.AvailableEvents, AvailableEvents },
+            { x => x.AvailableFirearms, firearms }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<AddRangeStatisticModal>("Add Range Statistic", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            await LoadRangeStatsAsync();
+        }
+    }
+
+    private async Task OpenEditRangeStatForm(RangeStatisticDTO stat)
+    {
+        var firearms = AvailableFirearms ?? await service.GetFirearmsByEmployeeIdAsync(EmployeeId);
+
+        var parameters = new DialogParameters<AddRangeStatisticModal>
+        {
+            { x => x.EmployeeId, EmployeeId },
+            { x => x.RangeStat, new RangeStatisticDTO
+                {
+                    RangeID = stat.RangeID,
+                    EmployeeID = stat.EmployeeID,
+                    FirearmID = stat.FirearmID,
+                    CourseID = stat.CourseID,
+                    RoundsFired = stat.RoundsFired,
+                    PassFail = stat.PassFail,
+                    LastUserID = stat.LastUserID,
+                    LastUpdated = stat.LastUpdated,
+                    RangeEventID = stat.RangeEventID,
+                    RangeDate = stat.RangeDate,
+                    EventDescription = stat.EventDescription,
+                    SelectedSkillIDs = stat.SelectedSkillIDs?.ToList() ?? new List<int>()
+                }
+            },
+            { x => x.AvailableCourses, AvailableCourses },
+            { x => x.AvailableEvents, AvailableEvents },
+            { x => x.AvailableFirearms, firearms }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<AddRangeStatisticModal>("Edit Range Statistic", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            await LoadRangeStatsAsync();
+        }
+    }
+
+    private async Task DeleteRangeStatAsync(int rangeId)
+    {
+        bool? confirm = await DialogService.ShowMessageBoxAsync(
+            "Confirm Delete",
+            "Are you sure you want to delete this range statistic record?",
+            yesText: "Delete", cancelText: "Cancel");
+
+        if (confirm != true) return;
+
+        try
+        {
+            var success = await service.DeleteRangeStatisticAsync(rangeId);
+            if (success)
+            {
+                Snackbar.Add("Range statistic deleted successfully!", Severity.Success);
+                await LoadRangeStatsAsync();
+            }
+            else
+            {
+                Snackbar.Add("Failed to delete range statistic record.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error deleting range statistic record.");
+            Snackbar.Add($"Error deleting range statistic record: {ex.Message}", Severity.Error);
+        }
+    }
+}
+

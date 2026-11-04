@@ -1,0 +1,299 @@
+@page "/print/personnel-list"
+@using System.Web
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@layout PrintLayout
+
+@inject SearchService service
+@inject ExcelExportService excelExportService
+@inject IJSRuntime JSRuntime
+@inject ILogger<PrintPersonnelList> logger
+
+<PageTitle>Personnel List - Printable Report</PageTitle>
+
+@if (isLoading)
+{
+    <div class="pa-6 d-flex justify-center align-center">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        <MudText Class="ml-4">Loading personnel list report...</MudText>
+    </div>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        @errorMessage
+    </MudAlert>
+}
+else
+{
+    <div class="print-header">
+        <div class="d-flex justify-space-between align-center mb-4 no-print">
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Print" OnClick="TriggerPrint">
+                    Print Report
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Custom.FileFormats.FileExcel" OnClick="ExportToExcel" Disabled="@(searchResults == null || !searchResults.Any())">
+                    Export to Excel
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Close" OnClick="CloseWindow">
+                    Close Window
+                </MudButton>
+            </MudStack>
+        </div>
+
+        <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 8px; color: #111;">Personnel List</h1>
+        
+        <div style="font-size: 14px; margin-bottom: 6px; color: #333;">
+            <strong>Search Criteria:</strong> @GetFiltersSummary()
+        </div>
+        
+        <div style="font-size: 14px; margin-bottom: 16px; color: #333;">
+            <strong>Employees Found:</strong> @(searchResults?.Count() ?? 0)
+        </div>
+    </div>
+
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Badge Number</th>
+                <th>Hire Date</th>
+                <th>Program</th>
+                <th>Unit</th>
+                <th>Inactive Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (searchResults != null && searchResults.Any())
+            {
+                @foreach (var item in searchResults)
+                {
+                    <tr>
+                        <td>@item.FormattedName</td>
+                        <td>@item.Status</td>
+                        <td>@item.BadgeNumber</td>
+                        <td>@(item.HireDate?.ToString("MM/dd/yyyy") ?? "")</td>
+                        <td>@item.Program</td>
+                        <td>@item.Unit</td>
+                        <td>@(item.InactiveDate?.ToString("MM/dd/yyyy") ?? "")</td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 16px;">No employees found matching the specified criteria.</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<style>
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        font-size: 13px;
+    }
+
+    .report-table th, .report-table td {
+        border: 1px solid #ccc;
+        padding: 8px 10px;
+        text-align: left;
+    }
+
+    .report-table th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+
+    @@media print {
+        .no-print {
+            display: none !important;
+        }
+
+        body {
+            background-color: white !important;
+            color: black !important;
+            margin: 0;
+            padding: 10px;
+            font-size: 12px;
+        }
+
+        .report-table {
+            font-size: 11px;
+        }
+
+        .report-table th, .report-table td {
+            border: 1px solid #666 !important;
+            padding: 6px 8px !important;
+        }
+
+        .report-table th {
+            background-color: #eee !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    }
+</style>
+
+@code {
+    [SupplyParameterFromQuery(Name = "firstName")]
+    public string? FirstName { get; set; }
+
+    [SupplyParameterFromQuery(Name = "lastName")]
+    public string? LastName { get; set; }
+
+    [SupplyParameterFromQuery(Name = "badgeNumber")]
+    public string? BadgeNumber { get; set; }
+
+    [SupplyParameterFromQuery(Name = "status")]
+    public string? Status { get; set; }
+
+    [SupplyParameterFromQuery(Name = "programId")]
+    public int? ProgramID { get; set; }
+
+    [SupplyParameterFromQuery(Name = "unitId")]
+    public int? UnitID { get; set; }
+
+    [SupplyParameterFromQuery(Name = "employeeFlag")]
+    public bool? EmployeeFlag { get; set; }
+
+    private EmployeeSearchRequestDto searchRequest = new();
+    private IEnumerable<EmployeeSearchResultDto>? searchResults;
+    private IEnumerable<ProgramsDto>? availablePrograms;
+    private IEnumerable<UnitsDto>? availableUnits;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private bool printTriggered = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            availablePrograms = await service.GetProgramsAsync();
+            availableUnits = await service.GetUnitsAsync();
+
+            searchRequest = new EmployeeSearchRequestDto
+            {
+                FirstName = FirstName,
+                LastName = LastName,
+                BadgeNumber = BadgeNumber,
+                Status = Status,
+                ProgramID = ProgramID,
+                UnitID = UnitID,
+                EmployeeFlag = EmployeeFlag
+            };
+
+            searchResults = await service.SearchEmployeesAsync(searchRequest);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading personnel list printable report.");
+            errorMessage = $"Error loading report data: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!isLoading && string.IsNullOrEmpty(errorMessage) && !printTriggered)
+        {
+            printTriggered = true;
+            StateHasChanged();
+            await Task.Delay(300); // Give DOM a brief moment to stabilize before print dialog
+            await TriggerPrint();
+        }
+    }
+
+    private async Task TriggerPrint()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("window.print");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not trigger window.print directly.");
+        }
+    }
+
+    private async Task CloseWindow()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("window.close");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not close browser window automatically.");
+        }
+    }
+
+    private async Task ExportToExcel()
+    {
+        if (searchResults == null || !searchResults.Any())
+            return;
+
+        try
+        {
+            var filterSummary = GetFiltersSummary();
+            var fileBytes = excelExportService.ExportEmployeeSearchResultsToExcel(searchResults, filterSummary);
+            var base64String = Convert.ToBase64String(fileBytes);
+            var fileName = $"Employee_Search_Results_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            var contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+            await JSRuntime.InvokeVoidAsync("downloadFileFromByteArray", fileName, base64String, contentType);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to export employee search results to Excel.");
+            errorMessage = "Failed to export search results to Excel. Please try again.";
+        }
+    }
+
+    private string GetFiltersSummary()
+    {
+        var filters = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.FirstName))
+            filters.Add($"First Name: \"{searchRequest.FirstName.Trim()}\"");
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.LastName))
+            filters.Add($"Last Name: \"{searchRequest.LastName.Trim()}\"");
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.BadgeNumber))
+            filters.Add($"Badge Number: \"{searchRequest.BadgeNumber.Trim()}\"");
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.Status))
+            filters.Add($"Status: \"{searchRequest.Status.Trim()}\"");
+
+        if (searchRequest.ProgramID.HasValue && availablePrograms != null)
+        {
+            var program = availablePrograms.FirstOrDefault(p => p.ProgramID == searchRequest.ProgramID.Value);
+            if (program != null)
+            {
+                filters.Add($"Program: \"{program.ProgramName}\"");
+            }
+        }
+
+        if (searchRequest.UnitID.HasValue && availableUnits != null)
+        {
+            var unit = availableUnits.FirstOrDefault(u => u.UnitID == searchRequest.UnitID.Value);
+            if (unit != null)
+            {
+                filters.Add($"Unit: \"{unit.UnitName}\"");
+            }
+        }
+
+        if (searchRequest.EmployeeFlag == true)
+            filters.Add("Sheriff Employee Flag: Yes");
+
+        return filters.Any() ? string.Join(" | ", filters) : "All Employees";
+    }
+}

@@ -1,0 +1,36 @@
+@page "/access-denied"
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+
+<PageTitle>Access Denied</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudContainer MaxWidth="MaxWidth.Small" Class="mt-12">
+            <MudPaper Class="pa-8 text-center" Elevation="4">
+                <MudIcon Icon="@Icons.Material.Filled.GppBad" Color="Color.Error" Size="Size.Large" Style="font-size: 4rem;" Class="mb-4" />
+                <MudText Typo="Typo.h4" Color="Color.Error" Class="mb-2">Access Denied</MudText>
+                <MudText Typo="Typo.body1" Class="mb-6">
+                    You are signed in, but your account does not have the required permissions or roles to access this page.
+                </MudText>
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-6 text-left">
+                    If you require access to this area, please contact your system administrator to assign the appropriate user role.
+                </MudAlert>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Home" OnClick="GoHome">
+                    Return to Home / Search
+                </MudButton>
+            </MudPaper>
+        </MudContainer>
+    </Authorized>
+    <NotAuthorized>
+        <SheriffPersonnel.Web.Components.Pages.RedirectToLogin />
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+}
+

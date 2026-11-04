@@ -1,0 +1,208 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using SheriffPersonnel.API.Services;
+using SheriffPersonnel.Shared.DTOs;
+
+namespace SheriffPersonnel.API.Controllers
+{
+    [ApiController]
+    [Route("api/documents")]
+    [Authorize(Roles = "Administrator, Personnel, Inventory, Range, Training, Equipment, SSN")]
+    public class DocumentsController : ControllerBase
+    {
+        private readonly IDocumentService _documentService;
+        private readonly ILogger<DocumentsController> _logger;
+
+        public DocumentsController(
+            IDocumentService documentService,
+            ILogger<DocumentsController> logger)
+        {
+            _documentService = documentService ?? throw new ArgumentNullException(nameof(documentService));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+
+        [HttpGet("employee/{employeeId:int}")]
+        public async Task<ActionResult<IEnumerable<EmployeeDocumentDto>>> GetDocumentsByEmployeeId(int employeeId)
+        {
+            try
+            {
+                _logger.LogInformation("Retrieving document records for Employee ID {EmployeeID}.", employeeId);
+                var documents = await _documentService.GetDocumentsByEmployeeIdAsync(employeeId);
+                return Ok(documents);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving document records for Employee ID {EmployeeID}.", employeeId);
+                return StatusCode(500, $"An error occurred while fetching document records: {ex.Message}");
+            }
+        }
+
+        [HttpGet("{id:int}")]
+        public async Task<ActionResult<EmployeeDocumentDto>> GetDocumentById(int id)
+        {
+            try
+            {
+                _logger.LogInformation("Retrieving document ID {DocumentID}.", id);
+                var doc = await _documentService.GetDocumentByIdAsync(id);
+                if (doc == null) return NotFound($"Document record with ID {id} was not found.");
+
+                return Ok(doc);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving document ID {DocumentID}.", id);
+                return StatusCode(500, $"An error occurred while fetching document record: {ex.Message}");
+            }
+        }
+
+        [HttpGet("{id:int}/download")]
+        public async Task<IActionResult> DownloadDocument(int id)
+        {
+            try
+            {
+                _logger.LogInformation("Downloading document content for ID {DocumentID}.", id);
+                var doc = await _documentService.GetDocumentEntityByIdAsync(id);
+                if (doc == null) return NotFound($"Document record with ID {id} was not found.");
+
+                var mime = string.IsNullOrWhiteSpace(doc.MimeType) ? "application/octet-stream" : doc.MimeType;
+                var fileName = string.IsNullOrWhiteSpace(doc.FileName) ? $"document_{id}" : doc.FileName;
+
+                return File(doc.FileData, mime, fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error downloading document file ID {DocumentID}.", id);
+                return StatusCode(500, $"An error occurred while downloading document file: {ex.Message}");
+            }
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<EmployeeDocumentDto>> CreateDocument([FromBody] EmployeeDocumentDto dto)
+        {
+            if (dto == null) return BadRequest("Payload cannot be null.");
+
+            try
+            {
+                _logger.LogInformation("Creating new document record for Employee ID {EmployeeID}.", dto.EmployeeID);
+                var created = await _documentService.CreateDocumentAsync(dto);
+                return CreatedAtAction(nameof(GetDocumentById), new { id = created.DocumentID }, created);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating document record.");
+                return StatusCode(500, $"An error occurred while creating document record: {ex.Message}");
+            }
+        }
+
+        [HttpPut("{id:int}")]
+        public async Task<ActionResult<EmployeeDocumentDto>> UpdateDocument(int id, [FromBody] EmployeeDocumentDto dto)
+        {
+            if (dto == null) return BadRequest("Payload cannot be null.");
+
+            try
+            {
+                _logger.LogInformation("Updating document record ID {DocumentID}.", id);
+                var updated = await _documentService.UpdateDocumentAsync(id, dto);
+                if (updated == null) return NotFound($"Document record with ID {id} was not found.");
+
+                return Ok(updated);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating document record ID {DocumentID}.", id);
+                return StatusCode(500, $"An error occurred while updating document record: {ex.Message}");
+            }
+        }
+
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> DeleteDocument(int id)
+        {
+            try
+            {
+                _logger.LogInformation("Deleting document record ID {DocumentID}.", id);
+                var success = await _documentService.DeleteDocumentAsync(id);
+                if (!success) return NotFound($"Document record with ID {id} was not found.");
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting document record ID {DocumentID}.", id);
+                return StatusCode(500, $"An error occurred while deleting document record: {ex.Message}");
+            }
+        }
+
+        [HttpGet("types")]
+        public async Task<ActionResult<IEnumerable<DocumentTypeDto>>> GetDocumentTypes()
+        {
+            try
+            {
+                var types = await _documentService.GetDocumentTypesAsync();
+                return Ok(types);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving document types.");
+                return StatusCode(500, $"An error occurred while fetching document types: {ex.Message}");
+            }
+        }
+
+        [HttpPost("types")]
+        public async Task<ActionResult<DocumentTypeDto>> CreateDocumentType([FromBody] DocumentTypeDto dto)
+        {
+            if (dto == null) return BadRequest("Payload cannot be null.");
+
+            try
+            {
+                var created = await _documentService.CreateDocumentTypeAsync(dto);
+                return Ok(created);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating document type.");
+                return StatusCode(500, $"An error occurred while creating document type: {ex.Message}");
+            }
+        }
+
+        [HttpPut("types/{id:int}")]
+        public async Task<ActionResult<DocumentTypeDto>> UpdateDocumentType(int id, [FromBody] DocumentTypeDto dto)
+        {
+            if (dto == null) return BadRequest("Payload cannot be null.");
+
+            try
+            {
+                var updated = await _documentService.UpdateDocumentTypeAsync(id, dto);
+                if (updated == null) return NotFound($"Document type with ID {id} was not found.");
+
+                return Ok(updated);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating document type.");
+                return StatusCode(500, $"An error occurred while updating document type: {ex.Message}");
+            }
+        }
+
+        [HttpDelete("types/{id:int}")]
+        public async Task<IActionResult> DeleteDocumentType(int id)
+        {
+            try
+            {
+                var success = await _documentService.DeleteDocumentTypeAsync(id);
+                if (!success) return NotFound($"Document type with ID {id} was not found.");
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting document type.");
+                return StatusCode(500, $"An error occurred while deleting document type: {ex.Message}");
+            }
+        }
+    }
+}
+

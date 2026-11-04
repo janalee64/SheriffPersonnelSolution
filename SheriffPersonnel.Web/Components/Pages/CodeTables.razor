@@ -1,0 +1,852 @@
+@page "/codetables"
+@using System.ComponentModel.DataAnnotations
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@attribute [Authorize(Roles = "Administrator")]
+
+@inject CodeTableService CodeTableService
+@inject ISnackbar Snackbar
+@inject ILogger<CodeTables> Logger
+
+<PageTitle>Code Tables</PageTitle>
+
+<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+    <div>
+        <MudText Typo="Typo.h4">Code Tables</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Manage system lookup codes and reference values.</MudText>
+    </div>
+    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAllDataAsync" Disabled="@isLoading">
+        Refresh Data
+    </MudButton>
+</MudStack>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4" CloseIcon="@Icons.Material.Filled.Close" CloseIconClicked="() => errorMessage = null">
+        @errorMessage
+    </MudAlert>
+}
+
+<style>
+    .folder-styled-tabs .mud-tabs-tabbar {
+        background-color: var(--mud-palette-background-gray) !important;
+        border-bottom: 2px solid var(--mud-palette-primary) !important;
+        padding: 6px 8px 0 8px !important;
+        gap: 6px !important;
+    }
+    .folder-styled-tabs .mud-tab {
+        border: 1px solid #cbd5e1 !important;
+        border-bottom: none !important;
+        border-top-left-radius: 8px !important;
+        border-top-right-radius: 8px !important;
+        background-color: #f1f5f9 !important;
+        color: #334155 !important;
+        font-weight: 600 !important;
+        padding: 10px 22px !important;
+        margin-right: 4px !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    .folder-styled-tabs .mud-tab .mud-icon-root {
+        color: #64748b !important;
+        margin-right: 6px !important;
+    }
+    .folder-styled-tabs .mud-tab:hover:not(.mud-tab-active) {
+        background-color: #e2e8f0 !important;
+        color: var(--mud-palette-primary) !important;
+    }
+    .folder-styled-tabs .mud-tab:hover:not(.mud-tab-active) .mud-icon-root {
+        color: var(--mud-palette-primary) !important;
+    }
+    .folder-styled-tabs .mud-tab.mud-tab-active {
+        background-color: var(--mud-palette-primary) !important;
+        color: #ffffff !important;
+        border: 2px solid var(--mud-palette-primary) !important;
+        border-bottom: 2px solid var(--mud-palette-primary) !important;
+        margin-bottom: -2px !important;
+        box-shadow: 0 -2px 6px rgba(0,0,0,0.12) !important;
+        font-weight: 700 !important;
+    }
+    .folder-styled-tabs .mud-tab.mud-tab-active .mud-icon-root {
+        color: #ffffff !important;
+    }
+    .folder-styled-tabs .mud-tabs-panels {
+        border: 2px solid var(--mud-palette-primary) !important;
+        border-top: none !important;
+        border-bottom-left-radius: 8px !important;
+        border-bottom-right-radius: 8px !important;
+        background-color: var(--mud-palette-surface) !important;
+        padding: 8px !important;
+    }
+</style>
+
+<MudTabs Elevation="0" ApplyEffectsToContainer="true" Class="folder-styled-tabs mb-4">
+        
+        @* 1. Statuses *@
+        <MudTabPanel Text="Statuses" Icon="@Icons.Material.Filled.ToggleOn">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudTextField @bind-Value="searchStatus" Placeholder="Search statuses..." Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Style="max-width: 400px;" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateStatusDialog">
+                    Add Status
+                </MudButton>
+            </MudStack>
+            <MudTable Items="FilteredStatuses" Hover="true" Striped="true" Loading="@isLoading">
+                <HeaderContent>
+                    <MudTh><MudTableSortLabel SortBy="new Func<StatusesDto, object>(x => x.StatusCode)">Code</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<StatusesDto, object>(x => x.StatusDescription ?? string.Empty)">Description</MudTableSortLabel></MudTh>
+                    <MudTh Style="width: 120px;">Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate Context="item">
+                    <MudTd DataLabel="Code"><b>@item.StatusCode</b></MudTd>
+                    <MudTd DataLabel="Description">@(item.StatusDescription ?? "-")</MudTd>
+                    <MudTd DataLabel="Actions">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditStatusDialog(item)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("Status", item.StatusID, item.StatusCode)' />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent><MudText Class="pa-4 text-center">No status records found.</MudText></NoRecordsContent>
+                <PagerContent><MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" /></PagerContent>
+            </MudTable>
+        </MudTabPanel>
+
+        @* 2. Programs *@
+        <MudTabPanel Text="Programs" Icon="@Icons.Material.Filled.Assignment">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                    <MudTextField @bind-Value="searchProgram" Placeholder="Search programs..." Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Style="max-width: 400px;" />
+                    <MudCheckBox T="bool" @bind-Value="programActiveOnly" Label="Active Only" Color="Color.Primary" Dense="true" />
+                </MudStack>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateProgramDialog">
+                    Add Program
+                </MudButton>
+            </MudStack>
+            <MudTable Items="FilteredPrograms" Hover="true" Striped="true" Loading="@isLoading">
+                <HeaderContent>
+                    <MudTh><MudTableSortLabel SortBy="new Func<ProgramsDto, object>(x => x.ProgramName)">Program Name</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<ProgramsDto, object>(x => x.Description ?? string.Empty)">Description</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<ProgramsDto, object>(x => x.IsActive)">Active</MudTableSortLabel></MudTh>
+                    <MudTh Style="width: 120px;">Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate Context="item">
+                    <MudTd DataLabel="Program Name"><b>@item.ProgramName</b></MudTd>
+                    <MudTd DataLabel="Description">@(item.Description ?? "-")</MudTd>
+                    <MudTd DataLabel="Active">
+                        <MudSwitch T="bool"
+                                   Value="@item.IsActive"
+                                   ValueChanged="@((bool val) => ToggleProgramActiveAsync(item, val))"
+                                   Color="Color.Success"
+                                   UncheckedColor="Color.Default"
+                                   Size="Size.Small"
+                                   Label="@(item.IsActive ? "Active" : "Inactive")" />
+                    </MudTd>
+                    <MudTd DataLabel="Actions">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditProgramDialog(item)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("Program", item.ProgramID, item.ProgramName)' />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent><MudText Class="pa-4 text-center">No program records found.</MudText></NoRecordsContent>
+                <PagerContent><MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" /></PagerContent>
+            </MudTable>
+        </MudTabPanel>
+
+        @* 3. Units *@
+        <MudTabPanel Text="Units" Icon="@Icons.Material.Filled.GroupWork">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudTextField @bind-Value="searchUnit" Placeholder="Search units..." Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Style="max-width: 400px;" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateUnitDialog">
+                    Add Unit
+                </MudButton>
+            </MudStack>
+            <MudTable Items="FilteredUnits" Hover="true" Striped="true" Loading="@isLoading">
+                <HeaderContent>
+                    <MudTh><MudTableSortLabel SortBy="new Func<UnitsDto, object>(x => x.UnitName)">Unit Name</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<UnitsDto, object>(x => x.Notes ?? string.Empty)">Notes</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<UnitsDto, object>(x => x.IsActive)">Active</MudTableSortLabel></MudTh>
+                    <MudTh Style="width: 120px;">Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate Context="item">
+                    <MudTd DataLabel="Unit Name"><b>@item.UnitName</b></MudTd>
+                    <MudTd DataLabel="Notes">@(item.Notes ?? "-")</MudTd>
+                    <MudTd DataLabel="Active">
+                        <MudSwitch T="bool"
+                                   Value="@item.IsActive"
+                                   ValueChanged="@((bool val) => ToggleUnitActiveAsync(item, val))"
+                                   Color="Color.Success"
+                                   UncheckedColor="Color.Default"
+                                   Size="Size.Small"
+                                   Label="@(item.IsActive ? "Active" : "Inactive")" />
+                    </MudTd>
+                    <MudTd DataLabel="Actions">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditUnitDialog(item)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("Unit", item.UnitID, item.UnitName)' />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent><MudText Class="pa-4 text-center">No unit records found.</MudText></NoRecordsContent>
+                <PagerContent><MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" /></PagerContent>
+            </MudTable>
+        </MudTabPanel>
+
+        @* 4. Ranks *@
+        <MudTabPanel Text="Ranks" Icon="@Icons.Material.Filled.MilitaryTech">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudTextField @bind-Value="searchRank" Placeholder="Search ranks..." Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Style="max-width: 400px;" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateRankDialog">
+                    Add Rank
+                </MudButton>
+            </MudStack>
+            <MudTable Items="FilteredRanks" Hover="true" Striped="true" Loading="@isLoading">
+                <HeaderContent>
+                    <MudTh><MudTableSortLabel SortBy="new Func<RanksDto, object>(x => x.RankName)">Rank Name</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="new Func<RanksDto, object>(x => x.IsActive)">Active</MudTableSortLabel></MudTh>
+                    <MudTh Style="width: 120px;">Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate Context="item">
+                    <MudTd DataLabel="Rank Name"><b>@item.RankName</b></MudTd>
+                    <MudTd DataLabel="Active">
+                        <MudSwitch T="bool"
+                                   Value="@item.IsActive"
+                                   ValueChanged="@((bool val) => ToggleRankActiveAsync(item, val))"
+                                   Color="Color.Success"
+                                   UncheckedColor="Color.Default"
+                                   Size="Size.Small"
+                                   Label="@(item.IsActive ? "Active" : "Inactive")" />
+                    </MudTd>
+                    <MudTd DataLabel="Actions">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditRankDialog(item)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("Rank", item.RankID, item.RankName)' />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent><MudText Class="pa-4 text-center">No rank records found.</MudText></NoRecordsContent>
+                <PagerContent><MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" /></PagerContent>
+            </MudTable>
+        </MudTabPanel>
+
+        @* 5. Makes *@
+        <MudTabPanel Text="Makes" Icon="@Icons.Material.Filled.Build">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudTextField @bind-Value="searchMake" Placeholder="Search makes..." Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Style="max-width: 400px;" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateMakeDialog">
+                    Add Make
+                </MudButton>
+            </MudStack>
+            <MudTable Items="FilteredMakes" Hover="true" Striped="true" Loading="@isLoading">
+                <HeaderContent>
+                    <MudTh><MudTableSortLabel SortBy="new Func<MakesDto, object>(x => x.MakeName)">Make Name</MudTableSortLabel></MudTh>
+                    <MudTh Style="width: 120px;">Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate Context="item">
+                    <MudTd DataLabel="Make Name"><b>@item.MakeName</b></MudTd>
+                    <MudTd DataLabel="Actions">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditMakeDialog(item)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("Make", item.MakeID, item.MakeName)' />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent><MudText Class="pa-4 text-center">No make records found.</MudText></NoRecordsContent>
+                <PagerContent><MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" /></PagerContent>
+            </MudTable>
+        </MudTabPanel>
+
+        @* 6. Document Types *@
+        <MudTabPanel Text="Document Types" Icon="@Icons.Material.Filled.Folder">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudTextField @bind-Value="searchDocumentType" Placeholder="Search document types..." Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Style="max-width: 400px;" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateDocumentTypeDialog">
+                    Add Document Type
+                </MudButton>
+            </MudStack>
+            <MudTable Items="FilteredDocumentTypes" Hover="true" Striped="true" Loading="@isLoading">
+                <HeaderContent>
+                    <MudTh><MudTableSortLabel SortBy="new Func<DocumentTypeDto, object>(x => x.DocumentType)">Document Type</MudTableSortLabel></MudTh>
+                    <MudTh Style="width: 120px;">Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate Context="item">
+                    <MudTd DataLabel="Document Type"><b>@item.DocumentType</b></MudTd>
+                    <MudTd DataLabel="Actions">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditDocumentTypeDialog(item)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("DocumentType", item.DocumentTypeID, item.DocumentType)' />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent><MudText Class="pa-4 text-center">No document type records found.</MudText></NoRecordsContent>
+                <PagerContent><MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" /></PagerContent>
+            </MudTable>
+        </MudTabPanel>
+
+    </MudTabs>
+
+@* Add / Edit Dialog *@
+<MudDialog @bind-Visible="isDialogVisible" Options="dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(isEditMode ? Icons.Material.Filled.Edit : Icons.Material.Filled.Add)" Class="mr-2" />
+            @(isEditMode ? $"Edit {activeTableTitle}" : $"Add {activeTableTitle}")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <EditForm Model="dialogFormModel" OnValidSubmit="SaveItemAsync">
+            <DataAnnotationsValidator />
+            
+            @if (activeTable == "Status")
+            {
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="editingStatus.StatusCode" Label="Status Code" Variant="Variant.Outlined" Required="true" RequiredError="Status code is required" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="editingStatus.StatusDescription" Label="Status Description" Variant="Variant.Outlined" Lines="2" />
+                    </MudItem>
+                </MudGrid>
+            }
+            else if (activeTable == "Program")
+            {
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="editingProgram.ProgramName" Label="Program Name" Variant="Variant.Outlined" Required="true" RequiredError="Program name is required" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="editingProgram.Description" Label="Description" Variant="Variant.Outlined" Lines="3" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudCheckBox T="bool" @bind-Value="editingProgram.IsActive" Label="Active Program" Color="Color.Success" />
+                    </MudItem>
+                </MudGrid>
+            }
+            else if (activeTable == "Unit")
+            {
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="editingUnit.UnitName" Label="Unit Name" Variant="Variant.Outlined" Required="true" RequiredError="Unit name is required" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="editingUnit.Notes" Label="Notes" Variant="Variant.Outlined" Lines="2" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudCheckBox T="bool" @bind-Value="editingUnit.IsActive" Label="Active Unit" Color="Color.Success" />
+                    </MudItem>
+                </MudGrid>
+            }
+            else if (activeTable == "Rank")
+            {
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="editingRank.RankName" Label="Rank Name" Variant="Variant.Outlined" Required="true" RequiredError="Rank name is required" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudCheckBox T="bool" @bind-Value="editingRank.IsActive" Label="Active Rank" Color="Color.Success" />
+                    </MudItem>
+                </MudGrid>
+            }
+            else if (activeTable == "Make")
+            {
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="editingMake.MakeName" Label="Make Name" Variant="Variant.Outlined" Required="true" RequiredError="Make name is required" />
+                    </MudItem>
+                </MudGrid>
+            }
+            else if (activeTable == "DocumentType")
+            {
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="editingDocumentType.DocumentType" Label="Document Type Name" Variant="Variant.Outlined" Required="true" RequiredError="Document type name is required" />
+                    </MudItem>
+                </MudGrid>
+            }
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="CloseDialog">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveItemAsync" Disabled="@isSaving">
+            @if (isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Saving...</span>
+            }
+            else
+            {
+                <span>Save</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* Delete Confirmation Dialog *@
+<MudDialog @bind-Visible="isDeleteDialogVisible">
+    <TitleContent>
+        <MudText Typo="Typo.h6" Color="Color.Error">Confirm Delete</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText>Are you sure you want to delete @deleteTableTitle <b>@deleteItemDisplay</b>?</MudText>
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 d-block">
+            Note: If this record is referenced by existing personnel, inventory, range, or training records, deletion will be prevented.
+        </MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="() => isDeleteDialogVisible = false">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteItemAsync" Disabled="@isDeleting">
+            @if (isDeleting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Deleting...</span>
+            }
+            else
+            {
+                <span>Delete</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private bool isLoading = false;
+    private string? errorMessage;
+
+    // Table Collections
+    private List<StatusesDto> statuses = new();
+    private List<ProgramsDto> programs = new();
+    private List<UnitsDto> units = new();
+    private List<RanksDto> ranks = new();
+    private List<MakesDto> makes = new();
+    private List<DocumentTypeDto> documentTypes = new();
+
+    // Search Strings
+    private string searchStatus = string.Empty;
+    private string searchProgram = string.Empty;
+    private bool programActiveOnly = true;
+    private string searchUnit = string.Empty;
+    private string searchRank = string.Empty;
+    private string searchMake = string.Empty;
+    private string searchDocumentType = string.Empty;
+
+    // Filtered Collections
+    private IEnumerable<StatusesDto> FilteredStatuses => string.IsNullOrWhiteSpace(searchStatus) ? statuses : statuses.Where(x => x.StatusCode.Contains(searchStatus, StringComparison.OrdinalIgnoreCase) || (x.StatusDescription?.Contains(searchStatus, StringComparison.OrdinalIgnoreCase) ?? false));
+    private IEnumerable<ProgramsDto> FilteredPrograms => programs.Where(x => (!programActiveOnly || x.IsActive) && (string.IsNullOrWhiteSpace(searchProgram) || x.ProgramName.Contains(searchProgram, StringComparison.OrdinalIgnoreCase) || (x.Description?.Contains(searchProgram, StringComparison.OrdinalIgnoreCase) ?? false)));
+    private IEnumerable<UnitsDto> FilteredUnits => string.IsNullOrWhiteSpace(searchUnit) ? units : units.Where(x => x.UnitName.Contains(searchUnit, StringComparison.OrdinalIgnoreCase) || (x.Notes?.Contains(searchUnit, StringComparison.OrdinalIgnoreCase) ?? false));
+    private IEnumerable<RanksDto> FilteredRanks => string.IsNullOrWhiteSpace(searchRank) ? ranks : ranks.Where(x => x.RankName.Contains(searchRank, StringComparison.OrdinalIgnoreCase));
+    private IEnumerable<MakesDto> FilteredMakes => string.IsNullOrWhiteSpace(searchMake) ? makes : makes.Where(x => x.MakeName.Contains(searchMake, StringComparison.OrdinalIgnoreCase));
+    private IEnumerable<DocumentTypeDto> FilteredDocumentTypes => string.IsNullOrWhiteSpace(searchDocumentType) ? documentTypes : documentTypes.Where(x => x.DocumentType.Contains(searchDocumentType, StringComparison.OrdinalIgnoreCase));
+
+    // Dialog state
+    private bool isDialogVisible = false;
+    private bool isEditMode = false;
+    private bool isSaving = false;
+    private string activeTable = "";
+    private string activeTableTitle = "";
+    private object dialogFormModel = new();
+    private DialogOptions dialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+
+    // Form Models
+    private StatusesDto editingStatus = new();
+    private ProgramsDto editingProgram = new();
+    private UnitsDto editingUnit = new();
+    private RanksDto editingRank = new();
+    private MakesDto editingMake = new();
+    private DocumentTypeDto editingDocumentType = new();
+
+    // Delete dialog state
+    private bool isDeleteDialogVisible = false;
+    private bool isDeleting = false;
+    private string deleteTable = "";
+    private string deleteTableTitle = "";
+    private int deleteItemId = 0;
+    private string deleteItemDisplay = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAllDataAsync();
+    }
+
+    private async Task LoadAllDataAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var taskStatuses = CodeTableService.GetStatusesAsync();
+            var taskPrograms = CodeTableService.GetProgramsAsync();
+            var taskUnits = CodeTableService.GetUnitsAsync();
+            var taskRanks = CodeTableService.GetRanksAsync();
+            var taskMakes = CodeTableService.GetMakesAsync();
+            var taskDocumentTypes = CodeTableService.GetDocumentTypesAsync();
+
+            try { await taskStatuses; statuses = (await taskStatuses).ToList(); } catch (Exception ex) { Logger.LogError(ex, "Error loading Statuses"); errorMessage = "Failed to load reference data. Please try refreshing or check system logs."; }
+            try { await taskPrograms; programs = (await taskPrograms).ToList(); } catch (Exception ex) { Logger.LogError(ex, "Error loading Programs"); errorMessage = "Failed to load reference data. Please try refreshing or check system logs."; }
+            try { await taskUnits; units = (await taskUnits).ToList(); } catch (Exception ex) { Logger.LogError(ex, "Error loading Units"); errorMessage = "Failed to load reference data. Please try refreshing or check system logs."; }
+            try { await taskRanks; ranks = (await taskRanks).ToList(); } catch (Exception ex) { Logger.LogError(ex, "Error loading Ranks"); errorMessage = "Failed to load reference data. Please try refreshing or check system logs."; }
+            try { await taskMakes; makes = (await taskMakes).ToList(); } catch (Exception ex) { Logger.LogError(ex, "Error loading Makes"); errorMessage = "Failed to load reference data. Please try refreshing or check system logs."; }
+            try { await taskDocumentTypes; documentTypes = (await taskDocumentTypes).ToList(); } catch (Exception ex) { Logger.LogError(ex, "Error loading Document Types"); errorMessage = "Failed to load reference data. Please try refreshing or check system logs."; }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load code tables data.");
+            errorMessage = "Failed to load reference data. Please try refreshing or check system logs.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // Statuses Dialogs
+    private void OpenCreateStatusDialog()
+    {
+        activeTable = "Status";
+        activeTableTitle = "Status";
+        isEditMode = false;
+        editingStatus = new StatusesDto();
+        dialogFormModel = editingStatus;
+        isDialogVisible = true;
+    }
+
+    private void OpenEditStatusDialog(StatusesDto item)
+    {
+        activeTable = "Status";
+        activeTableTitle = "Status";
+        isEditMode = true;
+        editingStatus = new StatusesDto
+        {
+            StatusID = item.StatusID,
+            StatusCode = item.StatusCode,
+            StatusDescription = item.StatusDescription
+        };
+        dialogFormModel = editingStatus;
+        isDialogVisible = true;
+    }
+
+    // Programs Dialogs
+    private void OpenCreateProgramDialog()
+    {
+        activeTable = "Program";
+        activeTableTitle = "Program";
+        isEditMode = false;
+        editingProgram = new ProgramsDto { IsActive = true };
+        dialogFormModel = editingProgram;
+        isDialogVisible = true;
+    }
+
+    private void OpenEditProgramDialog(ProgramsDto item)
+    {
+        activeTable = "Program";
+        activeTableTitle = "Program";
+        isEditMode = true;
+        editingProgram = new ProgramsDto
+        {
+            ProgramID = item.ProgramID,
+            ProgramName = item.ProgramName,
+            Description = item.Description,
+            IsActive = item.IsActive
+        };
+        dialogFormModel = editingProgram;
+        isDialogVisible = true;
+    }
+
+    // Units Dialogs
+    private void OpenCreateUnitDialog()
+    {
+        activeTable = "Unit";
+        activeTableTitle = "Unit";
+        isEditMode = false;
+        editingUnit = new UnitsDto { IsActive = true };
+        dialogFormModel = editingUnit;
+        isDialogVisible = true;
+    }
+
+    private void OpenEditUnitDialog(UnitsDto item)
+    {
+        activeTable = "Unit";
+        activeTableTitle = "Unit";
+        isEditMode = true;
+        editingUnit = new UnitsDto
+        {
+            UnitID = item.UnitID,
+            UnitName = item.UnitName,
+            Notes = item.Notes,
+            IsActive = item.IsActive
+        };
+        dialogFormModel = editingUnit;
+        isDialogVisible = true;
+    }
+
+    // Ranks Dialogs
+    private void OpenCreateRankDialog()
+    {
+        activeTable = "Rank";
+        activeTableTitle = "Rank";
+        isEditMode = false;
+        editingRank = new RanksDto { IsActive = true };
+        dialogFormModel = editingRank;
+        isDialogVisible = true;
+    }
+
+    private void OpenEditRankDialog(RanksDto item)
+    {
+        activeTable = "Rank";
+        activeTableTitle = "Rank";
+        isEditMode = true;
+        editingRank = new RanksDto
+        {
+            RankID = item.RankID,
+            RankName = item.RankName,
+            IsActive = item.IsActive
+        };
+        dialogFormModel = editingRank;
+        isDialogVisible = true;
+    }
+
+    // Makes Dialogs
+    private void OpenCreateMakeDialog()
+    {
+        activeTable = "Make";
+        activeTableTitle = "Make";
+        isEditMode = false;
+        editingMake = new MakesDto();
+        dialogFormModel = editingMake;
+        isDialogVisible = true;
+    }
+
+    private void OpenEditMakeDialog(MakesDto item)
+    {
+        activeTable = "Make";
+        activeTableTitle = "Make";
+        isEditMode = true;
+        editingMake = new MakesDto
+        {
+            MakeID = item.MakeID,
+            MakeName = item.MakeName
+        };
+        dialogFormModel = editingMake;
+        isDialogVisible = true;
+    }
+
+    // Document Types Dialogs
+    private void OpenCreateDocumentTypeDialog()
+    {
+        activeTable = "DocumentType";
+        activeTableTitle = "Document Type";
+        isEditMode = false;
+        editingDocumentType = new DocumentTypeDto();
+        dialogFormModel = editingDocumentType;
+        isDialogVisible = true;
+    }
+
+    private void OpenEditDocumentTypeDialog(DocumentTypeDto item)
+    {
+        activeTable = "DocumentType";
+        activeTableTitle = "Document Type";
+        isEditMode = true;
+        editingDocumentType = new DocumentTypeDto
+        {
+            DocumentTypeID = item.DocumentTypeID,
+            DocumentType = item.DocumentType
+        };
+        dialogFormModel = editingDocumentType;
+        isDialogVisible = true;
+    }
+
+    private void CloseDialog()
+    {
+        isDialogVisible = false;
+    }
+
+    private async Task SaveItemAsync()
+    {
+        isSaving = true;
+        try
+        {
+            switch (activeTable)
+            {
+                case "Status":
+                    if (string.IsNullOrWhiteSpace(editingStatus.StatusCode)) return;
+                    if (isEditMode)
+                        await CodeTableService.UpdateStatusAsync(editingStatus.StatusID, editingStatus);
+                    else
+                        await CodeTableService.CreateStatusAsync(editingStatus);
+                    statuses = (await CodeTableService.GetStatusesAsync()).ToList();
+                    break;
+
+                case "Program":
+                    if (string.IsNullOrWhiteSpace(editingProgram.ProgramName)) return;
+                    if (isEditMode)
+                        await CodeTableService.UpdateProgramAsync(editingProgram.ProgramID, editingProgram);
+                    else
+                        await CodeTableService.CreateProgramAsync(editingProgram);
+                    programs = (await CodeTableService.GetProgramsAsync()).ToList();
+                    break;
+
+                case "Unit":
+                    if (string.IsNullOrWhiteSpace(editingUnit.UnitName)) return;
+                    if (isEditMode)
+                        await CodeTableService.UpdateUnitAsync(editingUnit.UnitID, editingUnit);
+                    else
+                        await CodeTableService.CreateUnitAsync(editingUnit);
+                    units = (await CodeTableService.GetUnitsAsync()).ToList();
+                    break;
+
+                case "Rank":
+                    if (string.IsNullOrWhiteSpace(editingRank.RankName)) return;
+                    if (isEditMode)
+                        await CodeTableService.UpdateRankAsync(editingRank.RankID, editingRank);
+                    else
+                        await CodeTableService.CreateRankAsync(editingRank);
+                    ranks = (await CodeTableService.GetRanksAsync()).ToList();
+                    break;
+
+                case "Make":
+                    if (string.IsNullOrWhiteSpace(editingMake.MakeName)) return;
+                    if (isEditMode)
+                        await CodeTableService.UpdateMakeAsync(editingMake.MakeID, editingMake);
+                    else
+                        await CodeTableService.CreateMakeAsync(editingMake);
+                    makes = (await CodeTableService.GetMakesAsync()).ToList();
+                    break;
+
+                case "DocumentType":
+                    if (string.IsNullOrWhiteSpace(editingDocumentType.DocumentType)) return;
+                    if (isEditMode)
+                        await CodeTableService.UpdateDocumentTypeAsync(editingDocumentType.DocumentTypeID, editingDocumentType);
+                    else
+                        await CodeTableService.CreateDocumentTypeAsync(editingDocumentType);
+                    documentTypes = (await CodeTableService.GetDocumentTypesAsync()).ToList();
+                    break;
+            }
+
+            Snackbar.Add($"{activeTableTitle} saved successfully.", Severity.Success);
+            isDialogVisible = false;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving {Table}", activeTableTitle);
+            Snackbar.Add($"Failed to save {activeTableTitle.ToLower()}. Please check details and try again.", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    // Delete Operations
+    private void OpenDeleteDialog(string tableKey, int id, string name)
+    {
+        deleteTable = tableKey;
+        deleteTableTitle = tableKey switch
+        {
+            "Status" => "Status",
+            "Program" => "Program",
+            "Unit" => "Unit",
+            "Rank" => "Rank",
+            "Make" => "Make",
+            "DocumentType" => "Document Type",
+            _ => tableKey
+        };
+        deleteItemId = id;
+        deleteItemDisplay = name;
+        isDeleteDialogVisible = true;
+    }
+
+    private async Task DeleteItemAsync()
+    {
+        isDeleting = true;
+        try
+        {
+            bool success = false;
+            switch (deleteTable)
+            {
+                case "Status":
+                    success = await CodeTableService.DeleteStatusAsync(deleteItemId);
+                    if (success) statuses = (await CodeTableService.GetStatusesAsync()).ToList();
+                    break;
+                case "Program":
+                    success = await CodeTableService.DeleteProgramAsync(deleteItemId);
+                    if (success) programs = (await CodeTableService.GetProgramsAsync()).ToList();
+                    break;
+                case "Unit":
+                    success = await CodeTableService.DeleteUnitAsync(deleteItemId);
+                    if (success) units = (await CodeTableService.GetUnitsAsync()).ToList();
+                    break;
+                case "Rank":
+                    success = await CodeTableService.DeleteRankAsync(deleteItemId);
+                    if (success) ranks = (await CodeTableService.GetRanksAsync()).ToList();
+                    break;
+                case "Make":
+                    success = await CodeTableService.DeleteMakeAsync(deleteItemId);
+                    if (success) makes = (await CodeTableService.GetMakesAsync()).ToList();
+                    break;
+                case "DocumentType":
+                    success = await CodeTableService.DeleteDocumentTypeAsync(deleteItemId);
+                    if (success) documentTypes = (await CodeTableService.GetDocumentTypesAsync()).ToList();
+                    break;
+            }
+
+            if (success)
+            {
+                Snackbar.Add($"{deleteTableTitle} '{deleteItemDisplay}' deleted successfully.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add($"Unable to delete {deleteTableTitle.ToLower()} '{deleteItemDisplay}'. It may be in use by existing records.", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting {Table} {Id}", deleteTableTitle, deleteItemId);
+            Snackbar.Add($"Cannot delete {deleteTableTitle.ToLower()} because it is referenced by existing personnel, inventory, range, or training records.", Severity.Error);
+        }
+        finally
+        {
+            isDeleting = false;
+            isDeleteDialogVisible = false;
+        }
+    }
+
+    // Inline Status Toggles
+
+    private async Task ToggleProgramActiveAsync(ProgramsDto item, bool newStatus)
+    {
+        var originalStatus = item.IsActive;
+        item.IsActive = newStatus;
+        try
+        {
+            await CodeTableService.UpdateProgramAsync(item.ProgramID, item);
+            Snackbar.Add($"Program '{item.ProgramName}' marked as {(newStatus ? "Active" : "Inactive")}.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            item.IsActive = originalStatus;
+            Logger.LogError(ex, "Error toggling program active state for ProgramID {Id}", item.ProgramID);
+            Snackbar.Add($"Failed to update status for '{item.ProgramName}'.", Severity.Error);
+        }
+    }
+
+    private async Task ToggleUnitActiveAsync(UnitsDto item, bool newStatus)
+    {
+        var originalStatus = item.IsActive;
+        item.IsActive = newStatus;
+        try
+        {
+            await CodeTableService.UpdateUnitAsync(item.UnitID, item);
+            Snackbar.Add($"Unit '{item.UnitName}' marked as {(newStatus ? "Active" : "Inactive")}.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            item.IsActive = originalStatus;
+            Logger.LogError(ex, "Error toggling unit active state for UnitID {Id}", item.UnitID);
+            Snackbar.Add($"Failed to update status for '{item.UnitName}'.", Severity.Error);
+        }
+    }
+
+    private async Task ToggleRankActiveAsync(RanksDto item, bool newStatus)
+    {
+        var originalStatus = item.IsActive;
+        item.IsActive = newStatus;
+        try
+        {
+            await CodeTableService.UpdateRankAsync(item.RankID, item);
+            Snackbar.Add($"Rank '{item.RankName}' marked as {(newStatus ? "Active" : "Inactive")}.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            item.IsActive = originalStatus;
+            Logger.LogError(ex, "Error toggling rank active state for RankID {Id}", item.RankID);
+            Snackbar.Add($"Failed to update status for '{item.RankName}'.", Severity.Error);
+        }
+    }
+}
