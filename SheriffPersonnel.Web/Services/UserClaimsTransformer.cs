@@ -69,9 +69,20 @@ public class UserClaimsTransformer : IClaimsTransformation
             {
                 foreach (var role in user.Roles)
                 {
-                    if (!string.IsNullOrEmpty(role) && !identity.HasClaim(ClaimTypes.Role, role))
+                    if (!string.IsNullOrEmpty(role))
                     {
-                        identity.AddClaim(new Claim(ClaimTypes.Role, role, ClaimValueTypes.String));
+                        if (!identity.HasClaim(ClaimTypes.Role, role))
+                        {
+                            identity.AddClaim(new Claim(ClaimTypes.Role, role, ClaimValueTypes.String));
+                        }
+                        if (!string.IsNullOrEmpty(identity.RoleClaimType) && identity.RoleClaimType != ClaimTypes.Role && !identity.HasClaim(identity.RoleClaimType, role))
+                        {
+                            identity.AddClaim(new Claim(identity.RoleClaimType, role, ClaimValueTypes.String));
+                        }
+                        if (!identity.HasClaim("roles", role))
+                        {
+                            identity.AddClaim(new Claim("roles", role, ClaimValueTypes.String));
+                        }
                     }
                 }
             }

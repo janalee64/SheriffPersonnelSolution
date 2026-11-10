@@ -4,7 +4,7 @@
 @using Microsoft.AspNetCore.Components.Web
 @using SheriffPersonnel.Shared.DTOs
 @using SheriffPersonnel.Web.Services    
-@attribute [Authorize(Roles = "Personnel")]
+@attribute [Authorize(Roles = "Personnel View, Personnel Edit")]
 
 @inject SearchService service
 @inject ExcelExportService excelExportService
@@ -17,7 +17,7 @@
 
 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
     <MudText Typo="Typo.h4">Employee Search</MudText>
-    <AuthorizeView Roles="Personnel">
+    <AuthorizeView Policy="CanEditPersonnel">
         <Authorized>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="NavigateToAddEmployee">
                 Add New Employee

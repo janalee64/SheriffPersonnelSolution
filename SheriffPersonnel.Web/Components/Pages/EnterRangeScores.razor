@@ -2,7 +2,7 @@
 @using SheriffPersonnel.Shared.DTOs
 @using SheriffPersonnel.Shared.Models
 @using SheriffPersonnel.Web.Services
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Range Scores")]
 
 @inject SearchService service
 @inject CodeTableService codeTableService
@@ -149,7 +149,7 @@
     </MudText>
 
     <MudGrid Spacing="3">
-        <MudItem xs="12" sm="6" md="3">
+        <MudItem xs="12" sm="6">
             <MudDatePicker @ref="eventDatePicker"
                            @bind-Date="rangeDate"
                            Converter="@eventDateConverter"
@@ -161,27 +161,13 @@
                            Adornment="Adornment.Start"
                            AdornmentIcon="@Icons.Material.Filled.CalendarToday" />
         </MudItem>
-        <MudItem xs="12" sm="6" md="3">
-            <MudTextField @bind-Value="eventType"
-                          Label="Event / Session Type *"
-                          Placeholder="e.g. Annual Qualification, Night Shoot"
-                          Variant="Variant.Outlined"
-                          Required="true"
-                          RequiredError="Event type is required" />
-        </MudItem>
-        <MudItem xs="12" sm="6" md="3">
-            <MudTextField @bind-Value="location"
-                          Label="Location / Range Name"
-                          Placeholder="e.g. County Range, Outdoor Bay 1"
-                          Variant="Variant.Outlined" />
-        </MudItem>
-        <MudItem xs="12" sm="6" md="3">
+        <MudItem xs="12" sm="6">
             <MudAutocomplete T="RangeOfficerDTO"
                              Value="selectedRangeOfficer"
                              ValueChanged="OnRangeOfficerChanged"
                              SearchFunc="SearchRangeOfficers"
                              ToStringFunc="@(ro => ro == null ? string.Empty : ro.OfficerName)"
-                             Label="Range Officer"
+                             Label="Range Officer *"
                              Placeholder="Type or select Range Officer"
                              Variant="Variant.Outlined"
                              Clearable="true"
@@ -189,7 +175,9 @@
                              CoerceText="true"
                              CoerceValue="false"
                              SelectValueOnTab="true"
-                             MinCharacters="0" />
+                             MinCharacters="0"
+                             Required="true"
+                             RequiredError="Range Officer is required" />
         </MudItem>
     </MudGrid>
 </MudPaper>
@@ -236,13 +224,14 @@
                     <MudTh Style="width: 45px; text-align: center;">#</MudTh>
                     <MudTh Style="min-width: 280px;">Officer / Employee *</MudTh>
                     <MudTh Style="min-width: 110px;">Unit</MudTh>
-                    <MudTh Style="min-width: 140px;">Course</MudTh>
+                    <MudTh Style="min-width: 220px;">Course *</MudTh>
                     <MudTh Style="min-width: 180px;">Range Skills</MudTh>
-                    <MudTh Style="min-width: 150px;">Make</MudTh>
-                    <MudTh Style="min-width: 160px;">Model</MudTh>
-                    <MudTh Style="min-width: 170px;">Serial Number</MudTh>
-                    <MudTh Style="min-width: 130px;">Caliber</MudTh>
-                    <MudTh Style="min-width: 160px; text-align: center;">Result (Pass/Fail)</MudTh>
+                    <MudTh Style="min-width: 170px;">Serial Number *</MudTh>
+                    <MudTh Style="min-width: 140px;">Make</MudTh>
+                    <MudTh Style="min-width: 140px;">Model</MudTh>
+                    <MudTh Style="min-width: 120px;">Caliber</MudTh>
+                    <MudTh Style="min-width: 80px;">Optic</MudTh>
+                    <MudTh Style="min-width: 160px; text-align: center;">Result (Pass/Fail) *</MudTh>
                     <MudTh Style="width: 60px; text-align: center;">Action</MudTh>
                 </HeaderContent>
                 <RowTemplate Context="row">
@@ -275,7 +264,7 @@
                                          Value="@(availableCourses.FirstOrDefault(c => c.CourseID == row.CourseID))"
                                          ValueChanged="@(c => OnCourseSelected(row, c))"
                                          SearchFunc="SearchCourses"
-                                         ToStringFunc="@(c => c == null ? string.Empty : (!string.IsNullOrWhiteSpace(c.CourseCode) ? c.CourseCode : c.CourseName))"
+                                         ToStringFunc="@(c => c == null ? string.Empty : c.FormattedCourse)"
                                          Placeholder="-- Select Course --"
                                          Variant="Variant.Outlined"
                                          Margin="Margin.Dense"
@@ -286,7 +275,7 @@
                                          SelectValueOnTab="true"
                                          MinCharacters="0"
                                          @onkeydown="@(e => OnCourseKeyDown(e, row))"
-                                         Style="min-width: 130px;" />
+                                         Style="min-width: 200px;" />
                     </MudTd>
                     <MudTd DataLabel="Range Skills">
                         @if (IsCourseP(row))
@@ -323,73 +312,52 @@
                             <MudText Color="Color.Secondary" Typo="Typo.caption" Class="d-flex align-center justify-center">—</MudText>
                         }
                     </MudTd>
+                    <MudTd DataLabel="Serial Number">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="min-width: 190px;">
+                            <MudAutocomplete T="string"
+                                             Value="row.SelectedSerial"
+                                             ValueChanged="@(s => OnSerialSelected(row, s))"
+                                             SearchFunc="@((val, ct) => SearchRowSerials(row, val, ct))"
+                                             Placeholder="Select Serial #"
+                                             Variant="Variant.Outlined"
+                                             Margin="Margin.Dense"
+                                             Clearable="true"
+                                             ResetValueOnEmptyText="true"
+                                             CoerceText="true"
+                                             CoerceValue="false"
+                                             SelectValueOnTab="true"
+                                             MinCharacters="0"
+                                             Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)"
+                                             Style="flex-grow: 1; min-width: 150px;" />
+                            <MudTooltip Text="Add New Firearm for Officer">
+                                <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               OnClick="@(() => OpenAddFirearmModal(row))"
+                                               Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)"
+                                               tabindex="-1" />
+                            </MudTooltip>
+                        </MudStack>
+                    </MudTd>
                     <MudTd DataLabel="Make">
-                        <MudAutocomplete T="string"
-                                         Value="row.SelectedMake"
-                                         ValueChanged="@(m => OnMakeSelected(row, m))"
-                                         SearchFunc="@((val, ct) => SearchRowMakes(row, val, ct))"
-                                         Placeholder="Select Make"
-                                         Variant="Variant.Outlined"
-                                         Margin="Margin.Dense"
-                                         Clearable="true"
-                                         ResetValueOnEmptyText="true"
-                                         CoerceText="true"
-                                         CoerceValue="false"
-                                         SelectValueOnTab="true"
-                                         MinCharacters="0"
-                                         Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)"
-                                         Style="min-width: 135px;" />
+                        <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                            @(row.SelectedMake ?? string.Empty)
+                        </MudText>
                     </MudTd>
                     <MudTd DataLabel="Model">
-                        <MudAutocomplete T="string"
-                                         Value="row.SelectedModel"
-                                         ValueChanged="@(m => OnModelSelected(row, m))"
-                                         SearchFunc="@((val, ct) => SearchRowModels(row, val, ct))"
-                                         Placeholder="Select Model"
-                                         Variant="Variant.Outlined"
-                                         Margin="Margin.Dense"
-                                         Clearable="true"
-                                         ResetValueOnEmptyText="true"
-                                         CoerceText="true"
-                                         CoerceValue="false"
-                                         SelectValueOnTab="true"
-                                         MinCharacters="0"
-                                         Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)"
-                                         Style="min-width: 145px;" />
-                    </MudTd>
-                    <MudTd DataLabel="Serial Number">
-                        <MudAutocomplete T="string"
-                                         Value="row.SelectedSerial"
-                                         ValueChanged="@(s => OnSerialSelected(row, s))"
-                                         SearchFunc="@((val, ct) => SearchRowSerials(row, val, ct))"
-                                         Placeholder="Select Serial #"
-                                         Variant="Variant.Outlined"
-                                         Margin="Margin.Dense"
-                                         Clearable="true"
-                                         ResetValueOnEmptyText="true"
-                                         CoerceText="true"
-                                         CoerceValue="false"
-                                         SelectValueOnTab="true"
-                                         MinCharacters="0"
-                                         Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)"
-                                         Style="min-width: 155px;" />
+                        <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                            @(row.SelectedModel ?? string.Empty)
+                        </MudText>
                     </MudTd>
                     <MudTd DataLabel="Caliber">
-                        <MudAutocomplete T="string"
-                                         Value="row.SelectedCaliber"
-                                         ValueChanged="@(c => OnCaliberSelected(row, c))"
-                                         SearchFunc="@((val, ct) => SearchRowCalibers(row, val, ct))"
-                                         Placeholder="Select Caliber"
-                                         Variant="Variant.Outlined"
-                                         Margin="Margin.Dense"
-                                         Clearable="true"
-                                         ResetValueOnEmptyText="true"
-                                         CoerceText="true"
-                                         CoerceValue="false"
-                                         SelectValueOnTab="true"
-                                         MinCharacters="0"
-                                         Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)"
-                                         Style="min-width: 115px;" />
+                        <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                            @(row.SelectedCaliber ?? string.Empty)
+                        </MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Optic">
+                        <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                            @(string.IsNullOrWhiteSpace(row.SelectedSerial) ? string.Empty : (row.SelectedOptic ? "Yes" : "No"))
+                        </MudText>
                     </MudTd>
                     <MudTd DataLabel="Result" Style="text-align: center;">
                         <MudButtonGroup Size="Size.Small" Style="min-width: 140px;" @onkeydown="(e) => OnResultKeyDown(e, row)">
@@ -434,7 +402,7 @@
                                          ValueChanged="@(e => OnEmployeeSelected(row, e))"
                                          SearchFunc="SearchEmployees"
                                          ToStringFunc="@(e => e == null ? string.Empty : (string.IsNullOrWhiteSpace(e.BadgeNumber) ? e.FormattedName : $"{e.FormattedName} (#{e.BadgeNumber})"))"
-                                         Label="Officer Name / Badge #"
+                                         Label="Officer Name / Badge # *"
                                          Placeholder="Tap to search officer"
                                          Variant="Variant.Outlined"
                                          Clearable="true"
@@ -447,15 +415,18 @@
 
                         @if (row.SelectedEmployee != null && !string.IsNullOrEmpty(row.SelectedEmployee.Unit))
                         {
-                            <MudTextField Value="@row.SelectedEmployee.Unit" Label="Unit" Variant="Variant.Outlined" ReadOnly="true" Margin="Margin.Dense" />
+                            <div>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Unit</MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight: 500;">@row.SelectedEmployee.Unit</MudText>
+                            </div>
                         }
 
                         <MudAutocomplete T="RangeCourseDTO"
                                          Value="@(availableCourses.FirstOrDefault(c => c.CourseID == row.CourseID))"
                                          ValueChanged="@(c => OnCourseSelected(row, c))"
                                          SearchFunc="SearchCourses"
-                                         ToStringFunc="@(c => c == null ? string.Empty : (!string.IsNullOrWhiteSpace(c.CourseCode) ? c.CourseCode : c.CourseName))"
-                                         Label="Course of Fire"
+                                         ToStringFunc="@(c => c == null ? string.Empty : c.FormattedCourse)"
+                                         Label="Course of Fire *"
                                          Placeholder="-- Select Course --"
                                          Variant="Variant.Outlined"
                                          Clearable="true"
@@ -499,74 +470,55 @@
                         }
 
                         <MudGrid Spacing="2">
-                            <MudItem xs="6">
-                                <MudAutocomplete T="string"
-                                                 Value="row.SelectedMake"
-                                                 ValueChanged="@(m => OnMakeSelected(row, m))"
-                                                 SearchFunc="@((val, ct) => SearchRowMakes(row, val, ct))"
-                                                 Label="Make"
-                                                 Variant="Variant.Outlined"
-                                                 Dense="true"
-                                                 Clearable="true"
-                                                 ResetValueOnEmptyText="true"
-                                                 CoerceText="true"
-                                                 CoerceValue="false"
-                                                 SelectValueOnTab="true"
-                                                 MinCharacters="0"
-                                                 Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)" />
+                            <MudItem xs="12">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudAutocomplete T="string"
+                                                     Value="row.SelectedSerial"
+                                                     ValueChanged="@(s => OnSerialSelected(row, s))"
+                                                     SearchFunc="@((val, ct) => SearchRowSerials(row, val, ct))"
+                                                     Label="Serial # *"
+                                                     Placeholder="Select Serial #"
+                                                     Variant="Variant.Outlined"
+                                                     Dense="true"
+                                                     Clearable="true"
+                                                     ResetValueOnEmptyText="true"
+                                                     CoerceText="true"
+                                                     CoerceValue="false"
+                                                     SelectValueOnTab="true"
+                                                     MinCharacters="0"
+                                                     Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)"
+                                                     Style="flex-grow: 1;" />
+                                    <MudTooltip Text="Add New Firearm for Officer">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                                       Color="Color.Primary"
+                                                       Size="Size.Small"
+                                                       OnClick="@(() => OpenAddFirearmModal(row))"
+                                                       Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)"
+                                                       tabindex="-1"
+                                                       Class="mt-1" />
+                                    </MudTooltip>
+                                </MudStack>
                             </MudItem>
-                            <MudItem xs="6">
-                                <MudAutocomplete T="string"
-                                                 Value="row.SelectedModel"
-                                                 ValueChanged="@(m => OnModelSelected(row, m))"
-                                                 SearchFunc="@((val, ct) => SearchRowModels(row, val, ct))"
-                                                 Label="Model"
-                                                 Variant="Variant.Outlined"
-                                                 Dense="true"
-                                                 Clearable="true"
-                                                 ResetValueOnEmptyText="true"
-                                                 CoerceText="true"
-                                                 CoerceValue="false"
-                                                 SelectValueOnTab="true"
-                                                 MinCharacters="0"
-                                                 Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)" />
+                            <MudItem xs="3">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Make</MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight: 500;">@(row.SelectedMake ?? string.Empty)</MudText>
                             </MudItem>
-                            <MudItem xs="6">
-                                <MudAutocomplete T="string"
-                                                 Value="row.SelectedSerial"
-                                                 ValueChanged="@(s => OnSerialSelected(row, s))"
-                                                 SearchFunc="@((val, ct) => SearchRowSerials(row, val, ct))"
-                                                 Label="Serial #"
-                                                 Variant="Variant.Outlined"
-                                                 Dense="true"
-                                                 Clearable="true"
-                                                 ResetValueOnEmptyText="true"
-                                                 CoerceText="true"
-                                                 CoerceValue="false"
-                                                 SelectValueOnTab="true"
-                                                 MinCharacters="0"
-                                                 Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)" />
+                            <MudItem xs="3">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Model</MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight: 500;">@(row.SelectedModel ?? string.Empty)</MudText>
                             </MudItem>
-                            <MudItem xs="6">
-                                <MudAutocomplete T="string"
-                                                 Value="row.SelectedCaliber"
-                                                 ValueChanged="@(c => OnCaliberSelected(row, c))"
-                                                 SearchFunc="@((val, ct) => SearchRowCalibers(row, val, ct))"
-                                                 Label="Caliber"
-                                                 Variant="Variant.Outlined"
-                                                 Dense="true"
-                                                 Clearable="true"
-                                                 ResetValueOnEmptyText="true"
-                                                 CoerceText="true"
-                                                 CoerceValue="false"
-                                                 SelectValueOnTab="true"
-                                                 MinCharacters="0"
-                                                 Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)" />
+                            <MudItem xs="3">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Caliber</MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight: 500;">@(row.SelectedCaliber ?? string.Empty)</MudText>
+                            </MudItem>
+                            <MudItem xs="3">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Optic</MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight: 500;">@(string.IsNullOrWhiteSpace(row.SelectedSerial) ? string.Empty : (row.SelectedOptic ? "Yes" : "No"))</MudText>
                             </MudItem>
                         </MudGrid>
 
                         <div>
-                            <MudText Typo="Typo.caption" Class="d-block mb-1 font-weight-bold">Result:</MudText>
+                            <MudText Typo="Typo.caption" Class="d-block mb-1 font-weight-bold">Result *:</MudText>
                             <MudButtonGroup Size="Size.Medium" FullWidth="true" @onkeydown="(e) => OnResultKeyDown(e, row)">
                                 <MudButton Variant="@(row.PassFail == "Pass" || row.PassFail == "P" ? Variant.Filled : Variant.Outlined)"
                                            Color="@(row.PassFail == "Pass" || row.PassFail == "P" ? Color.Success : Color.Default)"
@@ -605,7 +557,7 @@
                 Ready to Save?
             </MudText>
             <MudText Typo="Typo.body2" Color="Color.Secondary">
-                @ValidRowsCount valid officer entry/entries ready to submit for event: <b>@(string.IsNullOrWhiteSpace(eventType) ? "[No Event Title]" : eventType)</b>
+                @ValidRowsCount valid officer entry/entries ready to submit
             </MudText>
         </div>
 
@@ -614,7 +566,7 @@
                    Size="Size.Large"
                    StartIcon="@Icons.Material.Filled.Save"
                    OnClick="SaveAllRangeScoresAsync"
-                   Disabled="@(isSaving || ValidRowsCount == 0 || string.IsNullOrWhiteSpace(eventType))"
+                   Disabled="@(isSaving || ValidRowsCount == 0)"
                    accesskey="s"
                    title="Press Alt+S (or Option+Control+S on Mac) to save without tabbing"
                    Style="min-width: 220px; font-weight: 700;">
@@ -634,8 +586,6 @@
 @code {
     private MudDatePicker? eventDatePicker;
     private DateTime? rangeDate = DateTime.Today;
-    private string eventType = string.Empty;
-    private string? location = string.Empty;
 
     private MudBlazor.IReversibleConverter<DateTime?, string> eventDateConverter = new TwoDigitYearDateConverter();
 
@@ -698,11 +648,15 @@
         }
     }
 
+    private const string NewFirearmOption = "+ Add New Firearm...";
+
     private RangeOfficerDTO? selectedRangeOfficer;
     private List<RangeOfficerDTO> availableRangeOfficers = new();
 
     private List<RangeCourseDTO> availableCourses = new();
     private List<RangeSkillDTO> availableRangeSkills = new();
+    private List<MakesDto> availableMakes = new();
+    private List<StatusesDto> availableStatuses = new();
     private List<EmployeeSearchResultDto> allEmployees = new();
     private List<ScoreEntryRow> scoreRows = new();
 
@@ -723,6 +677,7 @@
         public string? SelectedModel { get; set; }
         public string? SelectedSerial { get; set; }
         public string? SelectedCaliber { get; set; }
+        public bool SelectedOptic { get; set; }
         public int? SelectedFirearmID { get; set; }
 
         public int? CourseID { get; set; }
@@ -755,18 +710,22 @@
         try
         {
             var coursesTask = service.GetRangeCoursesAsync();
-            var employeesTask = service.GetActiveEmployeesAsync();
+            var employeesTask = service.SearchEmployeesAsync(new EmployeeSearchRequestDto());
             var rangeOfficersTask = codeTableService.GetRangeOfficersAsync();
             var rangeSkillsTask = codeTableService.GetRangeSkillsAsync();
+            var makesTask = codeTableService.GetMakesAsync();
+            var statusesTask = codeTableService.GetStatusesAsync();
 
-            await Task.WhenAll(coursesTask, employeesTask, rangeOfficersTask, rangeSkillsTask);
+            await Task.WhenAll(coursesTask, employeesTask, rangeOfficersTask, rangeSkillsTask, makesTask, statusesTask);
 
             var courses = await coursesTask;
-            availableCourses = courses != null ? courses.Where(c => c.IsActive).ToList() : new();
+            availableCourses = courses != null
+                ? courses.Where(c => c.IsActive).OrderBy(c => c.SortOrder ?? int.MaxValue).ThenBy(c => c.CourseName).ToList()
+                : new();
 
             var employees = await employeesTask;
             allEmployees = employees != null
-                ? employees.Where(e => (string.IsNullOrEmpty(e.Status) || string.Equals(e.Status, "Active", StringComparison.OrdinalIgnoreCase) || string.Equals(e.Status, "A", StringComparison.OrdinalIgnoreCase)) && (!e.InactiveDate.HasValue || e.InactiveDate.Value.Date > DateTime.Today)).OrderBy(e => e.LastName).ThenBy(e => e.FirstName).ToList()
+                ? employees.Where(IsActiveOrRetired).OrderBy(e => e.LastName).ThenBy(e => e.FirstName).ToList()
                 : new();
 
             var rangeOfficers = await rangeOfficersTask;
@@ -777,6 +736,16 @@
             var rangeSkills = await rangeSkillsTask;
             availableRangeSkills = rangeSkills != null
                 ? rangeSkills.OrderBy(rs => rs.SkillName).ToList()
+                : new();
+
+            var makes = await makesTask;
+            availableMakes = makes != null
+                ? makes.OrderBy(m => m.MakeName).ToList()
+                : new();
+
+            var statuses = await statusesTask;
+            availableStatuses = statuses != null
+                ? statuses.OrderBy(s => s.StatusDescription ?? s.StatusCode).ToList()
                 : new();
         }
         catch (Exception ex)
@@ -841,6 +810,7 @@
         row.SelectedModel = null;
         row.SelectedSerial = null;
         row.SelectedCaliber = null;
+        row.SelectedOptic = false;
         row.SelectedFirearmID = null;
 
         if (employee != null && employee.EmployeeID > 0)
@@ -851,10 +821,10 @@
                 var firearms = await service.GetFirearmsByEmployeeIdAsync(employee.EmployeeID);
                 row.EmployeeFirearms = firearms != null ? firearms.ToList() : new List<FirearmsDto>();
 
-                var distinctMakes = GetAvailableMakes(row);
-                if (distinctMakes.Count == 1)
+                var serials = GetAvailableSerials(row);
+                if (serials.Count == 1)
                 {
-                    OnMakeSelected(row, distinctMakes.First());
+                    await OnSerialSelected(row, serials.First());
                 }
                 else if (row.EmployeeFirearms.Count == 1)
                 {
@@ -863,6 +833,7 @@
                     row.SelectedModel = f.ModelNumber;
                     row.SelectedSerial = f.SerialNumber;
                     row.SelectedCaliber = f.Caliber;
+                    row.SelectedOptic = f.Optic;
                     row.SelectedFirearmID = f.FirearmID;
                 }
             }
@@ -915,219 +886,150 @@
             (!string.IsNullOrEmpty(c.CourseName) && c.CourseName.Contains(value, StringComparison.OrdinalIgnoreCase))));
     }
 
-    private List<string> GetAvailableMakes(ScoreEntryRow row)
-    {
-        if (row.EmployeeFirearms == null) return new List<string>();
-        return row.EmployeeFirearms
-            .Select(f => f.MakeName)
-            .Where(m => !string.IsNullOrWhiteSpace(m))
-            .Distinct()
-            .ToList()!;
-    }
-
-    private List<string> GetAvailableModels(ScoreEntryRow row)
-    {
-        if (row.EmployeeFirearms == null) return new List<string>();
-        var query = row.EmployeeFirearms.AsEnumerable();
-        if (!string.IsNullOrEmpty(row.SelectedMake))
-        {
-            query = query.Where(f => string.Equals(f.MakeName, row.SelectedMake, StringComparison.OrdinalIgnoreCase));
-        }
-        return query
-            .Select(f => f.ModelNumber)
-            .Where(m => !string.IsNullOrWhiteSpace(m))
-            .Distinct()
-            .ToList();
-    }
-
     private List<string> GetAvailableSerials(ScoreEntryRow row)
     {
         if (row.EmployeeFirearms == null) return new List<string>();
-        var query = row.EmployeeFirearms.AsEnumerable();
-        if (!string.IsNullOrEmpty(row.SelectedMake))
-        {
-            query = query.Where(f => string.Equals(f.MakeName, row.SelectedMake, StringComparison.OrdinalIgnoreCase));
-        }
-        if (!string.IsNullOrEmpty(row.SelectedModel))
-        {
-            query = query.Where(f => string.Equals(f.ModelNumber, row.SelectedModel, StringComparison.OrdinalIgnoreCase));
-        }
-        return query
+        return row.EmployeeFirearms
             .Select(f => f.SerialNumber)
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Distinct()
             .ToList();
     }
 
-    private List<string> GetAvailableCalibers(ScoreEntryRow row)
-    {
-        if (row.EmployeeFirearms == null) return new List<string>();
-        var query = row.EmployeeFirearms.AsEnumerable();
-        if (!string.IsNullOrEmpty(row.SelectedMake))
-        {
-            query = query.Where(f => string.Equals(f.MakeName, row.SelectedMake, StringComparison.OrdinalIgnoreCase));
-        }
-        if (!string.IsNullOrEmpty(row.SelectedModel))
-        {
-            query = query.Where(f => string.Equals(f.ModelNumber, row.SelectedModel, StringComparison.OrdinalIgnoreCase));
-        }
-        if (!string.IsNullOrEmpty(row.SelectedSerial))
-        {
-            query = query.Where(f => string.Equals(f.SerialNumber, row.SelectedSerial, StringComparison.OrdinalIgnoreCase));
-        }
-        return query
-            .Select(f => f.Caliber)
-            .Where(c => !string.IsNullOrWhiteSpace(c))
-            .Distinct()
-            .ToList();
-    }
-
-    private Task<IEnumerable<string>> SearchRowMakes(ScoreEntryRow row, string value, CancellationToken cancellationToken)
-    {
-        var makes = GetAvailableMakes(row);
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return Task.FromResult<IEnumerable<string>>(makes);
-        }
-        return Task.FromResult(makes.Where(m => m.StartsWith(value, StringComparison.OrdinalIgnoreCase) || m.Contains(value, StringComparison.OrdinalIgnoreCase)));
-    }
-
-    private Task<IEnumerable<string>> SearchRowModels(ScoreEntryRow row, string value, CancellationToken cancellationToken)
-    {
-        var models = GetAvailableModels(row);
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return Task.FromResult<IEnumerable<string>>(models);
-        }
-        return Task.FromResult(models.Where(m => m.StartsWith(value, StringComparison.OrdinalIgnoreCase) || m.Contains(value, StringComparison.OrdinalIgnoreCase)));
-    }
-
     private Task<IEnumerable<string>> SearchRowSerials(ScoreEntryRow row, string value, CancellationToken cancellationToken)
     {
         var serials = GetAvailableSerials(row);
+        var options = new List<string> { NewFirearmOption };
+        options.AddRange(serials);
+
         if (string.IsNullOrWhiteSpace(value))
         {
-            return Task.FromResult<IEnumerable<string>>(serials);
+            return Task.FromResult<IEnumerable<string>>(options);
         }
-        return Task.FromResult(serials.Where(s => s.StartsWith(value, StringComparison.OrdinalIgnoreCase) || s.Contains(value, StringComparison.OrdinalIgnoreCase)));
+
+        return Task.FromResult(options.Where(s =>
+            s.Equals(NewFirearmOption, StringComparison.OrdinalIgnoreCase) ||
+            s.StartsWith(value, StringComparison.OrdinalIgnoreCase) ||
+            s.Contains(value, StringComparison.OrdinalIgnoreCase)));
     }
 
-    private Task<IEnumerable<string>> SearchRowCalibers(ScoreEntryRow row, string value, CancellationToken cancellationToken)
+    private async Task OnSerialSelected(ScoreEntryRow row, string? serial)
     {
-        var calibers = GetAvailableCalibers(row);
-        if (string.IsNullOrWhiteSpace(value))
+        if (string.Equals(serial, NewFirearmOption, StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult<IEnumerable<string>>(calibers);
-        }
-        return Task.FromResult(calibers.Where(c => c.StartsWith(value, StringComparison.OrdinalIgnoreCase) || c.Contains(value, StringComparison.OrdinalIgnoreCase)));
-    }
-
-    private void OnMakeSelected(ScoreEntryRow row, string? make)
-    {
-        row.SelectedMake = make;
-        if (string.IsNullOrEmpty(make))
-        {
-            row.SelectedModel = null;
             row.SelectedSerial = null;
+            await OpenAddFirearmModal(row);
+            return;
+        }
+
+        row.SelectedSerial = serial;
+        if (string.IsNullOrWhiteSpace(serial))
+        {
+            row.SelectedMake = null;
+            row.SelectedModel = null;
             row.SelectedCaliber = null;
+            row.SelectedOptic = false;
             row.SelectedFirearmID = null;
             return;
         }
 
         var matching = row.EmployeeFirearms
-            .Where(f => string.Equals(f.MakeName, make, StringComparison.OrdinalIgnoreCase))
+            .Where(f => string.Equals(f.SerialNumber, serial, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        if (matching.Count == 1)
+        if (matching.Any())
         {
             var f = matching.First();
+            row.SelectedMake = f.MakeName;
             row.SelectedModel = f.ModelNumber;
-            row.SelectedSerial = f.SerialNumber;
             row.SelectedCaliber = f.Caliber;
-            row.SelectedFirearmID = f.FirearmID;
-        }
-        else if (matching.Count > 1)
-        {
-            var models = matching.Select(f => f.ModelNumber).Where(m => !string.IsNullOrWhiteSpace(m)).Distinct().ToList();
-            row.SelectedModel = models.Count == 1 ? models.First() : (!string.IsNullOrEmpty(row.SelectedModel) && models.Contains(row.SelectedModel) ? row.SelectedModel : null);
-
-            var serials = matching.Select(f => f.SerialNumber).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
-            row.SelectedSerial = serials.Count == 1 ? serials.First() : (!string.IsNullOrEmpty(row.SelectedSerial) && serials.Contains(row.SelectedSerial) ? row.SelectedSerial : null);
-
-            var calibers = matching.Select(f => f.Caliber).Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().ToList();
-            row.SelectedCaliber = calibers.Count == 1 ? calibers.First() : (!string.IsNullOrEmpty(row.SelectedCaliber) && calibers.Contains(row.SelectedCaliber) ? row.SelectedCaliber : null);
-
-            UpdateSelectedFirearmId(row);
-        }
-    }
-
-    private void OnModelSelected(ScoreEntryRow row, string? model)
-    {
-        row.SelectedModel = model;
-        AutoPopulateFromMatch(row);
-    }
-
-    private void OnSerialSelected(ScoreEntryRow row, string? serial)
-    {
-        row.SelectedSerial = serial;
-        AutoPopulateFromMatch(row);
-    }
-
-    private void OnCaliberSelected(ScoreEntryRow row, string? caliber)
-    {
-        row.SelectedCaliber = caliber;
-        AutoPopulateFromMatch(row);
-    }
-
-    private void AutoPopulateFromMatch(ScoreEntryRow row)
-    {
-        var matching = row.EmployeeFirearms.AsEnumerable();
-        if (!string.IsNullOrEmpty(row.SelectedMake))
-            matching = matching.Where(f => string.Equals(f.MakeName, row.SelectedMake, StringComparison.OrdinalIgnoreCase));
-        if (!string.IsNullOrEmpty(row.SelectedModel))
-            matching = matching.Where(f => string.Equals(f.ModelNumber, row.SelectedModel, StringComparison.OrdinalIgnoreCase));
-        if (!string.IsNullOrEmpty(row.SelectedSerial))
-            matching = matching.Where(f => string.Equals(f.SerialNumber, row.SelectedSerial, StringComparison.OrdinalIgnoreCase));
-        if (!string.IsNullOrEmpty(row.SelectedCaliber))
-            matching = matching.Where(f => string.Equals(f.Caliber, row.SelectedCaliber, StringComparison.OrdinalIgnoreCase));
-
-        var list = matching.ToList();
-        if (list.Count == 1)
-        {
-            var f = list.First();
-            if (string.IsNullOrEmpty(row.SelectedMake)) row.SelectedMake = f.MakeName;
-            if (string.IsNullOrEmpty(row.SelectedModel)) row.SelectedModel = f.ModelNumber;
-            if (string.IsNullOrEmpty(row.SelectedSerial)) row.SelectedSerial = f.SerialNumber;
-            if (string.IsNullOrEmpty(row.SelectedCaliber)) row.SelectedCaliber = f.Caliber;
+            row.SelectedOptic = f.Optic;
             row.SelectedFirearmID = f.FirearmID;
         }
         else
         {
-            UpdateSelectedFirearmId(row);
-        }
-    }
-
-    private void UpdateSelectedFirearmId(ScoreEntryRow row)
-    {
-        var matching = row.EmployeeFirearms.AsEnumerable();
-        if (!string.IsNullOrEmpty(row.SelectedMake))
-            matching = matching.Where(f => string.Equals(f.MakeName, row.SelectedMake, StringComparison.OrdinalIgnoreCase));
-        if (!string.IsNullOrEmpty(row.SelectedModel))
-            matching = matching.Where(f => string.Equals(f.ModelNumber, row.SelectedModel, StringComparison.OrdinalIgnoreCase));
-        if (!string.IsNullOrEmpty(row.SelectedSerial))
-            matching = matching.Where(f => string.Equals(f.SerialNumber, row.SelectedSerial, StringComparison.OrdinalIgnoreCase));
-        if (!string.IsNullOrEmpty(row.SelectedCaliber))
-            matching = matching.Where(f => string.Equals(f.Caliber, row.SelectedCaliber, StringComparison.OrdinalIgnoreCase));
-
-        var list = matching.ToList();
-        if (list.Count == 1)
-        {
-            row.SelectedFirearmID = list.First().FirearmID;
-        }
-        else
-        {
+            row.SelectedMake = null;
+            row.SelectedModel = null;
+            row.SelectedCaliber = null;
+            row.SelectedOptic = false;
             row.SelectedFirearmID = null;
         }
+    }
+
+    private async Task OpenAddFirearmModal(ScoreEntryRow row)
+    {
+        if (row.SelectedEmployee == null || row.SelectedEmployee.EmployeeID <= 0)
+        {
+            Snackbar.Add("Please select an officer before adding a firearm.", Severity.Warning);
+            return;
+        }
+
+        var parameters = new DialogParameters<AddFirearmModal>
+        {
+            { x => x.EmployeeId, row.SelectedEmployee.EmployeeID },
+            { x => x.Firearm, new FirearmsDto { EmployeeID = row.SelectedEmployee.EmployeeID } },
+            { x => x.AvailableMakes, availableMakes },
+            { x => x.AvailableStatuses, availableStatuses }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<AddFirearmModal>("Add Firearm", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is FirearmsDto newFirearm)
+        {
+            row.IsLoadingFirearms = true;
+            StateHasChanged();
+
+            try
+            {
+                var firearms = await service.GetFirearmsByEmployeeIdAsync(row.SelectedEmployee.EmployeeID);
+                row.EmployeeFirearms = firearms != null ? firearms.ToList() : new List<FirearmsDto>();
+
+                if (!string.IsNullOrWhiteSpace(newFirearm.SerialNumber))
+                {
+                    await OnSerialSelected(row, newFirearm.SerialNumber);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error refreshing firearms for employee {EmployeeID} after adding firearm.", row.SelectedEmployee.EmployeeID);
+            }
+            finally
+            {
+                row.IsLoadingFirearms = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private static bool IsActiveOrRetired(EmployeeSearchResultDto e)
+    {
+        if (e == null) return false;
+
+        var status = e.Status ?? string.Empty;
+
+        if (status.Contains("Inactive", StringComparison.OrdinalIgnoreCase) ||
+            status.Contains("Terminated", StringComparison.OrdinalIgnoreCase) ||
+            status.Contains("Resigned", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(status, "INACT", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(status, "TERM", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (status.Contains("Retired", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(status, "RET", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (e.InactiveDate.HasValue && e.InactiveDate.Value.Date <= DateTime.Today)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private Task<IEnumerable<EmployeeSearchResultDto>> SearchEmployees(string value, CancellationToken cancellationToken)
@@ -1178,8 +1080,6 @@
     private async Task ResetForm()
     {
         rangeDate = DateTime.Today;
-        eventType = string.Empty;
-        location = string.Empty;
         selectedRangeOfficer = null;
         saveSuccessMessage = null;
         errorMessage = null;
@@ -1203,9 +1103,18 @@
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(eventType))
+        if (selectedRangeOfficer == null || selectedRangeOfficer.RangeOfficerID <= 0 || string.IsNullOrWhiteSpace(selectedRangeOfficer.OfficerName))
         {
-            errorMessage = "Please enter an Event / Session Type (e.g. Handgun Qualification).";
+            errorMessage = "Please select a Range Officer.";
+            Snackbar.Add(errorMessage, Severity.Error);
+            return;
+        }
+
+        var unassignedRows = scoreRows.Where(r => (r.SelectedEmployee == null || r.SelectedEmployee.EmployeeID <= 0) &&
+            (r.CourseID.HasValue || !string.IsNullOrWhiteSpace(r.SelectedMake) || !string.IsNullOrWhiteSpace(r.SelectedModel) || !string.IsNullOrWhiteSpace(r.SelectedSerial) || !string.IsNullOrWhiteSpace(r.SelectedCaliber))).ToList();
+        if (unassignedRows.Any())
+        {
+            errorMessage = "Please select an Officer for all filled rows, or remove empty officer rows.";
             Snackbar.Add(errorMessage, Severity.Error);
             return;
         }
@@ -1218,6 +1127,56 @@
             return;
         }
 
+        for (int i = 0; i < validRows.Count; i++)
+        {
+            var row = validRows[i];
+            var officerName = string.IsNullOrWhiteSpace(row.SelectedEmployee?.FormattedName)
+                ? $"Officer #{i + 1}"
+                : row.SelectedEmployee.FormattedName;
+
+            if (!row.CourseID.HasValue || row.CourseID.Value <= 0)
+            {
+                errorMessage = $"Please select a Course for {officerName}.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(row.SelectedMake))
+            {
+                errorMessage = $"Please select/enter a Make for {officerName}.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(row.SelectedModel))
+            {
+                errorMessage = $"Please select/enter a Model for {officerName}.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(row.SelectedSerial))
+            {
+                errorMessage = $"Please select/enter a Serial Number for {officerName}.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(row.SelectedCaliber))
+            {
+                errorMessage = $"Please select/enter a Caliber for {officerName}.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(row.PassFail))
+            {
+                errorMessage = $"Please select Pass or Fail result for {officerName}.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
+        }
+
         isSaving = true;
 
         try
@@ -1226,8 +1185,6 @@
             var rangeEventDto = new RangeEventDTO
             {
                 RangeDate = DateOnly.FromDateTime(rangeDate.Value),
-                EventType = eventType.Trim(),
-                Location = string.IsNullOrWhiteSpace(location) ? null : location.Trim(),
                 RangeOfficer = selectedRangeOfficer != null
                     ? new RangeOfficer
                     {
@@ -1267,11 +1224,10 @@
                 }
             }
 
-            saveSuccessMessage = $"Successfully created Range Event '{createdEvent.EventType}' on {createdEvent.RangeDate:MM/dd/yyyy} and saved {savedCount} officer score record(s)!";
+            saveSuccessMessage = $"Successfully created Range Event on {createdEvent.RangeDate:MM/dd/yyyy} and saved {savedCount} officer score record(s)!";
             Snackbar.Add(saveSuccessMessage, Severity.Success);
 
             // Reset scores list for next batch
-            eventType = string.Empty;
             selectedRangeOfficer = null;
             InitializeDefaultRows();
         }

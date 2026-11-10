@@ -221,7 +221,10 @@ namespace SheriffPersonnel.API.Repositories
         // Range Courses
         public async Task<IEnumerable<RangeCourse>> GetRangeCoursesAsync()
         {
-            return await _dbContext.RangeCourses.OrderBy(rc => rc.CourseName).ToListAsync();
+            return await _dbContext.RangeCourses
+                .OrderBy(rc => rc.SortOrder ?? int.MaxValue)
+                .ThenBy(rc => rc.CourseName)
+                .ToListAsync();
         }
 
         public async Task<RangeCourse?> GetRangeCourseByIdAsync(int id)

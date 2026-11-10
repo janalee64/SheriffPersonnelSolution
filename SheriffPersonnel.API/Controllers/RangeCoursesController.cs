@@ -11,7 +11,7 @@ namespace SheriffPersonnel.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Administrator, Personnel, Inventory, Range, Training, Equipment, SSN")]
+    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
     public class RangeCoursesController : ControllerBase
     {
         private readonly ICodeTableService _codeTableService;
@@ -60,6 +60,7 @@ namespace SheriffPersonnel.API.Controllers
         public async Task<ActionResult<RangeCourseDTO>> CreateRangeCourse([FromBody] RangeCourseDTO dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
+            if (!ModelState.IsValid) return BadRequest(ModelState);
             try
             {
                 var created = await _codeTableService.CreateRangeCourseAsync(dto);
@@ -76,6 +77,7 @@ namespace SheriffPersonnel.API.Controllers
         public async Task<ActionResult<RangeCourseDTO>> UpdateRangeCourse(int id, [FromBody] RangeCourseDTO dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
+            if (!ModelState.IsValid) return BadRequest(ModelState);
             try
             {
                 var updated = await _codeTableService.UpdateRangeCourseAsync(id, dto);

@@ -7,9 +7,10 @@
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject IJSRuntime JSRuntime
 @inject ILogger<RangeStatistics> logger
 
-@attribute [Authorize(Roles = "Range")]
+@attribute [Authorize(Roles = "Range Statistics")]
 
 <PageTitle>Range Statistics</PageTitle>
 
@@ -93,7 +94,7 @@
                         <MudSelectItem T="int?" Value="@((int?)null)">All Courses</MudSelectItem>
                         @foreach (var c in rangeCourses)
                         {
-                            <MudSelectItem T="int?" Value="@((int?)c.CourseID)">@(!string.IsNullOrWhiteSpace(c.CourseCode) ? $"{c.CourseCode} - {c.CourseName}" : c.CourseName)</MudSelectItem>
+                            <MudSelectItem T="int?" Value="@((int?)c.CourseID)">@c.FormattedCourse</MudSelectItem>
                         }
                     </MudSelect>
                 </MudItem>
@@ -122,11 +123,19 @@
 
                 @* Unit *@
                 <MudItem xs="12" sm="6" md="3">
-                    <MudSelect T="int?" @bind-Value="selectedUnitId" Label="Unit" Variant="Variant.Outlined" Clearable="true" Dense="true">
-                        <MudSelectItem T="int?" Value="@((int?)null)">All Units</MudSelectItem>
+                    <MudSelect T="int"
+                               MultiSelection="true"
+                               SelectAll="true"
+                               SelectAllText="Select All"
+                               Label="Unit"
+                               Variant="Variant.Outlined"
+                               Dense="true"
+                               SelectedValues="selectedUnitIds"
+                               SelectedValuesChanged="OnUnitSelectionChanged"
+                               MultiSelectionTextFunc="@(selectedList => GetUnitSelectionSummary(selectedList))">
                         @foreach (var u in availableUnits)
                         {
-                            <MudSelectItem T="int?" Value="@((int?)u.UnitID)">@u.UnitName</MudSelectItem>
+                            <MudSelectItem T="int" Value="@u.UnitID">@u.UnitName</MudSelectItem>
                         }
                     </MudSelect>
                 </MudItem>
@@ -150,6 +159,11 @@
                     </MudSelect>
                 </MudItem>
 
+                @* Missing? *@
+                <MudItem xs="12" sm="6" md="3" Class="d-flex align-center">
+                    <MudCheckBox T="bool" Value="isMissingChecked" ValueChanged="OnMissingCheckedChanged" Label="Missing?" Color="Color.Primary" Dense="true" />
+                </MudItem>
+
                 @* Search & Reset Filters *@
                 <MudItem xs="12" Class="d-flex align-center gap-2 mt-2">
                     <MudButton Variant="Variant.Filled"
@@ -163,6 +177,13 @@
                                StartIcon="@Icons.Material.Filled.Clear"
                                OnClick="ResetFilters">
                         Reset Filters
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Info"
+                               StartIcon="@Icons.Material.Filled.Print"
+                               OnClick="OpenPrintWindow"
+                               Disabled="@(!hasRangeStatsSearched || isRangeStatsLoading || !FilteredRangeStats.Any())">
+                        Print
                     </MudButton>
                 </MudItem>
             </MudGrid>
@@ -178,9 +199,18 @@
         else
         {
             <MudPaper Elevation="3">
+                @if (hasRangeStatsSearched && FilteredRangeStats.Any())
+                {
+                    <div class="d-flex justify-space-between align-center pa-4 pb-0">
+                        <MudText Typo="Typo.subtitle1" Color="Color.Primary"><b>Results: @FilteredRangeStats.Count() record(s) found</b></MudText>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Print" Size="Size.Small" OnClick="OpenPrintWindow">
+                            Print Results
+                        </MudButton>
+                    </div>
+                }
                 <MudTable Items="FilteredRangeStats" Hover="true" Striped="true">
                     <HeaderContent>
-                        <MudTh><MudTableSortLabel SortBy="new Func<RangeStatisticDTO, object>(x => x.CourseName ?? string.Empty)">Course</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<RangeStatisticDTO, object>(x => x.FormattedCourse)">Course</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<RangeStatisticDTO, object>(x => x.EmployeeName ?? string.Empty)">Employee Name</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<RangeStatisticDTO, object>(x => x.EmployeeStatus ?? string.Empty)">Employee Status</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<RangeStatisticDTO, object>(x => x.Program ?? string.Empty)">Program</MudTableSortLabel></MudTh>
@@ -191,7 +221,7 @@
                         <MudTh>Actions</MudTh>
                     </HeaderContent>
                     <RowTemplate Context="stat">
-                        <MudTd DataLabel="Course">@(string.IsNullOrWhiteSpace(stat.CourseName) ? "-" : stat.CourseName)</MudTd>
+                        <MudTd DataLabel="Course">@(string.IsNullOrWhiteSpace(stat.FormattedCourse) ? "-" : stat.FormattedCourse)</MudTd>
                         <MudTd DataLabel="Employee Name">
                             @if (stat.EmployeeID > 0)
                             {
@@ -225,9 +255,12 @@
                             <MudTooltip Text="View Employee Details">
                                 <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Primary" Size="Size.Small" OnClick="@(() => ViewEmployee(stat.EmployeeID))" />
                             </MudTooltip>
-                            <MudTooltip Text="Delete Record">
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteRangeStatAsync(stat.RangeID))" />
-                            </MudTooltip>
+                            @if (stat.RangeID > 0)
+                            {
+                                <MudTooltip Text="Delete Record">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteRangeStatAsync(stat.RangeID))" />
+                                </MudTooltip>
+                            }
                         </MudTd>
                     </RowTemplate>
                     <PagerContent>
@@ -262,6 +295,7 @@
         <MudTable Items="FilteredRangeCourses" Hover="true" Striped="true" Loading="@isLoading">
             <HeaderContent>
                 <MudTh><MudTableSortLabel SortBy="new Func<RangeCourseDTO, object>(x => x.CourseCode ?? string.Empty)">Course Code</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<RangeCourseDTO, object>(x => x.SortOrder ?? int.MaxValue)">Sort Order</MudTableSortLabel></MudTh>
                 <MudTh><MudTableSortLabel SortBy="new Func<RangeCourseDTO, object>(x => x.CourseName)">Course Name</MudTableSortLabel></MudTh>
                 <MudTh><MudTableSortLabel SortBy="new Func<RangeCourseDTO, object>(x => x.Notes ?? string.Empty)">Notes</MudTableSortLabel></MudTh>
                 <MudTh><MudTableSortLabel SortBy="new Func<RangeCourseDTO, object>(x => x.IsActive)">Active</MudTableSortLabel></MudTh>
@@ -269,6 +303,7 @@
             </HeaderContent>
             <RowTemplate Context="item">
                 <MudTd DataLabel="Course Code"><b>@(item.CourseCode ?? "-")</b></MudTd>
+                <MudTd DataLabel="Sort Order">@(item.SortOrder?.ToString() ?? "-")</MudTd>
                 <MudTd DataLabel="Course Name">@item.CourseName</MudTd>
                 <MudTd DataLabel="Notes">@(item.Notes ?? "-")</MudTd>
                 <MudTd DataLabel="Active">
@@ -431,17 +466,19 @@
             <MudPaper Elevation="3">
                 <MudTable Items="FilteredFirearmSearchResults" Hover="true" Striped="true">
                     <HeaderContent>
+                        <MudTh><MudTableSortLabel SortBy="new Func<FirearmsDto, object>(x => x.SerialNumber ?? string.Empty)">Serial Number</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<FirearmsDto, object>(x => x.MakeName ?? string.Empty)">Make</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<FirearmsDto, object>(x => x.ModelNumber ?? string.Empty)">Model</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<FirearmsDto, object>(x => x.Caliber ?? string.Empty)">Caliber</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<FirearmsDto, object>(x => x.SerialNumber ?? string.Empty)">Serial Number</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<FirearmsDto, object>(x => x.Optic)">Optic</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<FirearmsDto, object>(x => x.EmployeeName ?? string.Empty)">Employee Name</MudTableSortLabel></MudTh>
                     </HeaderContent>
                     <RowTemplate Context="gun">
+                        <MudTd DataLabel="Serial Number"><b>@(string.IsNullOrWhiteSpace(gun.SerialNumber) ? "-" : gun.SerialNumber)</b></MudTd>
                         <MudTd DataLabel="Make">@(string.IsNullOrWhiteSpace(gun.MakeName) ? "-" : gun.MakeName)</MudTd>
                         <MudTd DataLabel="Model">@(string.IsNullOrWhiteSpace(gun.ModelNumber) ? "-" : gun.ModelNumber)</MudTd>
                         <MudTd DataLabel="Caliber">@(string.IsNullOrWhiteSpace(gun.Caliber) ? "-" : gun.Caliber)</MudTd>
-                        <MudTd DataLabel="Serial Number"><b>@(string.IsNullOrWhiteSpace(gun.SerialNumber) ? "-" : gun.SerialNumber)</b></MudTd>
+                        <MudTd DataLabel="Optic">@(gun.Optic ? "Yes" : "No")</MudTd>
                         <MudTd DataLabel="Employee Name">
                             @if (gun.EmployeeID > 0)
                             {
@@ -487,11 +524,14 @@
             @if (activeTable == "RangeCourse")
             {
                 <MudGrid>
-                    <MudItem xs="12">
-                        <MudTextField @bind-Value="editingRangeCourse.CourseCode" Label="Course Code" Variant="Variant.Outlined" />
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="editingRangeCourse.CourseCode" For="@(() => editingRangeCourse.CourseCode)" Label="Course Code" Variant="Variant.Outlined" Required="true" RequiredError="Course code is required" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField T="int?" @bind-Value="editingRangeCourse.SortOrder" For="@(() => editingRangeCourse.SortOrder)" Label="Sort Order" Variant="Variant.Outlined" Required="true" RequiredError="Sort order is required" Clearable="true" />
                     </MudItem>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="editingRangeCourse.CourseName" Label="Course Name" Variant="Variant.Outlined" Required="true" RequiredError="Course name is required" />
+                        <MudTextField @bind-Value="editingRangeCourse.CourseName" For="@(() => editingRangeCourse.CourseName)" Label="Course Name" Variant="Variant.Outlined" Required="true" RequiredError="Course name is required" />
                     </MudItem>
                     <MudItem xs="12">
                         <MudTextField @bind-Value="editingRangeCourse.Notes" Label="Notes" Variant="Variant.Outlined" Lines="3" />
@@ -505,7 +545,7 @@
             {
                 <MudGrid>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="editingRangeOfficer.OfficerName" Label="Officer Name" Variant="Variant.Outlined" Required="true" RequiredError="Officer name is required" />
+                        <MudTextField @bind-Value="editingRangeOfficer.OfficerName" For="@(() => editingRangeOfficer.OfficerName)" Label="Officer Name" Variant="Variant.Outlined" Required="true" RequiredError="Officer name is required" />
                     </MudItem>
                     <MudItem xs="12">
                         <MudCheckBox T="bool" @bind-Value="editingRangeOfficer.IsActive" Label="Active Range Officer" Color="Color.Success" />
@@ -516,7 +556,7 @@
             {
                 <MudGrid>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="editingRangeSkill.SkillName" Label="Skill Name" Variant="Variant.Outlined" Required="true" RequiredError="Skill name is required" />
+                        <MudTextField @bind-Value="editingRangeSkill.SkillName" For="@(() => editingRangeSkill.SkillName)" Label="Skill Name" Variant="Variant.Outlined" Required="true" RequiredError="Skill name is required" />
                     </MudItem>
                 </MudGrid>
             }
@@ -574,12 +614,31 @@
     private int? selectedCourseId;
     private int? selectedEmployeeStatusId;
     private int? selectedProgramId;
-    private int? selectedUnitId;
+    private IReadOnlyCollection<int> selectedUnitIds = new List<int>();
     private DateTime? startDate;
     private DateTime? endDate;
     private string? selectedPassFailFilter;
+    private bool isMissingChecked = false;
     private bool hasRangeStatsSearched = false;
     private bool isRangeStatsLoading = false;
+
+    private void OnUnitSelectionChanged(IEnumerable<int> values)
+    {
+        selectedUnitIds = values != null ? values.ToList() : new List<int>();
+    }
+
+    private string GetUnitSelectionSummary(IReadOnlyList<string> selectedValues)
+    {
+        if (selectedValues == null || !selectedValues.Any())
+        {
+            return "All Units";
+        }
+        if (selectedValues.Count == 1)
+        {
+            return selectedValues[0];
+        }
+        return $"{selectedValues.Count} Units Selected";
+    }
 
     // Available lookup lists for filters
     private List<StatusesDto> availableStatuses = new();
@@ -612,79 +671,205 @@
     private IEnumerable<RangeStatisticDTO> FilteredRangeStats =>
         !hasRangeStatsSearched
             ? Enumerable.Empty<RangeStatisticDTO>()
-            : rangeStats.Where(stat =>
-            {
-                if (selectedCourseId.HasValue && selectedCourseId.Value > 0)
+            : (isMissingChecked
+                ? rangeStats
+                : rangeStats.Where(stat =>
                 {
-                    if (stat.CourseID != selectedCourseId.Value) return false;
-                }
-
-                if (selectedEmployeeStatusId.HasValue && selectedEmployeeStatusId.Value > 0)
-                {
-                    var targetStatus = availableStatuses.FirstOrDefault(s => s.StatusID == selectedEmployeeStatusId.Value);
-                    bool matchesId = stat.EmployeeStatusID == selectedEmployeeStatusId.Value;
-                    bool matchesText = targetStatus != null && !string.IsNullOrEmpty(stat.EmployeeStatus) &&
-                                       (stat.EmployeeStatus.Equals(targetStatus.StatusDescription, StringComparison.OrdinalIgnoreCase) ||
-                                        stat.EmployeeStatus.Equals(targetStatus.StatusCode, StringComparison.OrdinalIgnoreCase));
-                    if (!matchesId && !matchesText) return false;
-                }
-
-                if (selectedProgramId.HasValue && selectedProgramId.Value > 0)
-                {
-                    var targetProg = availablePrograms.FirstOrDefault(p => p.ProgramID == selectedProgramId.Value);
-                    bool matchesId = stat.ProgramID == selectedProgramId.Value;
-                    bool matchesText = targetProg != null && !string.IsNullOrEmpty(stat.Program) &&
-                                       stat.Program.Equals(targetProg.ProgramName, StringComparison.OrdinalIgnoreCase);
-                    if (!matchesId && !matchesText) return false;
-                }
-
-                if (selectedUnitId.HasValue && selectedUnitId.Value > 0)
-                {
-                    var targetUnit = availableUnits.FirstOrDefault(u => u.UnitID == selectedUnitId.Value);
-                    bool matchesId = stat.UnitID == selectedUnitId.Value;
-                    bool matchesText = targetUnit != null && !string.IsNullOrEmpty(stat.Unit) &&
-                                       stat.Unit.Equals(targetUnit.UnitName, StringComparison.OrdinalIgnoreCase);
-                    if (!matchesId && !matchesText) return false;
-                }
-
-                if (startDate.HasValue)
-                {
-                    var start = DateOnly.FromDateTime(startDate.Value);
-                    if (!stat.RangeDate.HasValue || stat.RangeDate.Value < start) return false;
-                }
-
-                if (endDate.HasValue)
-                {
-                    var end = DateOnly.FromDateTime(endDate.Value);
-                    if (!stat.RangeDate.HasValue || stat.RangeDate.Value > end) return false;
-                }
-
-                if (!string.IsNullOrEmpty(selectedPassFailFilter))
-                {
-                    bool isPassFilter = string.Equals(selectedPassFailFilter, "Pass", StringComparison.OrdinalIgnoreCase) || string.Equals(selectedPassFailFilter, "P", StringComparison.OrdinalIgnoreCase);
-                    bool isFailFilter = string.Equals(selectedPassFailFilter, "Fail", StringComparison.OrdinalIgnoreCase) || string.Equals(selectedPassFailFilter, "F", StringComparison.OrdinalIgnoreCase);
-
-                    if (isPassFilter)
+                    if (selectedCourseId.HasValue && selectedCourseId.Value > 0)
                     {
-                        if (!string.Equals(stat.PassFail, "Pass", StringComparison.OrdinalIgnoreCase) && !string.Equals(stat.PassFail, "P", StringComparison.OrdinalIgnoreCase)) return false;
+                        var targetCourse = rangeCourses.FirstOrDefault(c => c.CourseID == selectedCourseId.Value);
+                        if (!IsCourseMatch(stat, selectedCourseId.Value, targetCourse)) return false;
                     }
-                    else if (isFailFilter)
-                    {
-                        if (!string.Equals(stat.PassFail, "Fail", StringComparison.OrdinalIgnoreCase) && !string.Equals(stat.PassFail, "F", StringComparison.OrdinalIgnoreCase)) return false;
-                    }
-                    else if (!string.Equals(stat.PassFail, selectedPassFailFilter, StringComparison.OrdinalIgnoreCase)) return false;
-                }
 
-                return true;
-            });
+                    if (selectedEmployeeStatusId.HasValue && selectedEmployeeStatusId.Value > 0)
+                    {
+                        var targetStatus = availableStatuses.FirstOrDefault(s => s.StatusID == selectedEmployeeStatusId.Value);
+                        bool matchesId = stat.EmployeeStatusID == selectedEmployeeStatusId.Value;
+                        bool matchesText = targetStatus != null && !string.IsNullOrEmpty(stat.EmployeeStatus) &&
+                                           (stat.EmployeeStatus.Equals(targetStatus.StatusDescription, StringComparison.OrdinalIgnoreCase) ||
+                                            stat.EmployeeStatus.Equals(targetStatus.StatusCode, StringComparison.OrdinalIgnoreCase));
+                        if (!matchesId && !matchesText) return false;
+                    }
+
+                    if (selectedProgramId.HasValue && selectedProgramId.Value > 0)
+                    {
+                        var targetProg = availablePrograms.FirstOrDefault(p => p.ProgramID == selectedProgramId.Value);
+                        bool matchesId = stat.ProgramID == selectedProgramId.Value;
+                        bool matchesText = targetProg != null && !string.IsNullOrEmpty(stat.Program) &&
+                                           stat.Program.Equals(targetProg.ProgramName, StringComparison.OrdinalIgnoreCase);
+                        if (!matchesId && !matchesText) return false;
+                    }
+
+                    if (selectedUnitIds != null && selectedUnitIds.Any())
+                    {
+                        var targetUnits = availableUnits.Where(u => selectedUnitIds != null && selectedUnitIds.Contains(u.UnitID)).ToList();
+                        bool matchesId = stat.UnitID.HasValue && selectedUnitIds.Contains(stat.UnitID.Value);
+                        bool matchesText = targetUnits.Any(u => !string.IsNullOrEmpty(stat.Unit) &&
+                                                                stat.Unit.Equals(u.UnitName, StringComparison.OrdinalIgnoreCase));
+                        if (!matchesId && !matchesText) return false;
+                    }
+
+                    if (startDate.HasValue)
+                    {
+                        var start = DateOnly.FromDateTime(startDate.Value);
+                        if (!stat.RangeDate.HasValue || stat.RangeDate.Value < start) return false;
+                    }
+
+                    if (endDate.HasValue)
+                    {
+                        var end = DateOnly.FromDateTime(endDate.Value);
+                        if (!stat.RangeDate.HasValue || stat.RangeDate.Value > end) return false;
+                    }
+
+                    if (!string.IsNullOrEmpty(selectedPassFailFilter))
+                    {
+                        bool isPassFilter = string.Equals(selectedPassFailFilter, "Pass", StringComparison.OrdinalIgnoreCase) || string.Equals(selectedPassFailFilter, "P", StringComparison.OrdinalIgnoreCase);
+                        bool isFailFilter = string.Equals(selectedPassFailFilter, "Fail", StringComparison.OrdinalIgnoreCase) || string.Equals(selectedPassFailFilter, "F", StringComparison.OrdinalIgnoreCase);
+
+                        if (isPassFilter)
+                        {
+                            if (!string.Equals(stat.PassFail, "Pass", StringComparison.OrdinalIgnoreCase) && !string.Equals(stat.PassFail, "P", StringComparison.OrdinalIgnoreCase)) return false;
+                        }
+                        else if (isFailFilter)
+                        {
+                            if (!string.Equals(stat.PassFail, "Fail", StringComparison.OrdinalIgnoreCase) && !string.Equals(stat.PassFail, "F", StringComparison.OrdinalIgnoreCase)) return false;
+                        }
+                        else if (!string.Equals(stat.PassFail, selectedPassFailFilter, StringComparison.OrdinalIgnoreCase)) return false;
+                    }
+
+                    return true;
+                }).DistinctBy(x => x.RangeID));
 
     private async Task PerformRangeStatsSearch()
     {
+        errorMessage = null;
+
+        if (isMissingChecked)
+        {
+            bool hasStatus = selectedEmployeeStatusId.HasValue && selectedEmployeeStatusId.Value > 0;
+            bool hasUnit = selectedUnitIds != null && selectedUnitIds.Any();
+            bool hasCourse = selectedCourseId.HasValue && selectedCourseId.Value > 0;
+
+            if (!hasStatus || !hasUnit || !hasCourse)
+            {
+                Snackbar.Add("Employee Status, Unit, and Course must be selected when 'Missing?' is checked.", Severity.Warning);
+                return;
+            }
+        }
+
         isRangeStatsLoading = true;
         try
         {
-            rangeStats = (await service.GetAllRangeStatisticsAsync()).ToList();
-            hasRangeStatsSearched = true;
+            if (isMissingChecked)
+            {
+                var employees = (await service.SearchEmployeesAsync(new EmployeeSearchRequestDto()))
+                    .DistinctBy(e => e.EmployeeID)
+                    .ToList();
+                var allStats = (await service.GetAllRangeStatisticsAsync()).ToList();
+
+                var targetStatus = selectedEmployeeStatusId.HasValue ? availableStatuses.FirstOrDefault(s => s.StatusID == selectedEmployeeStatusId.Value) : null;
+                var targetProgram = selectedProgramId.HasValue && selectedProgramId.Value > 0
+                    ? availablePrograms.FirstOrDefault(p => p.ProgramID == selectedProgramId.Value)
+                    : null;
+                var targetUnits = availableUnits.Where(u => selectedUnitIds != null && selectedUnitIds.Contains(u.UnitID)).ToList();
+                var targetCourse = selectedCourseId.HasValue ? rangeCourses.FirstOrDefault(c => c.CourseID == selectedCourseId.Value) : null;
+
+                var missingStatsList = new List<RangeStatisticDTO>();
+
+                foreach (var emp in employees)
+                {
+                    if (targetStatus != null)
+                    {
+                        bool statusMatches = !string.IsNullOrWhiteSpace(emp.Status) &&
+                            (string.Equals(emp.Status, targetStatus.StatusDescription, StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(emp.Status, targetStatus.StatusCode, StringComparison.OrdinalIgnoreCase));
+
+                        if (!statusMatches) continue;
+                    }
+
+                    if (targetProgram != null)
+                    {
+                        bool programMatches = !string.IsNullOrWhiteSpace(emp.Program) &&
+                            (string.Equals(emp.Program, targetProgram.ProgramName, StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(emp.Program, targetProgram.DisplayName, StringComparison.OrdinalIgnoreCase));
+                        if (!programMatches) continue;
+                    }
+
+                    if (targetUnits.Any())
+                    {
+                        bool unitMatches = targetUnits.Any(u => !string.IsNullOrWhiteSpace(emp.Unit) &&
+                            string.Equals(emp.Unit, u.UnitName, StringComparison.OrdinalIgnoreCase));
+
+                        if (!unitMatches) continue;
+                    }
+
+                    bool hasRecord = allStats.Any(stat =>
+                    {
+                        if (stat.EmployeeID != emp.EmployeeID) return false;
+                        if (selectedCourseId.HasValue && selectedCourseId.Value > 0)
+                        {
+                            if (!IsCourseMatch(stat, selectedCourseId.Value, targetCourse)) return false;
+                        }
+
+                        if (startDate.HasValue)
+                        {
+                            var start = DateOnly.FromDateTime(startDate.Value);
+                            if (!stat.RangeDate.HasValue || stat.RangeDate.Value < start) return false;
+                        }
+
+                        if (endDate.HasValue)
+                        {
+                            var end = DateOnly.FromDateTime(endDate.Value);
+                            if (!stat.RangeDate.HasValue || stat.RangeDate.Value > end) return false;
+                        }
+
+                        if (!string.IsNullOrEmpty(selectedPassFailFilter))
+                        {
+                            bool isPassFilter = string.Equals(selectedPassFailFilter, "Pass", StringComparison.OrdinalIgnoreCase) || string.Equals(selectedPassFailFilter, "P", StringComparison.OrdinalIgnoreCase);
+                            bool isFailFilter = string.Equals(selectedPassFailFilter, "Fail", StringComparison.OrdinalIgnoreCase) || string.Equals(selectedPassFailFilter, "F", StringComparison.OrdinalIgnoreCase);
+
+                            if (isPassFilter)
+                            {
+                                if (!string.Equals(stat.PassFail, "Pass", StringComparison.OrdinalIgnoreCase) && !string.Equals(stat.PassFail, "P", StringComparison.OrdinalIgnoreCase)) return false;
+                            }
+                            else if (isFailFilter)
+                            {
+                                if (!string.Equals(stat.PassFail, "Fail", StringComparison.OrdinalIgnoreCase) && !string.Equals(stat.PassFail, "F", StringComparison.OrdinalIgnoreCase)) return false;
+                            }
+                            else if (!string.Equals(stat.PassFail, selectedPassFailFilter, StringComparison.OrdinalIgnoreCase)) return false;
+                        }
+
+                        return true;
+                    });
+
+                    if (!hasRecord)
+                    {
+                        missingStatsList.Add(new RangeStatisticDTO
+                        {
+                            RangeID = 0,
+                            EmployeeID = emp.EmployeeID,
+                            EmployeeName = emp.FormattedName,
+                            EmployeeStatus = emp.Status,
+                            Program = emp.Program,
+                            Unit = emp.Unit,
+                            CourseID = selectedCourseId ?? 0,
+                            CourseCode = targetCourse?.CourseCode,
+                            CourseName = targetCourse?.CourseName,
+                            RangeDate = null,
+                            PassFail = null,
+                            SerialNumber = null
+                        });
+                    }
+                }
+
+                rangeStats = missingStatsList;
+                hasRangeStatsSearched = true;
+            }
+            else
+            {
+                rangeStats = (await service.GetAllRangeStatisticsAsync()).ToList();
+                hasRangeStatsSearched = true;
+            }
         }
         catch (Exception ex)
         {
@@ -702,11 +887,93 @@
         selectedCourseId = null;
         selectedEmployeeStatusId = null;
         selectedProgramId = null;
-        selectedUnitId = null;
+        selectedUnitIds = new List<int>();
         startDate = null;
         endDate = null;
         selectedPassFailFilter = null;
+        isMissingChecked = false;
         hasRangeStatsSearched = false;
+        rangeStats.Clear();
+    }
+
+    private async Task OnMissingCheckedChanged(bool value)
+    {
+        isMissingChecked = value;
+        if (hasRangeStatsSearched)
+        {
+            await PerformRangeStatsSearch();
+        }
+        else
+        {
+            rangeStats.Clear();
+        }
+    }
+
+    private bool IsCourseMatch(RangeStatisticDTO stat, int selectedCourseId, RangeCourseDTO? targetCourse)
+    {
+        if (stat.CourseID == selectedCourseId) return true;
+
+        if (targetCourse != null)
+        {
+            if (!string.IsNullOrWhiteSpace(targetCourse.CourseCode))
+            {
+                if (string.Equals(stat.CourseCode, targetCourse.CourseCode, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(stat.CourseName, targetCourse.CourseCode, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            if (!string.IsNullOrWhiteSpace(targetCourse.CourseName))
+            {
+                if (string.Equals(stat.CourseCode, targetCourse.CourseName, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(stat.CourseName, targetCourse.CourseName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private async Task OpenPrintWindow()
+    {
+        if (!hasRangeStatsSearched || isRangeStatsLoading) return;
+
+        var queryParams = new List<string>();
+
+        if (selectedCourseId.HasValue && selectedCourseId.Value > 0)
+            queryParams.Add($"courseId={selectedCourseId.Value}");
+
+        if (selectedEmployeeStatusId.HasValue && selectedEmployeeStatusId.Value > 0)
+            queryParams.Add($"employeeStatusId={selectedEmployeeStatusId.Value}");
+
+        if (selectedProgramId.HasValue && selectedProgramId.Value > 0)
+            queryParams.Add($"programId={selectedProgramId.Value}");
+
+        if (selectedUnitIds != null && selectedUnitIds.Any())
+            queryParams.Add($"unitIds={string.Join(",", selectedUnitIds)}");
+
+        if (startDate.HasValue)
+            queryParams.Add($"startDate={startDate.Value:yyyy-MM-dd}");
+
+        if (endDate.HasValue)
+            queryParams.Add($"endDate={endDate.Value:yyyy-MM-dd}");
+
+        if (!string.IsNullOrWhiteSpace(selectedPassFailFilter))
+            queryParams.Add($"passFail={Uri.EscapeDataString(selectedPassFailFilter)}");
+
+        if (isMissingChecked)
+            queryParams.Add("isMissing=true");
+
+        var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
+        var printUrl = $"/print/range-statistics{queryString}";
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("open", printUrl, "_blank");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to open range statistics print window.");
+            Snackbar.Add("Could not open print window. Please check browser popup settings.", Severity.Error);
+        }
     }
 
     private IEnumerable<RangeCourseDTO> FilteredRangeCourses =>
@@ -921,6 +1188,7 @@
         {
             CourseID = item.CourseID,
             CourseCode = item.CourseCode,
+            SortOrder = item.SortOrder,
             CourseName = item.CourseName,
             Notes = item.Notes,
             IsActive = item.IsActive
@@ -993,7 +1261,11 @@
             switch (activeTable)
             {
                 case "RangeCourse":
-                    if (string.IsNullOrWhiteSpace(editingRangeCourse.CourseName)) return;
+                    if (string.IsNullOrWhiteSpace(editingRangeCourse.CourseCode) || !editingRangeCourse.SortOrder.HasValue || string.IsNullOrWhiteSpace(editingRangeCourse.CourseName))
+                    {
+                        Snackbar.Add("Course Code, Sort Order, and Course Name are required.", Severity.Error);
+                        return;
+                    }
                     if (isEditMode)
                         await CodeTableService.UpdateRangeCourseAsync(editingRangeCourse.CourseID, editingRangeCourse);
                     else
@@ -1002,7 +1274,11 @@
                     break;
 
                 case "RangeOfficer":
-                    if (string.IsNullOrWhiteSpace(editingRangeOfficer.OfficerName)) return;
+                    if (string.IsNullOrWhiteSpace(editingRangeOfficer.OfficerName))
+                    {
+                        Snackbar.Add("Officer Name is required.", Severity.Error);
+                        return;
+                    }
                     if (isEditMode)
                         await CodeTableService.UpdateRangeOfficerAsync(editingRangeOfficer.RangeOfficerID, editingRangeOfficer);
                     else
@@ -1011,7 +1287,11 @@
                     break;
 
                 case "RangeSkill":
-                    if (string.IsNullOrWhiteSpace(editingRangeSkill.SkillName)) return;
+                    if (string.IsNullOrWhiteSpace(editingRangeSkill.SkillName))
+                    {
+                        Snackbar.Add("Skill Name is required.", Severity.Error);
+                        return;
+                    }
                     if (isEditMode)
                         await CodeTableService.UpdateRangeSkillAsync(editingRangeSkill.RangeSkillID, editingRangeSkill);
                     else

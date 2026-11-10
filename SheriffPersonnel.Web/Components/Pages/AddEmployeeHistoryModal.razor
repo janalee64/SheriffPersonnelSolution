@@ -16,10 +16,10 @@
             <DataAnnotationsValidator />
             <MudGrid>
                 <MudItem xs="12" sm="6">
-                    <MudDatePicker @bind-Date="historyDate" Label="History Date" Variant="Variant.Outlined" Required="true" DateFormat="MM/dd/yyyy" Editable="true" />
+                    <MudDatePicker @bind-Date="historyDate" Label="History Date" Variant="Variant.Outlined" Required="true" RequiredError="History Date is required." DateFormat="MM/dd/yyyy" Editable="true" />
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="int?" @bind-Value="HistoryRecord.ProgramID" Label="Program" Variant="Variant.Outlined" Clearable="true">
+                    <MudSelect T="int?" @bind-Value="HistoryRecord.ProgramID" Label="Program" Variant="Variant.Outlined" Required="true" RequiredError="Program is required." Clearable="true">
                         <MudSelectItem T="int?" Value="@((int?)null)">-- Select Program --</MudSelectItem>
                         @if (AvailablePrograms != null)
                         {
@@ -31,7 +31,7 @@
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="int?" @bind-Value="HistoryRecord.RankID" Label="Rank" Variant="Variant.Outlined" Clearable="true">
+                    <MudSelect T="int?" @bind-Value="HistoryRecord.RankID" Label="Rank" Variant="Variant.Outlined" Required="true" RequiredError="Rank is required." Clearable="true">
                         <MudSelectItem T="int?" Value="@((int?)null)">-- Select Rank --</MudSelectItem>
                         @if (AvailableRanks != null)
                         {
@@ -43,7 +43,7 @@
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="int?" @bind-Value="HistoryRecord.UnitID" Label="Unit" Variant="Variant.Outlined" Clearable="true">
+                    <MudSelect T="int?" @bind-Value="HistoryRecord.UnitID" Label="Unit" Variant="Variant.Outlined" Required="true" RequiredError="Unit is required." Clearable="true">
                         <MudSelectItem T="int?" Value="@((int?)null)">-- Select Unit --</MudSelectItem>
                         @if (AvailableUnits != null)
                         {
@@ -119,6 +119,24 @@
         if (!historyDate.HasValue)
         {
             Snackbar.Add("History Date is required.", Severity.Error);
+            return;
+        }
+
+        if (!HistoryRecord.ProgramID.HasValue || HistoryRecord.ProgramID.Value == 0)
+        {
+            Snackbar.Add("Program is required.", Severity.Error);
+            return;
+        }
+
+        if (!HistoryRecord.RankID.HasValue || HistoryRecord.RankID.Value == 0)
+        {
+            Snackbar.Add("Rank is required.", Severity.Error);
+            return;
+        }
+
+        if (!HistoryRecord.UnitID.HasValue || HistoryRecord.UnitID.Value == 0)
+        {
+            Snackbar.Add("Unit is required.", Severity.Error);
             return;
         }
 

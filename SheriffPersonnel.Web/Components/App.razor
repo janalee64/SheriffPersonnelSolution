@@ -85,19 +85,18 @@
                 var target = e.target;
                 if (!target || target.tagName !== 'INPUT') return;
 
-                // Find associated MudBlazor input control or date picker container
-                var pickerContainer = target.closest('.mud-picker, .mud-picker-input-text, .mud-input-control');
-                if (!pickerContainer) return;
+                // Verify this input is strictly a date picker field
+                var isMudPicker = target.closest('.mud-picker, .mud-picker-input-text, .mud-picker-input, .mud-picker-inline, .mud-date-picker') !== null;
+                var inputTypeDate = target.getAttribute('type') === 'date' || target.getAttribute('type') === 'datetime-local';
+                var hasExplicitDateAttr = target.hasAttribute('data-is-date') || (target.parentElement && target.parentElement.hasAttribute('data-is-date'));
 
-                // Verify it is a date picker field
-                var isMudPicker = target.closest('.mud-picker, .mud-picker-input-text') !== null;
-                var hasCalendarAdornment = pickerContainer.querySelector('.mud-input-adornment svg, .mud-picker-icon') !== null;
-                var inputTypeDate = target.getAttribute('type') === 'date';
+                if (!isMudPicker && !inputTypeDate && !hasExplicitDateAttr) return;
 
-                if (!isMudPicker && !hasCalendarAdornment && !inputTypeDate) return;
+                // Find associated container for label checking
+                var pickerContainer = target.closest('.mud-picker, .mud-picker-input-text, .mud-picker-input, .mud-picker-inline, .mud-date-picker, .mud-input-control') || target.parentElement;
 
                 // Check if this date field is Date of Birth / DOB (EXCLUDED)
-                var label = pickerContainer.querySelector('label, .mud-input-label');
+                var label = pickerContainer ? pickerContainer.querySelector('label, .mud-input-label') : null;
                 var labelText = (label ? label.innerText : '').toLowerCase();
                 var placeholderText = (target.getAttribute('placeholder') || '').toLowerCase();
                 var ariaLabel = (target.getAttribute('aria-label') || '').toLowerCase();
@@ -106,7 +105,7 @@
                                     placeholderText.includes('birth') || placeholderText.includes('dob') ||
                                     ariaLabel.includes('birth') || ariaLabel.includes('dob') ||
                                     target.hasAttribute('data-no-today-hotkey') ||
-                                    pickerContainer.hasAttribute('data-no-today-hotkey');
+                                    (pickerContainer && pickerContainer.hasAttribute('data-no-today-hotkey'));
 
                 if (isBirthDate) return;
 

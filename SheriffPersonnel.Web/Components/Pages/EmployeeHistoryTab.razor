@@ -20,9 +20,12 @@
             {
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
                     <MudText Typo="Typo.h6">Employee History / Changes</MudText>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddChangeForm">
-                        Add History Record
-                    </MudButton>
+                    @if (CanEdit)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddChangeForm">
+                            Add History Record
+                        </MudButton>
+                    }
                 </MudStack>
 
                 <MudTable Items="employeeChanges" Hover="true" Striped="true" Elevation="0" AllowUnsorted="true">
@@ -31,21 +34,27 @@
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeChangesDto, object>(x => x.ProgramName ?? string.Empty)">Program</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeChangesDto, object>(x => x.RankName ?? string.Empty)">Rank</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeChangesDto, object>(x => x.UnitName ?? string.Empty)">Unit</MudTableSortLabel></MudTh>
-                        <MudTh>Actions</MudTh>
+                        @if (CanEdit)
+                        {
+                            <MudTh>Actions</MudTh>
+                        }
                     </HeaderContent>
                     <RowTemplate Context="changeContext">
                         <MudTd DataLabel="History Date">@changeContext.HistoryDate.ToString("MM/dd/yyyy")</MudTd>
                         <MudTd DataLabel="Program">@(string.IsNullOrWhiteSpace(changeContext.ProgramName) ? "-" : changeContext.ProgramName)</MudTd>
                         <MudTd DataLabel="Rank">@(string.IsNullOrWhiteSpace(changeContext.RankName) ? "-" : changeContext.RankName)</MudTd>
                         <MudTd DataLabel="Unit">@(string.IsNullOrWhiteSpace(changeContext.UnitName) ? "-" : changeContext.UnitName)</MudTd>
-                        <MudTd DataLabel="Actions">
-                            <MudTooltip Text="Edit History">
-                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditChangeForm(changeContext))" />
-                            </MudTooltip>
-                            <MudTooltip Text="Delete History">
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteChangeAsync(changeContext.HistoryID))" />
-                            </MudTooltip>
-                        </MudTd>
+                        @if (CanEdit)
+                        {
+                            <MudTd DataLabel="Actions">
+                                <MudTooltip Text="Edit History">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditChangeForm(changeContext))" />
+                                </MudTooltip>
+                                <MudTooltip Text="Delete History">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteChangeAsync(changeContext.HistoryID))" />
+                                </MudTooltip>
+                            </MudTd>
+                        }
                     </RowTemplate>
                     <NoRecordsContent>
                         <MudText Class="pa-4 text-center">No history / change records found for this employee.</MudText>
@@ -65,9 +74,12 @@
 @code {
     [Parameter] public int EmployeeId { get; set; }
     [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public bool CanEdit { get; set; } = true;
     [Parameter] public IEnumerable<ProgramsDto>? AvailablePrograms { get; set; }
     [Parameter] public IEnumerable<RanksDto>? AvailableRanks { get; set; }
     [Parameter] public IEnumerable<UnitsDto>? AvailableUnits { get; set; }
+
+    [CascadingParameter] private Task<AuthenticationState>? authenticationStateTask { get; set; }
 
     private List<EmployeeChangesDto> employeeChanges = new();
     private bool isLoading = true;
@@ -76,6 +88,16 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        if (authenticationStateTask != null)
+        {
+            var authState = await authenticationStateTask;
+            var user = authState?.User;
+            bool hasView = user != null && (user.IsInRole("Personnel View") || user.IsInRole("Employee View"));
+            bool hasEdit = user != null && (user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit"));
+            var hasEditPermission = user != null && (hasView && hasEdit);
+            CanEdit = CanEdit && hasEditPermission;
+        }
+
         if (IsEdit && EmployeeId > 0 && (EmployeeId != _lastLoadedEmployeeId || IsEdit != _lastLoadedIsEdit))
         {
             _lastLoadedEmployeeId = EmployeeId;
@@ -105,6 +127,8 @@
 
     private async Task OpenAddChangeForm()
     {
+        if (!CanEdit) return;
+
         var parameters = new DialogParameters<AddEmployeeHistoryModal>
         {
             { x => x.EmployeeId, EmployeeId },
@@ -126,6 +150,8 @@
 
     private async Task OpenEditChangeForm(EmployeeChangesDto change)
     {
+        if (!CanEdit) return;
+
         var parameters = new DialogParameters<AddEmployeeHistoryModal>
         {
             { x => x.EmployeeId, EmployeeId },
@@ -160,6 +186,8 @@
 
     private async Task DeleteChangeAsync(int historyId)
     {
+        if (!CanEdit) return;
+
         bool? confirm = await DialogService.ShowMessageBoxAsync(
             "Confirm Delete",
             "Are you sure you want to delete this history record?",

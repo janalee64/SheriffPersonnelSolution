@@ -7,7 +7,7 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<EmployeeTrainingsTab> logger
 
-@attribute [Authorize(Roles = "Administrator, Personnel, Inventory, Range, Training, Equipment, SSN")]
+@attribute [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
 
 <MudStack Spacing="4" Class="mt-4">
     @if (IsEdit && EmployeeId > 0)
@@ -31,9 +31,12 @@
                         <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Print" OnClick="OpenPrintWindow">
                             Print Trainings
                         </MudButton>
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddTrainingForm">
-                            Add Training Record
-                        </MudButton>
+                        @if (CanEdit)
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddTrainingForm">
+                                Add Training Record
+                            </MudButton>
+                        }
                     </MudStack>
                 </MudStack>
 
@@ -48,7 +51,10 @@
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeTrainingsDto, object>(x => x.OrderNumber ?? string.Empty)">Order Number</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeTrainingsDto, object>(x => x.RegistrationCost)">Reg. Cost</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeTrainingsDto, object>(x => x.TravelCost)">Travel Cost</MudTableSortLabel></MudTh>
-                        <MudTh>Actions</MudTh>
+                        @if (CanEdit)
+                        {
+                            <MudTh>Actions</MudTh>
+                        }
                     </HeaderContent>
                     <RowTemplate Context="trainingContext">
                         <MudTd DataLabel="School / Provider">@(string.IsNullOrWhiteSpace(trainingContext.SchoolName) ? "-" : trainingContext.SchoolName)</MudTd>
@@ -69,14 +75,17 @@
                         <MudTd DataLabel="Order Number">@(string.IsNullOrWhiteSpace(trainingContext.OrderNumber) ? "-" : trainingContext.OrderNumber)</MudTd>
                         <MudTd DataLabel="Reg. Cost">@trainingContext.RegistrationCost.ToString("C2")</MudTd>
                         <MudTd DataLabel="Travel Cost">@trainingContext.TravelCost.ToString("C2")</MudTd>
-                        <MudTd DataLabel="Actions">
-                            <MudTooltip Text="Edit Training Record">
-                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditTrainingForm(trainingContext))" />
-                            </MudTooltip>
-                            <MudTooltip Text="Delete Training Record">
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteTrainingAsync(trainingContext.EmployeeTrainingID))" />
-                            </MudTooltip>
-                        </MudTd>
+                        @if (CanEdit)
+                        {
+                            <MudTd DataLabel="Actions">
+                                <MudTooltip Text="Edit Training Record">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditTrainingForm(trainingContext))" />
+                                </MudTooltip>
+                                <MudTooltip Text="Delete Training Record">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteTrainingAsync(trainingContext.EmployeeTrainingID))" />
+                                </MudTooltip>
+                            </MudTd>
+                        }
                     </RowTemplate>
                     <NoRecordsContent>
                         <MudText Class="pa-4 text-center">No training records found for this employee.</MudText>
@@ -96,7 +105,11 @@
 @code {
     [Parameter] public int EmployeeId { get; set; }
     [Parameter] public bool IsEdit { get; set; } = true;
+    [Parameter] public bool CanEdit { get; set; } = true;
     [Parameter] public IEnumerable<TrainingSessionsDto>? AvailableTrainingSessions { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? authenticationStateTask { get; set; }
 
     private List<EmployeeTrainingsDto> trainings = new();
     private bool isLoading = true;
@@ -107,6 +120,16 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (authenticationStateTask != null)
+        {
+            var authState = await authenticationStateTask;
+            var user = authState?.User;
+            bool hasView = user != null && (user.IsInRole("Personnel View") || user.IsInRole("Employee View"));
+            bool hasEdit = user != null && (user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit"));
+            var hasEditPermission = user != null && (hasView && hasEdit);
+            CanEdit = CanEdit && hasEditPermission;
+        }
+
         if (AvailableTrainingSessions == null)
         {
             AvailableTrainingSessions = await service.GetTrainingSessionsAsync();
@@ -115,6 +138,16 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        if (authenticationStateTask != null)
+        {
+            var authState = await authenticationStateTask;
+            var user = authState?.User;
+            bool hasView = user != null && (user.IsInRole("Personnel View") || user.IsInRole("Employee View"));
+            bool hasEdit = user != null && (user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit"));
+            var hasEditPermission = user != null && (hasView && hasEdit);
+            CanEdit = CanEdit && hasEditPermission;
+        }
+
         if (IsEdit && EmployeeId > 0 && (EmployeeId != _lastLoadedEmployeeId || IsEdit != _lastLoadedIsEdit))
         {
             _lastLoadedEmployeeId = EmployeeId;
@@ -160,6 +193,8 @@
 
     private async Task OpenAddTrainingForm()
     {
+        if (!CanEdit) return;
+
         var parameters = new DialogParameters<AddEmployeeTrainingModal>
         {
             { x => x.EmployeeId, EmployeeId },
@@ -180,6 +215,8 @@
 
     private async Task OpenEditTrainingForm(EmployeeTrainingsDto trainingRecord)
     {
+        if (!CanEdit) return;
+
         var parameters = new DialogParameters<AddEmployeeTrainingModal>
         {
             { x => x.EmployeeId, EmployeeId },
@@ -220,6 +257,8 @@
 
     private async Task DeleteTrainingAsync(int employeeTrainingId)
     {
+        if (!CanEdit) return;
+
         bool? confirm = await DialogService.ShowMessageBoxAsync(
             "Confirm Delete",
             "Are you sure you want to delete this training record?",

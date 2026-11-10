@@ -298,6 +298,7 @@ namespace SheriffPersonnel.API.Services
             {
                 CourseID = rc.CourseID,
                 CourseCode = rc.CourseCode,
+                SortOrder = rc.SortOrder,
                 CourseName = rc.CourseName,
                 Notes = rc.Notes,
                 IsActive = rc.IsActive ?? true
@@ -312,6 +313,7 @@ namespace SheriffPersonnel.API.Services
             {
                 CourseID = entity.CourseID,
                 CourseCode = entity.CourseCode,
+                SortOrder = entity.SortOrder,
                 CourseName = entity.CourseName,
                 Notes = entity.Notes,
                 IsActive = entity.IsActive ?? true
@@ -323,6 +325,7 @@ namespace SheriffPersonnel.API.Services
             var entity = new RangeCourse
             {
                 CourseCode = dto.CourseCode,
+                SortOrder = dto.SortOrder,
                 CourseName = dto.CourseName,
                 Notes = dto.Notes,
                 IsActive = dto.IsActive
@@ -338,6 +341,7 @@ namespace SheriffPersonnel.API.Services
             if (existing == null) return null;
 
             existing.CourseCode = dto.CourseCode;
+            existing.SortOrder = dto.SortOrder;
             existing.CourseName = dto.CourseName;
             existing.Notes = dto.Notes;
             existing.IsActive = dto.IsActive;

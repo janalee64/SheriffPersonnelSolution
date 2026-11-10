@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace SheriffPersonnel.Shared.DTOs
 {
@@ -6,7 +7,11 @@ namespace SheriffPersonnel.Shared.DTOs
     {
         public int InventoryID { get; set; }
         public string? SKU { get; set; }
+
+        [Required(ErrorMessage = "Product Name is required.")]
         public string ProductName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Category is required.")]
         public int? CategoryID { get; set; }
         public string? CategoryName { get; set; }
         public int? SupplierID { get; set; }
@@ -25,5 +30,3 @@ namespace SheriffPersonnel.Shared.DTOs
         public DateTime LastUpdated { get; set; }
     }
 }
-
-

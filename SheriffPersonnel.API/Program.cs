@@ -99,7 +99,7 @@ try
                         if (user != null)
                         {
                             // Inject custom database roles and UserID directly into the security identity context
-                            var appIdentity = new ClaimsIdentity();
+                            var appIdentity = new ClaimsIdentity(identity.AuthenticationType, identity.NameClaimType, identity.RoleClaimType);
                             appIdentity.AddClaim(new Claim("UserID", user.UserID.ToString()));
                             appIdentity.AddClaim(new Claim(ClaimTypes.NameIdentifier, user.UserID.ToString()));
 
@@ -107,7 +107,18 @@ try
                             {
                                 if (!string.IsNullOrEmpty(role))
                                 {
-                                    appIdentity.AddClaim(new Claim(ClaimTypes.Role, role, ClaimValueTypes.String));
+                                    if (!appIdentity.HasClaim(ClaimTypes.Role, role))
+                                    {
+                                        appIdentity.AddClaim(new Claim(ClaimTypes.Role, role, ClaimValueTypes.String));
+                                    }
+                                    if (!string.IsNullOrEmpty(identity.RoleClaimType) && identity.RoleClaimType != ClaimTypes.Role && !appIdentity.HasClaim(identity.RoleClaimType, role))
+                                    {
+                                        appIdentity.AddClaim(new Claim(identity.RoleClaimType, role, ClaimValueTypes.String));
+                                    }
+                                    if (!appIdentity.HasClaim("roles", role))
+                                    {
+                                        appIdentity.AddClaim(new Claim("roles", role, ClaimValueTypes.String));
+                                    }
                                 }
                             }
                             context.Principal?.AddIdentity(appIdentity);
@@ -144,6 +155,19 @@ try
     builder.Services.AddScoped<ICodeTableService, CodeTableService>();
     builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
     builder.Services.AddScoped<IDocumentService, DocumentService>();
+
+    builder.Services.AddAuthorization(options =>
+    {
+        options.AddPolicy("CanEditPersonnel", policy =>
+            policy.RequireAssertion(context =>
+            {
+                var user = context.User;
+                if (user == null) return false;
+                bool hasView = user.IsInRole("Personnel View") || user.IsInRole("Employee View");
+                bool hasEdit = user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit");
+                return hasView && hasEdit;
+            }));
+    });
 
 
     var app = builder.Build();

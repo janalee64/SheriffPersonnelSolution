@@ -465,7 +465,7 @@
                 </MudItem>
 
                 <MudItem xs="12" sm="4">
-                    <MudSelect T="int?" @bind-Value="editingItem.CategoryID" Label="Category" Variant="Variant.Outlined" Clearable="true">
+                    <MudSelect T="int?" @bind-Value="editingItem.CategoryID" Label="Category" Variant="Variant.Outlined" Required="true" RequiredError="Category is required." Clearable="true">
                         <MudSelectItem T="int?" Value="@((int?)null)">-- Select Category --</MudSelectItem>
                         @foreach (var cat in categories.Where(c => c.IsActive || c.CategoryID == editingItem.CategoryID))
                         {
@@ -552,7 +552,7 @@
             {
                 <MudGrid>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="editingCategory.CategoryName" Label="Category Name" Variant="Variant.Outlined" Required="true" RequiredError="Category name is required" />
+                        <MudTextField @bind-Value="editingCategory.CategoryName" For="@(() => editingCategory.CategoryName)" Label="Category Name" Variant="Variant.Outlined" Required="true" RequiredError="Category name is required" />
                     </MudItem>
                     <MudItem xs="12">
                         <MudCheckBox T="bool" @bind-Value="editingCategory.IsActive" Label="Active Category" Color="Color.Primary" />
@@ -563,7 +563,7 @@
             {
                 <MudGrid>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="editingLocation.LocationName" Label="Location Name" Variant="Variant.Outlined" Required="true" RequiredError="Location name is required" />
+                        <MudTextField @bind-Value="editingLocation.LocationName" For="@(() => editingLocation.LocationName)" Label="Location Name" Variant="Variant.Outlined" Required="true" RequiredError="Location name is required" />
                     </MudItem>
                     <MudItem xs="12">
                         <MudTextField @bind-Value="editingLocation.Notes" Label="Notes" Variant="Variant.Outlined" Lines="3" />
@@ -574,7 +574,7 @@
             {
                 <MudGrid>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="editingSupplier.SupplierName" Label="Supplier Name" Variant="Variant.Outlined" Required="true" RequiredError="Supplier name is required" />
+                        <MudTextField @bind-Value="editingSupplier.SupplierName" For="@(() => editingSupplier.SupplierName)" Label="Supplier Name" Variant="Variant.Outlined" Required="true" RequiredError="Supplier name is required" />
                     </MudItem>
                     <MudItem xs="12">
                         <MudTextField @bind-Value="editingSupplier.Notes" Label="Notes" Variant="Variant.Outlined" Lines="3" />
@@ -970,6 +970,12 @@
             return;
         }
 
+        if (!editingItem.CategoryID.HasValue || editingItem.CategoryID.Value == 0)
+        {
+            Snackbar.Add("Category is required.", Severity.Error);
+            return;
+        }
+
         editingItem.LastPurchaseDate = lastPurchaseDate.HasValue ? DateOnly.FromDateTime(lastPurchaseDate.Value) : null;
         isSaving = true;
 
@@ -1144,7 +1150,11 @@
             switch (activeCodeTable)
             {
                 case "Category":
-                    if (string.IsNullOrWhiteSpace(editingCategory.CategoryName)) return;
+                    if (string.IsNullOrWhiteSpace(editingCategory.CategoryName))
+                    {
+                        Snackbar.Add("Category Name is required.", Severity.Error);
+                        return;
+                    }
                     if (isCodeTableEditMode)
                         await CodeTableService.UpdateCategoryAsync(editingCategory.CategoryID, editingCategory);
                     else
@@ -1152,7 +1162,11 @@
                     break;
 
                 case "Location":
-                    if (string.IsNullOrWhiteSpace(editingLocation.LocationName)) return;
+                    if (string.IsNullOrWhiteSpace(editingLocation.LocationName))
+                    {
+                        Snackbar.Add("Location Name is required.", Severity.Error);
+                        return;
+                    }
                     if (isCodeTableEditMode)
                         await CodeTableService.UpdateLocationAsync(editingLocation.LocationID, editingLocation);
                     else
@@ -1160,7 +1174,11 @@
                     break;
 
                 case "Supplier":
-                    if (string.IsNullOrWhiteSpace(editingSupplier.SupplierName)) return;
+                    if (string.IsNullOrWhiteSpace(editingSupplier.SupplierName))
+                    {
+                        Snackbar.Add("Supplier Name is required.", Severity.Error);
+                        return;
+                    }
                     if (isCodeTableEditMode)
                         await CodeTableService.UpdateSupplierAsync(editingSupplier.SupplierID, editingSupplier);
                     else

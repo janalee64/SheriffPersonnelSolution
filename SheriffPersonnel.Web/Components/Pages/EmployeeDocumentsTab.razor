@@ -7,7 +7,7 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<EmployeeDocumentsTab> logger
 
-@attribute [Authorize(Roles = "Administrator, Personnel, Inventory, Range, Training, Equipment, SSN")]
+@attribute [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
 
 <MudStack Spacing="4" Class="mt-4">
     @if (IsEdit && EmployeeId > 0)
@@ -24,9 +24,12 @@
             {
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
                     <MudText Typo="Typo.h6">Employee Documents</MudText>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudUpload" OnClick="OpenUploadDocumentForm">
-                        Upload Document
-                    </MudButton>
+                    @if (CanEdit)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudUpload" OnClick="OpenUploadDocumentForm">
+                            Upload Document
+                        </MudButton>
+                    }
                 </MudStack>
 
                 <MudTable Items="documents" Hover="true" Striped="true" Elevation="0" AllowUnsorted="true">
@@ -54,12 +57,15 @@
                             <MudTooltip Text="Download Document">
                                 <MudIconButton Icon="@Icons.Material.Filled.Download" Color="Color.Primary" Size="Size.Small" OnClick="@(() => DownloadDocumentAsync(docContext))" Disabled="@isDownloading" />
                             </MudTooltip>
-                            <MudTooltip Text="Edit Document">
-                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Secondary" Size="Size.Small" OnClick="@(() => OpenEditDocumentForm(docContext))" />
-                            </MudTooltip>
-                            <MudTooltip Text="Delete Document">
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteDocumentAsync(docContext))" />
-                            </MudTooltip>
+                            @if (CanEdit)
+                            {
+                                <MudTooltip Text="Edit Document">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Secondary" Size="Size.Small" OnClick="@(() => OpenEditDocumentForm(docContext))" />
+                                </MudTooltip>
+                                <MudTooltip Text="Delete Document">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteDocumentAsync(docContext))" />
+                                </MudTooltip>
+                            }
                         </MudTd>
                     </RowTemplate>
                     <NoRecordsContent>
@@ -80,7 +86,11 @@
 @code {
     [Parameter] public int EmployeeId { get; set; }
     [Parameter] public bool IsEdit { get; set; } = true;
+    [Parameter] public bool CanEdit { get; set; } = true;
     [Parameter] public IEnumerable<DocumentTypeDto>? AvailableDocumentTypes { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? authenticationStateTask { get; set; }
 
     private List<EmployeeDocumentDto> documents = new();
     private bool isLoading = true;
@@ -90,6 +100,16 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (authenticationStateTask != null)
+        {
+            var authState = await authenticationStateTask;
+            var user = authState?.User;
+            bool hasView = user != null && (user.IsInRole("Personnel View") || user.IsInRole("Employee View"));
+            bool hasEdit = user != null && (user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit"));
+            var hasEditPermission = user != null && (hasView && hasEdit);
+            CanEdit = CanEdit && hasEditPermission;
+        }
+
         if (AvailableDocumentTypes == null)
         {
             AvailableDocumentTypes = await service.GetDocumentTypesAsync();
@@ -98,6 +118,16 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        if (authenticationStateTask != null)
+        {
+            var authState = await authenticationStateTask;
+            var user = authState?.User;
+            bool hasView = user != null && (user.IsInRole("Personnel View") || user.IsInRole("Employee View"));
+            bool hasEdit = user != null && (user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit"));
+            var hasEditPermission = user != null && (hasView && hasEdit);
+            CanEdit = CanEdit && hasEditPermission;
+        }
+
         if (IsEdit && EmployeeId > 0 && (EmployeeId != _lastLoadedEmployeeId || IsEdit != _lastLoadedIsEdit))
         {
             _lastLoadedEmployeeId = EmployeeId;
@@ -129,6 +159,8 @@
 
     private async Task OpenUploadDocumentForm()
     {
+        if (!CanEdit) return;
+
         if (AvailableDocumentTypes == null || !AvailableDocumentTypes.Any())
         {
             AvailableDocumentTypes = await service.GetDocumentTypesAsync();
@@ -153,6 +185,8 @@
 
     private async Task OpenEditDocumentForm(EmployeeDocumentDto doc)
     {
+        if (!CanEdit) return;
+
         if (AvailableDocumentTypes == null || !AvailableDocumentTypes.Any())
         {
             AvailableDocumentTypes = await service.GetDocumentTypesAsync();
@@ -223,6 +257,8 @@
 
     private async Task DeleteDocumentAsync(EmployeeDocumentDto doc)
     {
+        if (!CanEdit) return;
+
         bool? confirm = await DialogService.ShowMessageBoxAsync(
             "Confirm Delete",
             $"Are you sure you want to delete document '{doc.Title}' ({doc.FileName})?",

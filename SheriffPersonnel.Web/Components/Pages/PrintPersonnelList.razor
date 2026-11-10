@@ -4,6 +4,8 @@
 @using SheriffPersonnel.Web.Services
 @layout PrintLayout
 
+@attribute [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
+
 @inject SearchService service
 @inject ExcelExportService excelExportService
 @inject IJSRuntime JSRuntime

@@ -21,26 +21,32 @@
             {
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
                     <MudText Typo="Typo.h6">Range Statistics</MudText>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddRangeStatForm">
-                        Add Range Record
-                    </MudButton>
+                    @if (CanEdit)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddRangeStatForm">
+                            Add Range Record
+                        </MudButton>
+                    }
                 </MudStack>
 
                 <MudTable Items="rangeStats" Hover="true" Striped="true" Elevation="0" AllowUnsorted="true">
                     <HeaderContent>
                         <MudTh><MudTableSortLabel SortBy="new Func<RangeStatisticDTO, object>(x => x.RangeDate ?? DateOnly.MinValue)">Range Event</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<RangeStatisticDTO, object>(x => x.CourseName ?? string.Empty)">Course</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<RangeStatisticDTO, object>(x => x.FormattedCourse)">Course</MudTableSortLabel></MudTh>
                         <MudTh>Range Skills</MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<RangeStatisticDTO, object>(x => x.FirearmDescription ?? string.Empty)">Firearm</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<RangeStatisticDTO, object>(x => x.PassFail ?? string.Empty)">Result</MudTableSortLabel></MudTh>
-                        <MudTh>Actions</MudTh>
+                        @if (CanEdit)
+                        {
+                            <MudTh>Actions</MudTh>
+                        }
                     </HeaderContent>
                     <RowTemplate Context="statContext">
                         <MudTd DataLabel="Range Event">
                             @(statContext.RangeDate.HasValue ? statContext.RangeDate.Value.ToString("MM/dd/yyyy") : "-")
                             @(!string.IsNullOrWhiteSpace(statContext.EventDescription) ? $" ({statContext.EventDescription})" : "")
                         </MudTd>
-                        <MudTd DataLabel="Course">@(string.IsNullOrWhiteSpace(statContext.CourseName) ? "-" : statContext.CourseName)</MudTd>
+                        <MudTd DataLabel="Course">@(string.IsNullOrWhiteSpace(statContext.FormattedCourse) ? "-" : statContext.FormattedCourse)</MudTd>
                         <MudTd DataLabel="Range Skills">@(GetSkillsText(statContext))</MudTd>
                         <MudTd DataLabel="Firearm">@(string.IsNullOrWhiteSpace(statContext.FirearmDescription) ? "-" : statContext.FirearmDescription)</MudTd>
                         <MudTd DataLabel="Result">
@@ -57,14 +63,17 @@
                                 @(string.IsNullOrWhiteSpace(statContext.PassFail) ? "-" : statContext.PassFail)
                             }
                         </MudTd>
-                        <MudTd DataLabel="Actions">
-                            <MudTooltip Text="Edit Record">
-                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditRangeStatForm(statContext))" />
-                            </MudTooltip>
-                            <MudTooltip Text="Delete Record">
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteRangeStatAsync(statContext.RangeID))" />
-                            </MudTooltip>
-                        </MudTd>
+                        @if (CanEdit)
+                        {
+                            <MudTd DataLabel="Actions">
+                                <MudTooltip Text="Edit Record">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditRangeStatForm(statContext))" />
+                                </MudTooltip>
+                                <MudTooltip Text="Delete Record">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteRangeStatAsync(statContext.RangeID))" />
+                                </MudTooltip>
+                            </MudTd>
+                        }
                     </RowTemplate>
                     <NoRecordsContent>
                         <MudText Class="pa-4 text-center">No range statistics recorded for this employee.</MudText>
@@ -84,9 +93,12 @@
 @code {
     [Parameter] public int EmployeeId { get; set; }
     [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public bool CanEdit { get; set; } = true;
     [Parameter] public IEnumerable<RangeCourseDTO>? AvailableCourses { get; set; }
     [Parameter] public IEnumerable<RangeEventDTO>? AvailableEvents { get; set; }
     [Parameter] public IEnumerable<FirearmsDto>? AvailableFirearms { get; set; }
+
+    [CascadingParameter] private Task<AuthenticationState>? authenticationStateTask { get; set; }
 
     private List<RangeStatisticDTO> rangeStats = new();
     private List<RangeSkillDTO> availableRangeSkills = new();
@@ -96,6 +108,16 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        if (authenticationStateTask != null)
+        {
+            var authState = await authenticationStateTask;
+            var user = authState?.User;
+            bool hasView = user != null && (user.IsInRole("Personnel View") || user.IsInRole("Employee View"));
+            bool hasEdit = user != null && (user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit"));
+            var hasEditPermission = user != null && (hasView && hasEdit);
+            CanEdit = CanEdit && hasEditPermission;
+        }
+
         if (IsEdit && EmployeeId > 0 && (EmployeeId != _lastLoadedEmployeeId || IsEdit != _lastLoadedIsEdit))
         {
             _lastLoadedEmployeeId = EmployeeId;
@@ -150,6 +172,8 @@
 
     private async Task OpenAddRangeStatForm()
     {
+        if (!CanEdit) return;
+
         var firearms = AvailableFirearms ?? await service.GetFirearmsByEmployeeIdAsync(EmployeeId);
 
         var parameters = new DialogParameters<AddRangeStatisticModal>
@@ -173,6 +197,8 @@
 
     private async Task OpenEditRangeStatForm(RangeStatisticDTO stat)
     {
+        if (!CanEdit) return;
+
         var firearms = AvailableFirearms ?? await service.GetFirearmsByEmployeeIdAsync(EmployeeId);
 
         var parameters = new DialogParameters<AddRangeStatisticModal>
@@ -211,6 +237,8 @@
 
     private async Task DeleteRangeStatAsync(int rangeId)
     {
+        if (!CanEdit) return;
+
         bool? confirm = await DialogService.ShowMessageBoxAsync(
             "Confirm Delete",
             "Are you sure you want to delete this range statistic record?",

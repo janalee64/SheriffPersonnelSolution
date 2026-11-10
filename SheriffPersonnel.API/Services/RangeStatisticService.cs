@@ -192,6 +192,7 @@ namespace SheriffPersonnel.API.Services
                 {
                     CourseID = c.CourseID,
                     CourseCode = c.CourseCode,
+                    SortOrder = c.SortOrder,
                     CourseName = c.CourseName,
                     Notes = c.Notes,
                     IsActive = c.IsActive ?? true
@@ -215,7 +216,8 @@ namespace SheriffPersonnel.API.Services
                     RangeDate = e.RangeDate,
                     Location = e.Location,
                     EventType = e.EventType,
-                    Notes = e.Notes
+                    Notes = e.Notes,
+                    RangeOfficer = e.RangeOfficer
                 });
             }
             catch (Exception ex)

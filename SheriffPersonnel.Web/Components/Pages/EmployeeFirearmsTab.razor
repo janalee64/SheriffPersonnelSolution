@@ -20,36 +20,47 @@
             {
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
                     <MudText Typo="Typo.h6">Assigned Firearms</MudText>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddFirearmForm">
-                        Add Firearm
-                    </MudButton>
+                    @if (CanEdit)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddFirearmForm">
+                            Add Firearm
+                        </MudButton>
+                    }
                 </MudStack>
 
                 <MudTable Items="firearms" Hover="true" Striped="true" Elevation="0" AllowUnsorted="true">
                     <HeaderContent>
+                        <MudTh><MudTableSortLabel SortBy="new Func<FirearmsDto, object>(x => x.SerialNumber ?? string.Empty)">Serial Number</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<FirearmsDto, object>(x => x.MakeName ?? string.Empty)">Make</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<FirearmsDto, object>(x => x.ModelNumber ?? string.Empty)">Model Number</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<FirearmsDto, object>(x => x.SerialNumber ?? string.Empty)">Serial Number</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<FirearmsDto, object>(x => x.Caliber ?? string.Empty)">Caliber</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<FirearmsDto, object>(x => x.Optic)">Optic</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<FirearmsDto, object>(x => x.StatusDescription ?? string.Empty)">Status</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<FirearmsDto, object>(x => x.Notes ?? string.Empty)">Notes</MudTableSortLabel></MudTh>
-                        <MudTh>Actions</MudTh>
+                        @if (CanEdit)
+                        {
+                            <MudTh>Actions</MudTh>
+                        }
                     </HeaderContent>
                     <RowTemplate Context="firearmContext">
+                        <MudTd DataLabel="Serial Number">@(string.IsNullOrWhiteSpace(firearmContext.SerialNumber) ? "-" : firearmContext.SerialNumber)</MudTd>
                         <MudTd DataLabel="Make">@(string.IsNullOrWhiteSpace(firearmContext.MakeName) ? "-" : firearmContext.MakeName)</MudTd>
                         <MudTd DataLabel="Model Number">@(string.IsNullOrWhiteSpace(firearmContext.ModelNumber) ? "-" : firearmContext.ModelNumber)</MudTd>
-                        <MudTd DataLabel="Serial Number">@(string.IsNullOrWhiteSpace(firearmContext.SerialNumber) ? "-" : firearmContext.SerialNumber)</MudTd>
                         <MudTd DataLabel="Caliber">@(string.IsNullOrWhiteSpace(firearmContext.Caliber) ? "-" : firearmContext.Caliber)</MudTd>
+                        <MudTd DataLabel="Optic">@(firearmContext.Optic ? "Yes" : "No")</MudTd>
                         <MudTd DataLabel="Status">@(string.IsNullOrWhiteSpace(firearmContext.StatusDescription) ? "-" : firearmContext.StatusDescription)</MudTd>
                         <MudTd DataLabel="Notes">@(string.IsNullOrWhiteSpace(firearmContext.Notes) ? "-" : firearmContext.Notes)</MudTd>
-                        <MudTd DataLabel="Actions">
-                            <MudTooltip Text="Edit Firearm">
-                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditFirearmForm(firearmContext))" />
-                            </MudTooltip>
-                            <MudTooltip Text="Delete Firearm">
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteFirearmAsync(firearmContext.FirearmID))" />
-                            </MudTooltip>
-                        </MudTd>
+                        @if (CanEdit)
+                        {
+                            <MudTd DataLabel="Actions">
+                                <MudTooltip Text="Edit Firearm">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditFirearmForm(firearmContext))" />
+                                </MudTooltip>
+                                <MudTooltip Text="Delete Firearm">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteFirearmAsync(firearmContext.FirearmID))" />
+                                </MudTooltip>
+                            </MudTd>
+                        }
                     </RowTemplate>
                     <NoRecordsContent>
                         <MudText Class="pa-4 text-center">No firearms assigned to this employee.</MudText>
@@ -69,8 +80,11 @@
 @code {
     [Parameter] public int EmployeeId { get; set; }
     [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public bool CanEdit { get; set; } = true;
     [Parameter] public IEnumerable<MakesDto>? AvailableMakes { get; set; }
     [Parameter] public IEnumerable<StatusesDto>? AvailableStatuses { get; set; }
+
+    [CascadingParameter] private Task<AuthenticationState>? authenticationStateTask { get; set; }
 
     private List<FirearmsDto> firearms = new();
     private bool isLoading = true;
@@ -79,6 +93,16 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        if (authenticationStateTask != null)
+        {
+            var authState = await authenticationStateTask;
+            var user = authState?.User;
+            bool hasView = user != null && (user.IsInRole("Personnel View") || user.IsInRole("Employee View"));
+            bool hasEdit = user != null && (user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit"));
+            var hasEditPermission = user != null && (hasView && hasEdit);
+            CanEdit = CanEdit && hasEditPermission;
+        }
+
         if (IsEdit && EmployeeId > 0 && (EmployeeId != _lastLoadedEmployeeId || IsEdit != _lastLoadedIsEdit))
         {
             _lastLoadedEmployeeId = EmployeeId;
@@ -112,6 +136,8 @@
 
     private async Task OpenAddFirearmForm()
     {
+        if (!CanEdit) return;
+
         var parameters = new DialogParameters<AddFirearmModal>
         {
             { x => x.EmployeeId, EmployeeId },
@@ -132,6 +158,8 @@
 
     private async Task OpenEditFirearmForm(FirearmsDto firearm)
     {
+        if (!CanEdit) return;
+
         var parameters = new DialogParameters<AddFirearmModal>
         {
             { x => x.EmployeeId, EmployeeId },
@@ -141,6 +169,7 @@
                     SerialNumber = firearm.SerialNumber,
                     ModelNumber = firearm.ModelNumber,
                     Caliber = firearm.Caliber,
+                    Optic = firearm.Optic,
                     EmployeeID = firearm.EmployeeID,
                     Notes = firearm.Notes,
                     LastUserID = firearm.LastUserID,
@@ -167,6 +196,8 @@
 
     private async Task DeleteFirearmAsync(int firearmId)
     {
+        if (!CanEdit) return;
+
         bool? confirm = await DialogService.ShowMessageBoxAsync(
             "Confirm Delete",
             "Are you sure you want to delete this firearm record?",

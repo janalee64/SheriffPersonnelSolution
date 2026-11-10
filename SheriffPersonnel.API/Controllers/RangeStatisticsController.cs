@@ -11,7 +11,7 @@ namespace SheriffPersonnel.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Administrator, Personnel, Inventory, Range, Training, Equipment, SSN")]
+    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
     public class RangeStatisticsController : ControllerBase
     {
         private readonly IRangeStatisticService _rangeStatisticService;
@@ -76,6 +76,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<ActionResult<RangeStatisticDTO>> CreateRangeStatistic([FromBody] RangeStatisticDTO dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
@@ -94,6 +95,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<ActionResult<RangeStatisticDTO>> UpdateRangeStatistic(int id, [FromBody] RangeStatisticDTO dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
@@ -114,6 +116,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<IActionResult> DeleteRangeStatistic(int id)
         {
             try

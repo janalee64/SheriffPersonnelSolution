@@ -28,5 +28,9 @@ namespace SheriffPersonnel.Shared.DTOs
         public DateOnly? RangeDate { get; set; }
         public string? EventDescription { get; set; }
         public List<int> SelectedSkillIDs { get; set; } = new();
+
+        public string FormattedCourse => !string.IsNullOrWhiteSpace(CourseCode) && !string.IsNullOrWhiteSpace(CourseName)
+            ? $"{CourseCode} - {CourseName}"
+            : (!string.IsNullOrWhiteSpace(CourseCode) ? CourseCode : (!string.IsNullOrWhiteSpace(CourseName) ? CourseName : string.Empty));
     }
 }

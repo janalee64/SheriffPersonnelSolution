@@ -1,6 +1,8 @@
 @using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Shared.Models
 @using SheriffPersonnel.Web.Services
 @inject SearchService service
+@inject CodeTableService codeTableService
 @inject ISnackbar Snackbar
 @inject ILogger<AddRangeStatisticModal> logger
 
@@ -16,36 +18,45 @@
             <DataAnnotationsValidator />
             <MudGrid>
                 <MudItem xs="12" sm="6">
-                    <MudAutocomplete T="RangeEventDTO"
-                                     Value="selectedRangeEvent"
-                                     ValueChanged="OnRangeEventChanged"
-                                     SearchFunc="SearchRangeEvents"
-                                     ToStringFunc="GetRangeEventText"
-                                     Label="Range Event"
+                    <MudDatePicker @bind-Date="rangeDate"
+                                   Label="Range Date *"
+                                   Variant="Variant.Outlined"
+                                   DateFormat="MM/dd/yyyy"
+                                   Required="true"
+                                   RequiredError="Range Date is required"
+                                   Editable="true"
+                                   Adornment="Adornment.Start"
+                                   AdornmentIcon="@Icons.Material.Filled.CalendarToday" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudAutocomplete T="RangeOfficerDTO"
+                                     Value="selectedRangeOfficer"
+                                     ValueChanged="OnRangeOfficerChanged"
+                                     SearchFunc="SearchRangeOfficers"
+                                     ToStringFunc="@(ro => ro == null ? string.Empty : ro.OfficerName)"
+                                     Label="Range Officer *"
+                                     Placeholder="Type or select Range Officer"
                                      Variant="Variant.Outlined"
+                                     Clearable="true"
                                      ResetValueOnEmptyText="true"
                                      CoerceText="true"
                                      CoerceValue="false"
-                                     Clearable="true"
+                                     SelectValueOnTab="true"
+                                     MinCharacters="0"
                                      Required="true"
-                                     RequiredError="Range Event is required"
-                                     AdornmentIcon="@Icons.Material.Filled.Search"
-                                     AdornmentColor="Color.Primary" />
+                                     RequiredError="Range Officer is required" />
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="int?" @bind-Value="RangeStat.CourseID" Label="Range Course" Variant="Variant.Outlined" Clearable="true">
+                    <MudSelect T="int?" @bind-Value="RangeStat.CourseID" Label="Range Course *" Variant="Variant.Outlined" Clearable="true" Required="true" RequiredError="Range Course is required">
                         <MudSelectItem T="int?" Value="@((int?)null)">-- Select Course --</MudSelectItem>
-                        @if (AvailableCourses != null)
+                        @foreach (var course in FilteredCourses)
                         {
-                            @foreach (var course in AvailableCourses)
-                            {
-                                <MudSelectItem T="int?" Value="@course.CourseID">@course.CourseName</MudSelectItem>
-                            }
+                            <MudSelectItem T="int?" Value="@course.CourseID">@course.FormattedCourse</MudSelectItem>
                         }
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="int?" @bind-Value="RangeStat.FirearmID" Label="Firearm" Variant="Variant.Outlined" Clearable="true">
+                    <MudSelect T="int?" @bind-Value="RangeStat.FirearmID" Label="Firearm *" Variant="Variant.Outlined" Clearable="true" Required="true" RequiredError="Firearm is required">
                         <MudSelectItem T="int?" Value="@((int?)null)">-- Select Firearm --</MudSelectItem>
                         @if (AvailableFirearms != null)
                         {
@@ -58,10 +69,7 @@
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudNumericField T="int?" @bind-Value="RangeStat.RoundsFired" Label="Rounds Fired" Variant="Variant.Outlined" Min="0" Max="10000" />
-                </MudItem>
-                <MudItem xs="12" sm="6">
-                    <MudSelect T="string" @bind-Value="RangeStat.PassFail" Label="Pass / Fail Result" Variant="Variant.Outlined" Clearable="true">
+                    <MudSelect T="string" @bind-Value="RangeStat.PassFail" Label="Pass / Fail Result *" Variant="Variant.Outlined" Clearable="true" Required="true" RequiredError="Pass / Fail Result is required">
                         <MudSelectItem T="string" Value="@((string?)null)">-- Select Result --</MudSelectItem>
                         <MudSelectItem T="string" Value="@("Pass")">Pass</MudSelectItem>
                         <MudSelectItem T="string" Value="@("Fail")">Fail</MudSelectItem>
@@ -106,19 +114,40 @@
     [Parameter]
     public IEnumerable<FirearmsDto>? AvailableFirearms { get; set; }
 
-    private RangeEventDTO? selectedRangeEvent;
+    private DateTime? rangeDate = DateTime.Today;
+    private RangeOfficerDTO? selectedRangeOfficer;
+    private List<RangeOfficerDTO> availableRangeOfficers = new();
     private bool isSaving = false;
 
-    protected override void OnInitialized()
+    private IEnumerable<RangeCourseDTO> FilteredCourses =>
+        AvailableCourses?
+            .Where(c => c.IsActive || c.CourseID == RangeStat.CourseID)
+            .OrderBy(c => c.SortOrder ?? int.MaxValue)
+            .ThenBy(c => c.CourseName)
+        ?? Enumerable.Empty<RangeCourseDTO>();
+
+    protected override async Task OnInitializedAsync()
     {
         NormalizePassFail();
-        InitSelectedEvent();
+        InitDate();
+        if (AvailableCourses == null)
+        {
+            try
+            {
+                AvailableCourses = await service.GetRangeCoursesAsync();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error loading range courses in AddRangeStatisticModal.");
+            }
+        }
+        await LoadRangeOfficersAsync();
     }
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
         NormalizePassFail();
-        InitSelectedEvent();
+        InitDate();
     }
 
     private void NormalizePassFail()
@@ -133,49 +162,85 @@
         }
     }
 
-    private void InitSelectedEvent()
+    private void InitDate()
     {
-        if (selectedRangeEvent == null && RangeStat.RangeEventID > 0 && AvailableEvents != null)
+        if (RangeStat.RangeDate.HasValue)
         {
-            selectedRangeEvent = AvailableEvents.FirstOrDefault(x => x.RangeEventID == RangeStat.RangeEventID);
+            rangeDate = RangeStat.RangeDate.Value.ToDateTime(TimeOnly.MinValue);
+        }
+        else if (rangeDate == null)
+        {
+            rangeDate = DateTime.Today;
         }
     }
 
-    private void OnRangeEventChanged(RangeEventDTO? ev)
+    private async Task LoadRangeOfficersAsync()
     {
-        selectedRangeEvent = ev;
-        RangeStat.RangeEventID = ev?.RangeEventID ?? 0;
+        try
+        {
+            var officers = await codeTableService.GetRangeOfficersAsync();
+            availableRangeOfficers = officers != null
+                ? officers.Where(ro => ro.IsActive).OrderBy(ro => ro.OfficerName).ToList()
+                : new List<RangeOfficerDTO>();
+
+            if (selectedRangeOfficer == null && RangeStat.RangeEventID > 0)
+            {
+                if (AvailableEvents != null)
+                {
+                    var existingEvent = AvailableEvents.FirstOrDefault(x => x.RangeEventID == RangeStat.RangeEventID);
+                    if (existingEvent?.RangeOfficer != null)
+                    {
+                        selectedRangeOfficer = availableRangeOfficers.FirstOrDefault(ro => ro.RangeOfficerID == existingEvent.RangeOfficer.RangeOfficerID)
+                            ?? new RangeOfficerDTO
+                            {
+                                RangeOfficerID = existingEvent.RangeOfficer.RangeOfficerID,
+                                OfficerName = existingEvent.RangeOfficer.OfficerName,
+                                IsActive = existingEvent.RangeOfficer.IsActive ?? true
+                            };
+                    }
+                }
+
+                if (selectedRangeOfficer == null)
+                {
+                    var allEvents = await service.GetRangeEventsAsync();
+                    var existingEvent = allEvents?.FirstOrDefault(x => x.RangeEventID == RangeStat.RangeEventID);
+                    if (existingEvent?.RangeOfficer != null)
+                    {
+                        selectedRangeOfficer = availableRangeOfficers.FirstOrDefault(ro => ro.RangeOfficerID == existingEvent.RangeOfficer.RangeOfficerID)
+                            ?? new RangeOfficerDTO
+                            {
+                                RangeOfficerID = existingEvent.RangeOfficer.RangeOfficerID,
+                                OfficerName = existingEvent.RangeOfficer.OfficerName,
+                                IsActive = existingEvent.RangeOfficer.IsActive ?? true
+                            };
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading range officers in AddRangeStatisticModal.");
+        }
     }
 
-    private Task<IEnumerable<RangeEventDTO>> SearchRangeEvents(string value, CancellationToken token)
+    private void OnRangeOfficerChanged(RangeOfficerDTO? officer)
     {
-        if (AvailableEvents == null || !AvailableEvents.Any())
+        selectedRangeOfficer = officer;
+    }
+
+    private Task<IEnumerable<RangeOfficerDTO>> SearchRangeOfficers(string value, CancellationToken token)
+    {
+        if (availableRangeOfficers == null || !availableRangeOfficers.Any())
         {
-            return Task.FromResult(Enumerable.Empty<RangeEventDTO>());
+            return Task.FromResult(Enumerable.Empty<RangeOfficerDTO>());
         }
 
         if (string.IsNullOrWhiteSpace(value))
         {
-            return Task.FromResult(AvailableEvents);
+            return Task.FromResult<IEnumerable<RangeOfficerDTO>>(availableRangeOfficers);
         }
 
-        var filtered = AvailableEvents.Where(x =>
-            GetRangeEventText(x).Contains(value, StringComparison.OrdinalIgnoreCase) ||
-            (!string.IsNullOrEmpty(x.EventType) && x.EventType.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
-            (!string.IsNullOrEmpty(x.Location) && x.Location.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
-            (!string.IsNullOrEmpty(x.Notes) && x.Notes.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
-            (x.RangeDate != default && x.RangeDate.ToString("MM/dd/yyyy").Contains(value, StringComparison.OrdinalIgnoreCase))
-        );
-
-        return Task.FromResult(filtered);
-    }
-
-    private string GetRangeEventText(RangeEventDTO? ev)
-    {
-        if (ev == null) return string.Empty;
-        var eventType = string.IsNullOrWhiteSpace(ev.EventType) ? "Event" : ev.EventType;
-        var location = string.IsNullOrWhiteSpace(ev.Location) ? "" : $" ({ev.Location})";
-        return $"{ev.RangeDate:MM/dd/yyyy} - {eventType}{location}".Trim();
+        return Task.FromResult(availableRangeOfficers.Where(ro => ro.OfficerName.Contains(value, StringComparison.OrdinalIgnoreCase)));
     }
 
     private void Cancel()
@@ -185,9 +250,33 @@
 
     private async Task SaveRangeStatAsync()
     {
-        if (RangeStat.RangeEventID <= 0)
+        if (rangeDate == null)
         {
-            Snackbar.Add("Range Event selection is required.", Severity.Error);
+            Snackbar.Add("Range Date is required.", Severity.Error);
+            return;
+        }
+
+        if (selectedRangeOfficer == null || selectedRangeOfficer.RangeOfficerID <= 0 || string.IsNullOrWhiteSpace(selectedRangeOfficer.OfficerName))
+        {
+            Snackbar.Add("Range Officer is required.", Severity.Error);
+            return;
+        }
+
+        if (!RangeStat.CourseID.HasValue || RangeStat.CourseID.Value <= 0)
+        {
+            Snackbar.Add("Range Course is required.", Severity.Error);
+            return;
+        }
+
+        if (!RangeStat.FirearmID.HasValue || RangeStat.FirearmID.Value <= 0)
+        {
+            Snackbar.Add("Firearm is required.", Severity.Error);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(RangeStat.PassFail))
+        {
+            Snackbar.Add("Pass / Fail Result is required.", Severity.Error);
             return;
         }
 
@@ -196,6 +285,30 @@
 
         try
         {
+            // 1. Create a new RangeEvent record
+            var rangeEventDto = new RangeEventDTO
+            {
+                RangeDate = DateOnly.FromDateTime(rangeDate.Value),
+                RangeOfficer = selectedRangeOfficer != null
+                    ? new RangeOfficer
+                    {
+                        RangeOfficerID = selectedRangeOfficer.RangeOfficerID,
+                        OfficerName = string.IsNullOrWhiteSpace(selectedRangeOfficer.OfficerName) ? "Unknown" : selectedRangeOfficer.OfficerName,
+                        IsActive = selectedRangeOfficer.IsActive
+                    }
+                    : null
+            };
+
+            var createdEvent = await service.CreateRangeEventAsync(rangeEventDto);
+            if (createdEvent == null || createdEvent.RangeEventID <= 0)
+            {
+                Snackbar.Add("Failed to create Range Event record.", Severity.Error);
+                return;
+            }
+
+            RangeStat.RangeEventID = createdEvent.RangeEventID;
+            RangeStat.RangeDate = createdEvent.RangeDate;
+
             if (RangeStat.RangeID == 0)
             {
                 var result = await service.CreateRangeStatisticAsync(RangeStat);
@@ -234,4 +347,3 @@
         }
     }
 }
-

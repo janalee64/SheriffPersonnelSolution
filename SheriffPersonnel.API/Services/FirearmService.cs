@@ -99,6 +99,7 @@ namespace SheriffPersonnel.API.Services
                 existing.SerialNumber = dto.SerialNumber;
                 existing.ModelNumber = dto.ModelNumber;
                 existing.Caliber = dto.Caliber;
+                existing.Optic = dto.Optic;
                 existing.EmployeeID = dto.EmployeeID;
                 existing.Notes = dto.Notes;
                 existing.LastUserID = dto.LastUserID;
@@ -165,6 +166,7 @@ namespace SheriffPersonnel.API.Services
                 SerialNumber = entity.SerialNumber,
                 ModelNumber = entity.ModelNumber,
                 Caliber = entity.Caliber,
+                Optic = entity.Optic,
                 EmployeeID = entity.EmployeeID,
                 EmployeeName = empName,
                 EmployeeStatusID = empStatusId,
@@ -188,6 +190,7 @@ namespace SheriffPersonnel.API.Services
                 SerialNumber = dto.SerialNumber,
                 ModelNumber = dto.ModelNumber,
                 Caliber = dto.Caliber,
+                Optic = dto.Optic,
                 EmployeeID = dto.EmployeeID,
                 Notes = dto.Notes,
                 LastUserID = dto.LastUserID,

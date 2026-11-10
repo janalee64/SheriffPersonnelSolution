@@ -20,6 +20,7 @@ namespace SheriffPersonnel.API.Repositories
         public async Task<IEnumerable<RangeStatistic>> GetAllRangeStatisticsAsync()
         {
             return await _dbContext.RangeStatistics
+                .AsSplitQuery()
                 .Include(rs => rs.Employee)
                     .ThenInclude(e => e!.Status)
                 .Include(rs => rs.Employee)
@@ -42,6 +43,7 @@ namespace SheriffPersonnel.API.Repositories
         public async Task<IEnumerable<RangeStatistic>> GetRangeStatisticsByEmployeeIdAsync(int employeeId)
         {
             return await _dbContext.RangeStatistics
+                .AsSplitQuery()
                 .Include(rs => rs.Employee)
                     .ThenInclude(e => e!.Status)
                 .Include(rs => rs.Employee)
@@ -120,13 +122,15 @@ namespace SheriffPersonnel.API.Repositories
         public async Task<IEnumerable<RangeCourse>> GetRangeCoursesAsync()
         {
             return await _dbContext.RangeCourses
-                .OrderBy(c => c.CourseName)
+                .OrderBy(c => c.SortOrder ?? int.MaxValue)
+                .ThenBy(c => c.CourseName)
                 .ToListAsync();
         }
 
         public async Task<IEnumerable<RangeEvent>> GetRangeEventsAsync()
         {
             return await _dbContext.RangeEvents
+                .Include(e => e.RangeOfficer)
                 .OrderByDescending(e => e.RangeDate)
                 .ToListAsync();
         }

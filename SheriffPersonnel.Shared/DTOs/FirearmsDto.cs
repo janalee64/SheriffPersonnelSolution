@@ -8,6 +8,7 @@ namespace SheriffPersonnel.Shared.DTOs
         public string SerialNumber { get; set; } = string.Empty;
         public string ModelNumber { get; set; } = string.Empty;
         public string Caliber { get; set; } = string.Empty;
+        public bool Optic { get; set; }
         public int EmployeeID { get; set; }
         public string? EmployeeName { get; set; }
         public int? EmployeeStatusID { get; set; }

@@ -1,0 +1,497 @@
+@page "/print/range-statistics"
+@using System.Web
+@using SheriffPersonnel.Shared.DTOs
+@using SheriffPersonnel.Web.Services
+@layout PrintLayout
+
+@inject SearchService service
+@inject CodeTableService CodeTableService
+@inject IJSRuntime JSRuntime
+@inject ILogger<PrintRangeStatistics> logger
+
+@attribute [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
+
+<PageTitle>Range Statistics - Printable Report</PageTitle>
+
+@if (isLoading)
+{
+    <div class="pa-6 d-flex justify-center align-center">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        <MudText Class="ml-4">Loading range statistics report...</MudText>
+    </div>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        @errorMessage
+    </MudAlert>
+}
+else
+{
+    <div class="print-header">
+        <div class="d-flex justify-space-between align-center mb-4 no-print">
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Print" OnClick="TriggerPrint">
+                    Print Report
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Close" OnClick="CloseWindow">
+                    Close Window
+                </MudButton>
+            </MudStack>
+        </div>
+
+        <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 8px; color: #111;">Range Statistics Report</h1>
+
+        <div style="font-size: 14px; margin-bottom: 6px; color: #333;">
+            <strong>Search Criteria:</strong> @GetFiltersSummary()
+        </div>
+
+        <div style="font-size: 14px; margin-bottom: 16px; color: #333;">
+            <strong>Total Records Found:</strong> @(searchResults?.Count ?? 0)
+        </div>
+    </div>
+
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Course</th>
+                <th>Employee Name</th>
+                <th>Employee Status</th>
+                <th>Program</th>
+                <th>Unit</th>
+                @if (!IsMissing)
+                {
+                    <th>Range Date</th>
+                    <th>Pass/Fail</th>
+                    <th>Serial Number</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @if (searchResults != null && searchResults.Any())
+            {
+                @foreach (var item in searchResults)
+                {
+                    <tr>
+                        <td>@(string.IsNullOrWhiteSpace(item.FormattedCourse) ? "-" : item.FormattedCourse)</td>
+                        <td>@(string.IsNullOrWhiteSpace(item.EmployeeName) ? "-" : item.EmployeeName)</td>
+                        <td>@(string.IsNullOrWhiteSpace(item.EmployeeStatus) ? "-" : item.EmployeeStatus)</td>
+                        <td>@(string.IsNullOrWhiteSpace(item.Program) ? "-" : item.Program)</td>
+                        <td>@(string.IsNullOrWhiteSpace(item.Unit) ? "-" : item.Unit)</td>
+                        @if (!IsMissing)
+                        {
+                            <td>@(item.RangeDate.HasValue ? item.RangeDate.Value.ToString("MM/dd/yyyy") : "-")</td>
+                            <td>@(string.IsNullOrWhiteSpace(item.PassFail) ? "-" : item.PassFail)</td>
+                            <td>@(string.IsNullOrWhiteSpace(item.SerialNumber) ? "-" : item.SerialNumber)</td>
+                        }
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="@(IsMissing ? 5 : 8)" style="text-align: center; padding: 16px;">No range statistics records found matching the specified criteria.</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<style>
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        font-size: 13px;
+    }
+
+    .report-table th, .report-table td {
+        border: 1px solid #ccc;
+        padding: 8px 10px;
+        text-align: left;
+    }
+
+    .report-table th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+
+    @@media print {
+        .no-print {
+            display: none !important;
+        }
+
+        body {
+            background-color: white !important;
+            color: black !important;
+            margin: 0;
+            padding: 10px;
+            font-size: 12px;
+        }
+
+        .report-table {
+            font-size: 11px;
+        }
+
+        .report-table th, .report-table td {
+            border: 1px solid #666 !important;
+            padding: 6px 8px !important;
+        }
+
+        .report-table th {
+            background-color: #eee !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    }
+</style>
+
+@code {
+    [SupplyParameterFromQuery(Name = "courseId")]
+    public int? CourseID { get; set; }
+
+    [SupplyParameterFromQuery(Name = "employeeStatusId")]
+    public int? EmployeeStatusID { get; set; }
+
+    [SupplyParameterFromQuery(Name = "programId")]
+    public int? ProgramID { get; set; }
+
+    [SupplyParameterFromQuery(Name = "unitIds")]
+    public string? UnitIdsString { get; set; }
+
+    [SupplyParameterFromQuery(Name = "startDate")]
+    public string? StartDateString { get; set; }
+
+    [SupplyParameterFromQuery(Name = "endDate")]
+    public string? EndDateString { get; set; }
+
+    [SupplyParameterFromQuery(Name = "passFail")]
+    public string? PassFail { get; set; }
+
+    [SupplyParameterFromQuery(Name = "isMissing")]
+    public bool IsMissing { get; set; }
+
+    private List<RangeStatisticDTO>? searchResults;
+    private IEnumerable<RangeCourseDTO>? availableCourses;
+    private IEnumerable<StatusesDto>? availableStatuses;
+    private IEnumerable<ProgramsDto>? availablePrograms;
+    private IEnumerable<UnitsDto>? availableUnits;
+    private List<int> selectedUnitIds = new();
+    private DateOnly? startDate;
+    private DateOnly? endDate;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private bool printTriggered = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            availableCourses = await CodeTableService.GetRangeCoursesAsync();
+            availableStatuses = await CodeTableService.GetStatusesAsync();
+            availablePrograms = await CodeTableService.GetProgramsAsync();
+            availableUnits = await CodeTableService.GetUnitsAsync();
+
+            if (!string.IsNullOrWhiteSpace(UnitIdsString))
+            {
+                selectedUnitIds = UnitIdsString.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                              .Select(s => int.TryParse(s, out var id) ? (int?)id : null)
+                                              .Where(id => id.HasValue)
+                                              .Select(id => id!.Value)
+                                              .ToList();
+            }
+
+            if (!string.IsNullOrWhiteSpace(StartDateString) && DateOnly.TryParse(StartDateString, out var parsedStart))
+            {
+                startDate = parsedStart;
+            }
+            else if (!string.IsNullOrWhiteSpace(StartDateString) && DateTime.TryParse(StartDateString, out var parsedStartDt))
+            {
+                startDate = DateOnly.FromDateTime(parsedStartDt);
+            }
+
+            if (!string.IsNullOrWhiteSpace(EndDateString) && DateOnly.TryParse(EndDateString, out var parsedEnd))
+            {
+                endDate = parsedEnd;
+            }
+            else if (!string.IsNullOrWhiteSpace(EndDateString) && DateTime.TryParse(EndDateString, out var parsedEndDt))
+            {
+                endDate = DateOnly.FromDateTime(parsedEndDt);
+            }
+
+            if (IsMissing)
+            {
+                var employees = (await service.SearchEmployeesAsync(new EmployeeSearchRequestDto()))
+                    .DistinctBy(e => e.EmployeeID)
+                    .ToList();
+                var allStats = (await service.GetAllRangeStatisticsAsync()).ToList();
+
+                var targetStatus = EmployeeStatusID.HasValue ? availableStatuses.FirstOrDefault(s => s.StatusID == EmployeeStatusID.Value) : null;
+                var targetProgram = ProgramID.HasValue && ProgramID.Value > 0 ? availablePrograms.FirstOrDefault(p => p.ProgramID == ProgramID.Value) : null;
+                var targetUnits = availableUnits.Where(u => selectedUnitIds.Contains(u.UnitID)).ToList();
+                var targetCourse = CourseID.HasValue ? availableCourses.FirstOrDefault(c => c.CourseID == CourseID.Value) : null;
+
+                var missingStatsList = new List<RangeStatisticDTO>();
+
+                foreach (var emp in employees)
+                {
+                    if (targetStatus != null)
+                    {
+                        bool statusMatches = !string.IsNullOrWhiteSpace(emp.Status) &&
+                            (string.Equals(emp.Status, targetStatus.StatusDescription, StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(emp.Status, targetStatus.StatusCode, StringComparison.OrdinalIgnoreCase));
+
+                        if (!statusMatches) continue;
+                    }
+
+                    if (targetProgram != null)
+                    {
+                        bool programMatches = !string.IsNullOrWhiteSpace(emp.Program) &&
+                            (string.Equals(emp.Program, targetProgram.ProgramName, StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(emp.Program, targetProgram.DisplayName, StringComparison.OrdinalIgnoreCase));
+                        if (!programMatches) continue;
+                    }
+
+                    if (targetUnits.Any())
+                    {
+                        bool unitMatches = targetUnits.Any(u => !string.IsNullOrWhiteSpace(emp.Unit) &&
+                            string.Equals(emp.Unit, u.UnitName, StringComparison.OrdinalIgnoreCase));
+
+                        if (!unitMatches) continue;
+                    }
+
+                    bool hasRecord = allStats.Any(stat =>
+                    {
+                        if (stat.EmployeeID != emp.EmployeeID) return false;
+                        if (!CourseID.HasValue || stat.CourseID != CourseID.Value) return false;
+
+                        if (startDate.HasValue)
+                        {
+                            if (!stat.RangeDate.HasValue || stat.RangeDate.Value < startDate.Value) return false;
+                        }
+
+                        if (endDate.HasValue)
+                        {
+                            if (!stat.RangeDate.HasValue || stat.RangeDate.Value > endDate.Value) return false;
+                        }
+
+                        if (!string.IsNullOrEmpty(PassFail))
+                        {
+                            bool isPassFilter = string.Equals(PassFail, "Pass", StringComparison.OrdinalIgnoreCase) || string.Equals(PassFail, "P", StringComparison.OrdinalIgnoreCase);
+                            bool isFailFilter = string.Equals(PassFail, "Fail", StringComparison.OrdinalIgnoreCase) || string.Equals(PassFail, "F", StringComparison.OrdinalIgnoreCase);
+
+                            if (isPassFilter)
+                            {
+                                if (!string.Equals(stat.PassFail, "Pass", StringComparison.OrdinalIgnoreCase) && !string.Equals(stat.PassFail, "P", StringComparison.OrdinalIgnoreCase)) return false;
+                            }
+                            else if (isFailFilter)
+                            {
+                                if (!string.Equals(stat.PassFail, "Fail", StringComparison.OrdinalIgnoreCase) && !string.Equals(stat.PassFail, "F", StringComparison.OrdinalIgnoreCase)) return false;
+                            }
+                            else if (!string.Equals(stat.PassFail, PassFail, StringComparison.OrdinalIgnoreCase)) return false;
+                        }
+
+                        return true;
+                    });
+
+                    if (!hasRecord)
+                    {
+                        missingStatsList.Add(new RangeStatisticDTO
+                        {
+                            RangeID = 0,
+                            EmployeeID = emp.EmployeeID,
+                            EmployeeName = emp.FormattedName,
+                            EmployeeStatus = emp.Status,
+                            Program = emp.Program,
+                            Unit = emp.Unit,
+                            CourseID = CourseID ?? 0,
+                            CourseCode = targetCourse?.CourseCode,
+                            CourseName = targetCourse?.CourseName,
+                            RangeDate = null,
+                            PassFail = null,
+                            SerialNumber = null
+                        });
+                    }
+                }
+
+                searchResults = missingStatsList;
+            }
+            else
+            {
+                var allStats = await service.GetAllRangeStatisticsAsync();
+
+                searchResults = allStats.Where(stat =>
+                {
+                    if (CourseID.HasValue && CourseID.Value > 0)
+                    {
+                        if (stat.CourseID != CourseID.Value) return false;
+                    }
+
+                    if (EmployeeStatusID.HasValue && EmployeeStatusID.Value > 0)
+                    {
+                        var targetStatus = availableStatuses.FirstOrDefault(s => s.StatusID == EmployeeStatusID.Value);
+                        bool matchesId = stat.EmployeeStatusID == EmployeeStatusID.Value;
+                        bool matchesText = targetStatus != null && !string.IsNullOrEmpty(stat.EmployeeStatus) &&
+                                           (stat.EmployeeStatus.Equals(targetStatus.StatusDescription, StringComparison.OrdinalIgnoreCase) ||
+                                            stat.EmployeeStatus.Equals(targetStatus.StatusCode, StringComparison.OrdinalIgnoreCase));
+                        if (!matchesId && !matchesText) return false;
+                    }
+
+                    if (ProgramID.HasValue && ProgramID.Value > 0)
+                    {
+                        var targetProg = availablePrograms.FirstOrDefault(p => p.ProgramID == ProgramID.Value);
+                        bool matchesId = stat.ProgramID == ProgramID.Value;
+                        bool matchesText = targetProg != null && !string.IsNullOrEmpty(stat.Program) &&
+                                           stat.Program.Equals(targetProg.ProgramName, StringComparison.OrdinalIgnoreCase);
+                        if (!matchesId && !matchesText) return false;
+                    }
+
+                    if (selectedUnitIds.Any())
+                    {
+                        var targetUnits = availableUnits.Where(u => selectedUnitIds.Contains(u.UnitID)).ToList();
+                        bool matchesId = stat.UnitID.HasValue && selectedUnitIds.Contains(stat.UnitID.Value);
+                        bool matchesText = targetUnits.Any(u => !string.IsNullOrEmpty(stat.Unit) &&
+                                                                stat.Unit.Equals(u.UnitName, StringComparison.OrdinalIgnoreCase));
+                        if (!matchesId && !matchesText) return false;
+                    }
+
+                    if (startDate.HasValue)
+                    {
+                        if (!stat.RangeDate.HasValue || stat.RangeDate.Value < startDate.Value) return false;
+                    }
+
+                    if (endDate.HasValue)
+                    {
+                        if (!stat.RangeDate.HasValue || stat.RangeDate.Value > endDate.Value) return false;
+                    }
+
+                    if (!string.IsNullOrEmpty(PassFail))
+                    {
+                        bool isPassFilter = string.Equals(PassFail, "Pass", StringComparison.OrdinalIgnoreCase) || string.Equals(PassFail, "P", StringComparison.OrdinalIgnoreCase);
+                        bool isFailFilter = string.Equals(PassFail, "Fail", StringComparison.OrdinalIgnoreCase) || string.Equals(PassFail, "F", StringComparison.OrdinalIgnoreCase);
+
+                        if (isPassFilter)
+                        {
+                            if (!string.Equals(stat.PassFail, "Pass", StringComparison.OrdinalIgnoreCase) && !string.Equals(stat.PassFail, "P", StringComparison.OrdinalIgnoreCase)) return false;
+                        }
+                        else if (isFailFilter)
+                        {
+                            if (!string.Equals(stat.PassFail, "Fail", StringComparison.OrdinalIgnoreCase) && !string.Equals(stat.PassFail, "F", StringComparison.OrdinalIgnoreCase)) return false;
+                        }
+                        else if (!string.Equals(stat.PassFail, PassFail, StringComparison.OrdinalIgnoreCase)) return false;
+                    }
+
+                    return true;
+                }).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading range statistics printable report.");
+            errorMessage = $"Error loading report data: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!isLoading && string.IsNullOrEmpty(errorMessage) && !printTriggered)
+        {
+            printTriggered = true;
+            StateHasChanged();
+            await Task.Delay(300); // Give DOM a brief moment to stabilize before print dialog
+            await TriggerPrint();
+        }
+    }
+
+    private async Task TriggerPrint()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("window.print");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not trigger window.print directly.");
+        }
+    }
+
+    private async Task CloseWindow()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("window.close");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not close browser window automatically.");
+        }
+    }
+
+    private string GetFiltersSummary()
+    {
+        var filters = new List<string>();
+
+        if (CourseID.HasValue && CourseID.Value > 0 && availableCourses != null)
+        {
+            var course = availableCourses.FirstOrDefault(c => c.CourseID == CourseID.Value);
+            if (course != null)
+            {
+                filters.Add($"Course: \"{course.FormattedCourse}\"");
+            }
+        }
+
+        if (EmployeeStatusID.HasValue && EmployeeStatusID.Value > 0 && availableStatuses != null)
+        {
+            var status = availableStatuses.FirstOrDefault(s => s.StatusID == EmployeeStatusID.Value);
+            if (status != null)
+            {
+                filters.Add($"Employee Status: \"{status.StatusDescription ?? status.StatusCode}\"");
+            }
+        }
+
+        if (ProgramID.HasValue && ProgramID.Value > 0 && availablePrograms != null)
+        {
+            var prog = availablePrograms.FirstOrDefault(p => p.ProgramID == ProgramID.Value);
+            if (prog != null)
+            {
+                filters.Add($"Program: \"{prog.DisplayName ?? prog.ProgramName}\"");
+            }
+        }
+
+        if (selectedUnitIds.Any() && availableUnits != null)
+        {
+            var units = availableUnits.Where(u => selectedUnitIds.Contains(u.UnitID)).Select(u => u.UnitName);
+            if (units.Any())
+            {
+                filters.Add($"Unit(s): \"{string.Join(", ", units)}\"");
+            }
+        }
+
+        if (startDate.HasValue)
+        {
+            filters.Add($"Start Date: \"{startDate.Value:MM/dd/yyyy}\"");
+        }
+
+        if (endDate.HasValue)
+        {
+            filters.Add($"End Date: \"{endDate.Value:MM/dd/yyyy}\"");
+        }
+
+        if (!string.IsNullOrWhiteSpace(PassFail))
+        {
+            filters.Add($"Pass/Fail: \"{PassFail.Trim()}\"");
+        }
+
+        if (IsMissing)
+        {
+            filters.Add("Missing Records Only: Yes");
+        }
+
+        return filters.Any() ? string.Join(" | ", filters) : "All Range Statistics";
+    }
+}
+

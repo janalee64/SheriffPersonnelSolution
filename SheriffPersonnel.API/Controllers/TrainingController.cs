@@ -11,7 +11,7 @@ namespace SheriffPersonnel.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Administrator, Personnel, Inventory, Range, Training, Equipment, SSN")]
+    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
     public class TrainingController : ControllerBase
     {
         private readonly ITrainingService _trainingService;
@@ -60,6 +60,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<ActionResult<EmployeeTrainingsDto>> CreateEmployeeTraining([FromBody] EmployeeTrainingsDto dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
@@ -78,6 +79,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<ActionResult<EmployeeTrainingsDto>> UpdateEmployeeTraining(int id, [FromBody] EmployeeTrainingsDto dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
@@ -98,6 +100,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<IActionResult> DeleteEmployeeTraining(int id)
         {
             try
@@ -170,6 +173,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPost("sessions")]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<ActionResult<TrainingSessionsDto>> CreateTrainingSession([FromBody] TrainingSessionsDto dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
@@ -188,6 +192,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPut("sessions/{id:int}")]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<ActionResult<TrainingSessionsDto>> UpdateTrainingSession(int id, [FromBody] TrainingSessionsDto dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
@@ -223,6 +228,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPost("assign-multiple")]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<ActionResult<MultipleTrainingAssignmentResultDto>> AssignMultipleTrainings([FromBody] MultipleTrainingAssignmentRequestDto request)
         {
             if (request == null) return BadRequest("Payload cannot be null.");

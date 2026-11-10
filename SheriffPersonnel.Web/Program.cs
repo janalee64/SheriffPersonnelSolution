@@ -58,7 +58,18 @@ try
 
     builder.Services.AddMicrosoftIdentityConsentHandler();
     builder.Services.AddCascadingAuthenticationState();
-    builder.Services.AddAuthorization();
+    builder.Services.AddAuthorization(options =>
+    {
+        options.AddPolicy("CanEditPersonnel", policy =>
+            policy.RequireAssertion(context =>
+            {
+                var user = context.User;
+                if (user == null) return false;
+                bool hasView = user.IsInRole("Personnel View") || user.IsInRole("Employee View");
+                bool hasEdit = user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit");
+                return hasView && hasEdit;
+            }));
+    });
 
     // Register HttpClient for HTTP communication with API endpoints
     builder.Services.AddHttpClient();

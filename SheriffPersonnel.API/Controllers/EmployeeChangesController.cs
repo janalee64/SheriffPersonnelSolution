@@ -11,7 +11,7 @@ namespace SheriffPersonnel.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Administrator, Personnel, Inventory, Range, Training, Equipment, SSN")]
+    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
     public class EmployeeChangesController : ControllerBase
     {
         private readonly IEmployeeChangeService _employeeChangeService;
@@ -60,9 +60,11 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<ActionResult<EmployeeChangesDto>> Create([FromBody] EmployeeChangesDto dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
+            if (!ModelState.IsValid) return BadRequest(ModelState);
 
             try
             {
@@ -78,9 +80,11 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<ActionResult<EmployeeChangesDto>> Update(int id, [FromBody] EmployeeChangesDto dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
+            if (!ModelState.IsValid) return BadRequest(ModelState);
 
             try
             {
@@ -98,6 +102,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<IActionResult> Delete(int id)
         {
             try

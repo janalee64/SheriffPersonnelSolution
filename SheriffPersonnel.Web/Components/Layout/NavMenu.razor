@@ -1,5 +1,5 @@
 <MudNavMenu>
-    <AuthorizeView Roles="Personnel">
+    <AuthorizeView Roles="Personnel View, Personnel Edit">
         <Authorized>
             <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.PersonSearch">Employee Search</MudNavLink>
         </Authorized>
@@ -23,13 +23,17 @@
         </Authorized>
     </AuthorizeView>
 
-    <AuthorizeView Roles="Range">
+    <AuthorizeView Roles="Range Statistics">
         <Authorized>
             <MudNavLink Href="rangestatistics" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SportsScore">Range Statistics</MudNavLink>
         </Authorized>
     </AuthorizeView>
 
-    <MudNavLink Href="enterrangescores" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.EditNote">Enter Range Scores</MudNavLink>
+    <AuthorizeView Roles="Range Scores">
+        <Authorized>
+            <MudNavLink Href="enterrangescores" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.EditNote">Enter Range Scores</MudNavLink>
+        </Authorized>
+    </AuthorizeView>
 
     <AuthorizeView Roles="Administrator">
         <Authorized>

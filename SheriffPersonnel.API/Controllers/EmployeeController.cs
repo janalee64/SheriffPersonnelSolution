@@ -10,7 +10,7 @@ namespace SheriffPersonnel.API.Controllers
 {
     [ApiController]
     [Route("api/employee")]
-    [Authorize(Roles = "Administrator, Personnel, Inventory, Range, Training, Equipment, SSN")]
+    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
     public class EmployeeController : ControllerBase
     {
         private readonly IEmployeeSearchService _employeeService;
@@ -54,6 +54,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<ActionResult<EmployeeDetailDto>> Create([FromBody] EmployeeDetailDto dto)
         {
             if (dto == null)
@@ -87,6 +88,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<ActionResult<EmployeeDetailDto>> Update(int id, [FromBody] EmployeeDetailDto dto)
         {
             if (dto == null)
@@ -130,6 +132,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<IActionResult> Delete(int id)
         {
             try

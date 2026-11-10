@@ -21,6 +21,7 @@ namespace SheriffPersonnel.API.Repositories
         public async Task<IEnumerable<Employee>> SearchEmployeesAsync(EmployeeSearchRequestDto request)
         {
             IQueryable<Employee> query = _dbContext.Employees
+                .AsSplitQuery()
                 .Include(e => e.Status)
                 .Include(e => e.EmployeeChanges)
                     .ThenInclude(ec => ec.Program)

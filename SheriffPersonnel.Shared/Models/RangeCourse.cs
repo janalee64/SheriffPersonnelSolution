@@ -14,6 +14,8 @@ namespace SheriffPersonnel.Shared.Models
         [StringLength(50)]
         public string? CourseCode { get; set; }
 
+        public int? SortOrder { get; set; }
+
         [Required]
         [StringLength(100)]
         public string CourseName { get; set; } = string.Empty;

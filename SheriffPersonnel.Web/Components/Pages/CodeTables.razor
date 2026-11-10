@@ -288,10 +288,10 @@
             {
                 <MudGrid>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="editingStatus.StatusCode" Label="Status Code" Variant="Variant.Outlined" Required="true" RequiredError="Status code is required" />
+                        <MudTextField @bind-Value="editingStatus.StatusCode" For="@(() => editingStatus.StatusCode)" Label="Status Code" Variant="Variant.Outlined" Required="true" RequiredError="Status code is required" />
                     </MudItem>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="editingStatus.StatusDescription" Label="Status Description" Variant="Variant.Outlined" Lines="2" />
+                        <MudTextField @bind-Value="editingStatus.StatusDescription" For="@(() => editingStatus.StatusDescription)" Label="Status Description" Variant="Variant.Outlined" Lines="2" Required="true" RequiredError="Status description is required" />
                     </MudItem>
                 </MudGrid>
             }
@@ -299,10 +299,10 @@
             {
                 <MudGrid>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="editingProgram.ProgramName" Label="Program Name" Variant="Variant.Outlined" Required="true" RequiredError="Program name is required" />
+                        <MudTextField @bind-Value="editingProgram.ProgramName" For="@(() => editingProgram.ProgramName)" Label="Program Name" Variant="Variant.Outlined" Required="true" RequiredError="Program name is required" />
                     </MudItem>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="editingProgram.Description" Label="Description" Variant="Variant.Outlined" Lines="3" />
+                        <MudTextField @bind-Value="editingProgram.Description" For="@(() => editingProgram.Description)" Label="Description" Variant="Variant.Outlined" Lines="3" Required="true" RequiredError="Description is required" />
                     </MudItem>
                     <MudItem xs="12">
                         <MudCheckBox T="bool" @bind-Value="editingProgram.IsActive" Label="Active Program" Color="Color.Success" />
@@ -313,7 +313,7 @@
             {
                 <MudGrid>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="editingUnit.UnitName" Label="Unit Name" Variant="Variant.Outlined" Required="true" RequiredError="Unit name is required" />
+                        <MudTextField @bind-Value="editingUnit.UnitName" For="@(() => editingUnit.UnitName)" Label="Unit Name" Variant="Variant.Outlined" Required="true" RequiredError="Unit name is required" />
                     </MudItem>
                     <MudItem xs="12">
                         <MudTextField @bind-Value="editingUnit.Notes" Label="Notes" Variant="Variant.Outlined" Lines="2" />
@@ -327,7 +327,7 @@
             {
                 <MudGrid>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="editingRank.RankName" Label="Rank Name" Variant="Variant.Outlined" Required="true" RequiredError="Rank name is required" />
+                        <MudTextField @bind-Value="editingRank.RankName" For="@(() => editingRank.RankName)" Label="Rank Name" Variant="Variant.Outlined" Required="true" RequiredError="Rank name is required" />
                     </MudItem>
                     <MudItem xs="12">
                         <MudCheckBox T="bool" @bind-Value="editingRank.IsActive" Label="Active Rank" Color="Color.Success" />
@@ -338,7 +338,7 @@
             {
                 <MudGrid>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="editingMake.MakeName" Label="Make Name" Variant="Variant.Outlined" Required="true" RequiredError="Make name is required" />
+                        <MudTextField @bind-Value="editingMake.MakeName" For="@(() => editingMake.MakeName)" Label="Make Name" Variant="Variant.Outlined" Required="true" RequiredError="Make name is required" />
                     </MudItem>
                 </MudGrid>
             }
@@ -346,7 +346,7 @@
             {
                 <MudGrid>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="editingDocumentType.DocumentType" Label="Document Type Name" Variant="Variant.Outlined" Required="true" RequiredError="Document type name is required" />
+                        <MudTextField @bind-Value="editingDocumentType.DocumentType" For="@(() => editingDocumentType.DocumentType)" Label="Document Type Name" Variant="Variant.Outlined" Required="true" RequiredError="Document type name is required" />
                     </MudItem>
                 </MudGrid>
             }
@@ -655,7 +655,16 @@
             switch (activeTable)
             {
                 case "Status":
-                    if (string.IsNullOrWhiteSpace(editingStatus.StatusCode)) return;
+                    if (string.IsNullOrWhiteSpace(editingStatus.StatusCode))
+                    {
+                        Snackbar.Add("Status Code is required.", Severity.Error);
+                        return;
+                    }
+                    if (string.IsNullOrWhiteSpace(editingStatus.StatusDescription))
+                    {
+                        Snackbar.Add("Status Description is required.", Severity.Error);
+                        return;
+                    }
                     if (isEditMode)
                         await CodeTableService.UpdateStatusAsync(editingStatus.StatusID, editingStatus);
                     else
@@ -664,7 +673,16 @@
                     break;
 
                 case "Program":
-                    if (string.IsNullOrWhiteSpace(editingProgram.ProgramName)) return;
+                    if (string.IsNullOrWhiteSpace(editingProgram.ProgramName))
+                    {
+                        Snackbar.Add("Program Name is required.", Severity.Error);
+                        return;
+                    }
+                    if (string.IsNullOrWhiteSpace(editingProgram.Description))
+                    {
+                        Snackbar.Add("Description is required.", Severity.Error);
+                        return;
+                    }
                     if (isEditMode)
                         await CodeTableService.UpdateProgramAsync(editingProgram.ProgramID, editingProgram);
                     else
@@ -673,7 +691,11 @@
                     break;
 
                 case "Unit":
-                    if (string.IsNullOrWhiteSpace(editingUnit.UnitName)) return;
+                    if (string.IsNullOrWhiteSpace(editingUnit.UnitName))
+                    {
+                        Snackbar.Add("Unit Name is required.", Severity.Error);
+                        return;
+                    }
                     if (isEditMode)
                         await CodeTableService.UpdateUnitAsync(editingUnit.UnitID, editingUnit);
                     else
@@ -682,7 +704,11 @@
                     break;
 
                 case "Rank":
-                    if (string.IsNullOrWhiteSpace(editingRank.RankName)) return;
+                    if (string.IsNullOrWhiteSpace(editingRank.RankName))
+                    {
+                        Snackbar.Add("Rank Name is required.", Severity.Error);
+                        return;
+                    }
                     if (isEditMode)
                         await CodeTableService.UpdateRankAsync(editingRank.RankID, editingRank);
                     else
@@ -691,7 +717,11 @@
                     break;
 
                 case "Make":
-                    if (string.IsNullOrWhiteSpace(editingMake.MakeName)) return;
+                    if (string.IsNullOrWhiteSpace(editingMake.MakeName))
+                    {
+                        Snackbar.Add("Make Name is required.", Severity.Error);
+                        return;
+                    }
                     if (isEditMode)
                         await CodeTableService.UpdateMakeAsync(editingMake.MakeID, editingMake);
                     else
@@ -700,7 +730,11 @@
                     break;
 
                 case "DocumentType":
-                    if (string.IsNullOrWhiteSpace(editingDocumentType.DocumentType)) return;
+                    if (string.IsNullOrWhiteSpace(editingDocumentType.DocumentType))
+                    {
+                        Snackbar.Add("Document Type Name is required.", Severity.Error);
+                        return;
+                    }
                     if (isEditMode)
                         await CodeTableService.UpdateDocumentTypeAsync(editingDocumentType.DocumentTypeID, editingDocumentType);
                     else

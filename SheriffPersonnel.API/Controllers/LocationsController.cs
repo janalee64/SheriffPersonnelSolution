@@ -11,7 +11,7 @@ namespace SheriffPersonnel.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Administrator, Personnel, Inventory, Range, Training, Equipment, SSN")]
+    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
     public class LocationsController : ControllerBase
     {
         private readonly ICodeTableService _codeTableService;
@@ -57,6 +57,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Administrator")]
         public async Task<ActionResult<LocationsDto>> CreateLocation([FromBody] LocationsDto dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
@@ -73,6 +74,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Roles = "Administrator")]
         public async Task<ActionResult<LocationsDto>> UpdateLocation(int id, [FromBody] LocationsDto dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
@@ -90,6 +92,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> DeleteLocation(int id)
         {
             try

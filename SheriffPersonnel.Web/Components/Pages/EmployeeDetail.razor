@@ -8,12 +8,28 @@
 @inject ISnackbar Snackbar
 @inject ILogger<EmployeeDetail> logger
 
-@attribute [Authorize(Roles = "Administrator, Personnel, Inventory, Range, Training, Equipment, SSN")]
+@attribute [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
 
-<PageTitle>@(IsEdit ? "Edit Employee" : "Add New Employee")</PageTitle>
+<PageTitle>@(IsEdit ? (canEditEmployee ? "Edit Employee" : "View Employee") : "Add New Employee")</PageTitle>
 
 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-    <MudText Typo="Typo.h4">@(IsEdit ? (!string.IsNullOrWhiteSpace(employee.FirstName) || !string.IsNullOrWhiteSpace(employee.LastName) ? $"Edit Employee: {employee.FirstName} {employee.LastName}".Trim() : "Edit Employee") : "Add New Employee")</MudText>
+    <MudText Typo="Typo.h4">
+        @if (IsEdit)
+        {
+            @if (canEditEmployee)
+            {
+                @(!string.IsNullOrWhiteSpace(employee.FirstName) || !string.IsNullOrWhiteSpace(employee.LastName) ? $"Edit Employee: {employee.FirstName} {employee.LastName}".Trim() : "Edit Employee")
+            }
+            else
+            {
+                @(!string.IsNullOrWhiteSpace(employee.FirstName) || !string.IsNullOrWhiteSpace(employee.LastName) ? $"View Employee: {employee.FirstName} {employee.LastName}".Trim() : "View Employee")
+            }
+        }
+        else
+        {
+            @("Add New Employee")
+        }
+    </MudText>
     <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="Cancel" Disabled="@isSaving">
         Back to List
     </MudButton>
@@ -100,23 +116,23 @@ else
                                 <MudText Typo="Typo.h6" Class="mb-4">Personal Information</MudText>
                                 <MudGrid>
                                     <MudItem xs="12" sm="4">
-                                        <MudTextField @bind-Value="employee.FirstName" For="@(() => employee.FirstName)" Label="First Name" Variant="Variant.Outlined" Required="true" RequiredError="First Name is required" />
+                                        <MudTextField @bind-Value="employee.FirstName" For="@(() => employee.FirstName)" Label="First Name" Variant="Variant.Outlined" Required="true" RequiredError="First Name is required" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                                     </MudItem>
                                     <MudItem xs="12" sm="4">
-                                        <MudTextField @bind-Value="employee.MiddleInitial" For="@(() => employee.MiddleInitial)" Label="Middle Initial" Variant="Variant.Outlined" MaxLength="10" />
+                                        <MudTextField @bind-Value="employee.MiddleInitial" For="@(() => employee.MiddleInitial)" Label="Middle Initial" Variant="Variant.Outlined" MaxLength="10" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                                     </MudItem>
                                     <MudItem xs="12" sm="4">
-                                        <MudTextField @bind-Value="employee.LastName" For="@(() => employee.LastName)" Label="Last Name" Variant="Variant.Outlined" Required="true" RequiredError="Last Name is required" />
+                                        <MudTextField @bind-Value="employee.LastName" For="@(() => employee.LastName)" Label="Last Name" Variant="Variant.Outlined" Required="true" RequiredError="Last Name is required" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                                     </MudItem>
                                     <AuthorizeView Roles="SSN" Context="authContext">
                                         <Authorized>
                                             <MudItem xs="12" sm="6">
-                                                <MudTextField @bind-Value="employee.SSN" For="@(() => employee.SSN)" Label="SSN" Variant="Variant.Outlined" Placeholder="XXX-XX-XXXX" />
+                                                <MudTextField @bind-Value="employee.SSN" For="@(() => employee.SSN)" Label="SSN" Variant="Variant.Outlined" Placeholder="XXX-XX-XXXX" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                                             </MudItem>
                                         </Authorized>
                                     </AuthorizeView>
                                     <MudItem xs="12" sm="6">
-                                        <MudDatePicker @bind-Date="employee.DOB" For="@(() => employee.DOB)" Label="Date of Birth" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" />
+                                        <MudDatePicker @bind-Date="employee.DOB" For="@(() => employee.DOB)" Label="Date of Birth" Variant="Variant.Outlined" Clearable="canEditEmployee" Editable="canEditEmployee" DateFormat="MM/dd/yyyy" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" />
                                     </MudItem>
                                 </MudGrid>
                             </MudItem>
@@ -133,18 +149,21 @@ else
                                             <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">No image uploaded</MudText>
                                         </MudPaper>
                                     }
-                                    <MudStack Spacing="1" Justify="Justify.Center">
-                                        <InputFile id="employeeImageInput" OnChange="HandleImageUpload" accept="image/*" style="display:none;" />
-                                        <MudTooltip Text="Upload Photo">
-                                            <MudIconButton HtmlTag="label" for="employeeImageInput" Icon="@Icons.Material.Filled.CloudUpload" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Medium" />
-                                        </MudTooltip>
-                                        @if (employee.EmployeeImage != null && employee.EmployeeImage.Length > 0)
-                                        {
-                                            <MudTooltip Text="Remove Image">
-                                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Variant="Variant.Outlined" Size="Size.Medium" OnClick="RemoveImage" />
+                                    @if (canEditEmployee)
+                                    {
+                                        <MudStack Spacing="1" Justify="Justify.Center">
+                                            <InputFile id="employeeImageInput" OnChange="HandleImageUpload" accept="image/*" style="display:none;" />
+                                            <MudTooltip Text="Upload Photo">
+                                                <MudIconButton HtmlTag="label" for="employeeImageInput" Icon="@Icons.Material.Filled.CloudUpload" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Medium" />
                                             </MudTooltip>
-                                        }
-                                    </MudStack>
+                                            @if (employee.EmployeeImage != null && employee.EmployeeImage.Length > 0)
+                                            {
+                                                <MudTooltip Text="Remove Image">
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Variant="Variant.Outlined" Size="Size.Medium" OnClick="RemoveImage" />
+                                                </MudTooltip>
+                                            }
+                                        </MudStack>
+                                    }
                                 </MudStack>
                             </MudItem>
                         </MudGrid>
@@ -155,22 +174,22 @@ else
                         <MudText Typo="Typo.h6" Class="mb-4">Employment Details</MudText>
                         <MudGrid>
                             <MudItem xs="12" sm="6" md="4">
-                                <MudTextField @bind-Value="employee.BadgeNumber" For="@(() => employee.BadgeNumber)" Label="Badge Number" Variant="Variant.Outlined" />
+                                <MudTextField @bind-Value="employee.BadgeNumber" For="@(() => employee.BadgeNumber)" Label="Badge Number" Variant="Variant.Outlined" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                             <MudItem xs="12" sm="6" md="4">
-                                <MudTextField @bind-Value="employee.PTBNumber" For="@(() => employee.PTBNumber)" Label="PTB Number" Variant="Variant.Outlined" />
+                                <MudTextField @bind-Value="employee.PTBNumber" For="@(() => employee.PTBNumber)" Label="PTB Number" Variant="Variant.Outlined" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                             <MudItem xs="12" sm="6" md="4">
-                                <MudTextField @bind-Value="employee.CountyEmpNo" For="@(() => employee.CountyEmpNo)" Label="County Emp No" Variant="Variant.Outlined" />
+                                <MudTextField @bind-Value="employee.CountyEmpNo" For="@(() => employee.CountyEmpNo)" Label="County Emp No" Variant="Variant.Outlined" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                             <MudItem xs="12" sm="6" md="4">
-                                <MudSelect T="int?" @bind-Value="employee.StatusID" For="@(() => employee.StatusID)" Label="Status" Variant="Variant.Outlined" Clearable="true">
+                                <MudSelect T="int?" @bind-Value="employee.StatusID" For="@(() => employee.StatusID)" Label="Status" Variant="Variant.Outlined" Clearable="canEditEmployee" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee">
                                     <MudSelectItem T="int?" Value="@((int?)null)">-- Select Status --</MudSelectItem>
                                     @if (availableStatuses != null)
                                     {
                                         @foreach (var status in GetFilteredStatuses())
                                         {
-                                            <MudSelectItem T="int?" Value="@status.StatusID">
+                                            <MudSelectItem T="int?" Value="@((int?)status.StatusID)">
                                                 @(status.StatusDescription ?? status.StatusCode)
                                             </MudSelectItem>
                                         }
@@ -178,13 +197,13 @@ else
                                 </MudSelect>
                             </MudItem>
                             <MudItem xs="12" sm="6">
-                                <MudDatePicker @bind-Date="employee.HireDate" For="@(() => employee.HireDate)" Label="Hire Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" />
+                                <MudDatePicker @bind-Date="employee.HireDate" For="@(() => employee.HireDate)" Label="Hire Date" Variant="Variant.Outlined" Clearable="canEditEmployee" Editable="canEditEmployee" DateFormat="MM/dd/yyyy" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" />
                             </MudItem>
                             <MudItem xs="12" sm="6">
-                                <MudDatePicker @bind-Date="employee.InactiveDate" For="@(() => employee.InactiveDate)" Label="Inactive Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" />
+                                <MudDatePicker @bind-Date="employee.InactiveDate" For="@(() => employee.InactiveDate)" Label="Inactive Date" Variant="Variant.Outlined" Clearable="canEditEmployee" Editable="canEditEmployee" DateFormat="MM/dd/yyyy" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" />
                             </MudItem>
                             <MudItem xs="12">
-                                <MudCheckBox T="bool" @bind-Value="employee.EmployeeFlag" Label="Sheriff Employee Flag" Color="Color.Primary" />
+                                <MudCheckBox T="bool" @bind-Value="employee.EmployeeFlag" Label="Sheriff Employee Flag" Color="Color.Primary" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" />
                             </MudItem>
                         </MudGrid>
                     </MudPaper>
@@ -194,13 +213,13 @@ else
                         <MudText Typo="Typo.h6" Class="mb-4">Contact Information</MudText>
                         <MudGrid>
                             <MudItem xs="12" sm="4">
-                                <MudTextField @bind-Value="employee.WorkEmail" For="@(() => employee.WorkEmail)" Label="Work Email" Variant="Variant.Outlined" InputType="InputType.Email" />
+                                <MudTextField @bind-Value="employee.WorkEmail" For="@(() => employee.WorkEmail)" Label="Work Email" Variant="Variant.Outlined" InputType="InputType.Email" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                             <MudItem xs="12" sm="4">
-                                <MudTextField @bind-Value="employee.WorkPhone" For="@(() => employee.WorkPhone)" Label="Work Phone" Variant="Variant.Outlined" InputType="InputType.Telephone" />
+                                <MudTextField @bind-Value="employee.WorkPhone" For="@(() => employee.WorkPhone)" Label="Work Phone" Variant="Variant.Outlined" InputType="InputType.Telephone" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                             <MudItem xs="12" sm="4">
-                                <MudTextField @bind-Value="employee.HomePhone" For="@(() => employee.HomePhone)" Label="Home Phone" Variant="Variant.Outlined" InputType="InputType.Telephone" />
+                                <MudTextField @bind-Value="employee.HomePhone" For="@(() => employee.HomePhone)" Label="Home Phone" Variant="Variant.Outlined" InputType="InputType.Telephone" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                         </MudGrid>
                     </MudPaper>
@@ -210,16 +229,16 @@ else
                         <MudText Typo="Typo.h6" Class="mb-4">Home Address</MudText>
                         <MudGrid>
                             <MudItem xs="12">
-                                <MudTextField @bind-Value="employee.HomeAddressLine1" For="@(() => employee.HomeAddressLine1)" Label="Address Line 1" Variant="Variant.Outlined" />
+                                <MudTextField @bind-Value="employee.HomeAddressLine1" For="@(() => employee.HomeAddressLine1)" Label="Address Line 1" Variant="Variant.Outlined" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                             <MudItem xs="12" sm="5">
-                                <MudTextField @bind-Value="employee.HomeCity" For="@(() => employee.HomeCity)" Label="City" Variant="Variant.Outlined" />
+                                <MudTextField @bind-Value="employee.HomeCity" For="@(() => employee.HomeCity)" Label="City" Variant="Variant.Outlined" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                             <MudItem xs="12" sm="3">
-                                <MudTextField @bind-Value="employee.HomeState" For="@(() => employee.HomeState)" Label="State" Variant="Variant.Outlined" MaxLength="2" />
+                                <MudTextField @bind-Value="employee.HomeState" For="@(() => employee.HomeState)" Label="State" Variant="Variant.Outlined" MaxLength="2" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                             <MudItem xs="12" sm="4">
-                                <MudTextField @bind-Value="employee.HomeZipCode" For="@(() => employee.HomeZipCode)" Label="Zip Code" Variant="Variant.Outlined" MaxLength="10" />
+                                <MudTextField @bind-Value="employee.HomeZipCode" For="@(() => employee.HomeZipCode)" Label="Zip Code" Variant="Variant.Outlined" MaxLength="10" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                         </MudGrid>
                     </MudPaper>
@@ -229,27 +248,27 @@ else
             @if (IsEdit)
             {
                 <MudTabPanel Text="Employee History" Icon="@Icons.Material.Filled.History">
-                    <EmployeeHistoryTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" AvailablePrograms="@availablePrograms" AvailableRanks="@availableRanks" AvailableUnits="@availableUnits" />
+                    <EmployeeHistoryTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailablePrograms="@availablePrograms" AvailableRanks="@availableRanks" AvailableUnits="@availableUnits" />
                 </MudTabPanel>
 
                 <MudTabPanel Text="Inventory Assignments" Icon="@Icons.Material.Filled.Inventory">
-                    <EmployeeInventoryTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" AvailableInventoryItems="@availableInventoryItems" />
+                    <EmployeeInventoryTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableInventoryItems="@availableInventoryItems" />
                 </MudTabPanel>
 
                 <MudTabPanel Text="Firearms" Icon="@Icons.Material.Filled.Security">
-                    <EmployeeFirearmsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" AvailableMakes="@availableMakes" AvailableStatuses="@availableStatuses" />
+                    <EmployeeFirearmsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableMakes="@availableMakes" AvailableStatuses="@availableStatuses" />
                 </MudTabPanel>
 
                 <MudTabPanel Text="Range Statistics" Icon="@Icons.Material.Filled.SportsScore">
-                    <EmployeeRangeStatisticsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" AvailableCourses="@availableRangeCourses" AvailableEvents="@availableRangeEvents" AvailableFirearms="@availableFirearms" />
+                    <EmployeeRangeStatisticsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableCourses="@availableRangeCourses" AvailableEvents="@availableRangeEvents" AvailableFirearms="@availableFirearms" />
                 </MudTabPanel>
 
                 <MudTabPanel Text="Trainings" Icon="@Icons.Material.Filled.School">
-                    <EmployeeTrainingsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" AvailableTrainingSessions="@availableTrainingSessions" />
+                    <EmployeeTrainingsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableTrainingSessions="@availableTrainingSessions" />
                 </MudTabPanel>
 
                 <MudTabPanel Text="Documents" Icon="@Icons.Material.Filled.InsertDriveFile">
-                    <EmployeeDocumentsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" />
+                    <EmployeeDocumentsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" />
                 </MudTabPanel>
             }
 
@@ -258,19 +277,22 @@ else
         <!-- Form Actions -->
         <MudPaper Class="pa-4 d-flex justify-end gap-3" Elevation="3">
             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="Cancel" Disabled="@isSaving">
-                Cancel
+                @(canEditEmployee ? "Cancel" : "Back to Search")
             </MudButton>
-            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="@isSaving">
-                @if (isSaving)
-                {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                    <span>Saving...</span>
-                }
-                else
-                {
-                    <span>Save Employee</span>
-                }
-            </MudButton>
+            @if (canEditEmployee)
+            {
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="@isSaving">
+                    @if (isSaving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <span>Save Employee</span>
+                    }
+                </MudButton>
+            }
         </MudPaper>
     </EditForm>
 }
@@ -279,6 +301,10 @@ else
     [Parameter]
     public int? Id { get; set; }
 
+    [CascadingParameter]
+    private Task<AuthenticationState>? authenticationStateTask { get; set; }
+
+    private bool canEditEmployee = false;
     private bool IsEdit => Id.HasValue && Id.Value > 0;
     private EmployeeDetailDto employee = new();
     private IEnumerable<StatusesDto>? availableStatuses;
@@ -314,6 +340,16 @@ else
         }
     }
 
+    private static bool IsUserAuthorizedToEdit(System.Security.Claims.ClaimsPrincipal? user)
+    {
+        if (user == null) return false;
+
+        bool hasView = user.IsInRole("Personnel View") || user.IsInRole("Employee View");
+        bool hasEdit = user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit");
+
+        return hasView && hasEdit;
+    }
+
     private async Task LoadDataAsync()
     {
         isLoading = true;
@@ -321,6 +357,23 @@ else
 
         try
         {
+            if (authenticationStateTask != null)
+            {
+                var authState = await authenticationStateTask;
+                var user = authState?.User;
+                canEditEmployee = IsUserAuthorizedToEdit(user);
+
+                logger.LogInformation("EmployeeDetail loaded for User '{UserName}'. canEditEmployee = {CanEdit}",
+                    user?.Identity?.Name ?? "Unknown User",
+                    canEditEmployee);
+            }
+
+            if (!IsEdit && !canEditEmployee)
+            {
+                Snackbar.Add("You do not have permission to add new employees.", Severity.Warning);
+                Navigation.NavigateTo("/");
+                return;
+            }
             availableStatuses = await service.GetAvailableStatusesAsync();
             availablePrograms = await service.GetProgramsAsync();
             availableRanks = await service.GetRanksAsync();
@@ -346,6 +399,30 @@ else
                 else
                 {
                     employee = fetched;
+
+                    // Ensure employee has a valid StatusID from availableStatuses
+                    if (!employee.StatusID.HasValue || employee.StatusID <= 0 || (availableStatuses != null && availableStatuses.Any() && !availableStatuses.Any(s => s.StatusID == employee.StatusID)))
+                    {
+                        StatusesDto? matchingStatus = null;
+                        if (!string.IsNullOrWhiteSpace(employee.StatusDescription) && availableStatuses != null)
+                        {
+                            matchingStatus = availableStatuses.FirstOrDefault(s =>
+                                string.Equals(s.StatusDescription, employee.StatusDescription, StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(s.StatusCode, employee.StatusDescription, StringComparison.OrdinalIgnoreCase));
+                        }
+
+                        matchingStatus ??= availableStatuses?.FirstOrDefault(s =>
+                            string.Equals(s.StatusCode, "Active", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase));
+
+                        matchingStatus ??= availableStatuses?.FirstOrDefault();
+
+                        if (matchingStatus != null)
+                        {
+                            employee.StatusID = matchingStatus.StatusID;
+                            employee.StatusDescription = matchingStatus.StatusDescription ?? matchingStatus.StatusCode;
+                        }
+                    }
                 }
             }
             else
@@ -377,6 +454,13 @@ else
     {
         errorMessage = null;
 
+        if (!canEditEmployee)
+        {
+            errorMessage = "You do not have permission to save employee details.";
+            Snackbar.Add(errorMessage, Severity.Error);
+            return;
+        }
+
         if (employee.DOB.HasValue && employee.DOB.Value.Date > DateTime.Today)
         {
             errorMessage = "Date of Birth cannot be in the future.";
@@ -391,7 +475,7 @@ else
             return;
         }
 
-        if (!IsEdit && (!employee.StatusID.HasValue || employee.StatusID <= 0))
+        if (!employee.StatusID.HasValue || employee.StatusID <= 0)
         {
             if (availableStatuses == null)
             {
@@ -399,7 +483,8 @@ else
             }
             var activeStatus = availableStatuses?.FirstOrDefault(s =>
                 string.Equals(s.StatusCode, "Active", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase));
+                string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase))
+                ?? availableStatuses?.FirstOrDefault();
             if (activeStatus != null)
             {
                 employee.StatusID = activeStatus.StatusID;
@@ -462,6 +547,8 @@ else
 
     private async Task HandleImageUpload(InputFileChangeEventArgs e)
     {
+        if (!canEditEmployee) return;
+
         try
         {
             var file = e.File;
@@ -482,6 +569,7 @@ else
 
     private void RemoveImage()
     {
+        if (!canEditEmployee) return;
         employee.EmployeeImage = null;
     }
 }

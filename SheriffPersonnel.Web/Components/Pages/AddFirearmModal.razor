@@ -47,6 +47,12 @@
                         }
                     </MudSelect>
                 </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="bool" @bind-Value="Firearm.Optic" Label="Optic" Variant="Variant.Outlined">
+                        <MudSelectItem Value="false">No</MudSelectItem>
+                        <MudSelectItem Value="true">Yes</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
                 <MudItem xs="12">
                     <MudTextField @bind-Value="Firearm.Notes" Label="Notes" Variant="Variant.Outlined" Lines="2" />
                 </MudItem>

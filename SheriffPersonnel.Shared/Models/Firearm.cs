@@ -23,6 +23,8 @@ namespace SheriffPersonnel.Shared.Models
         [StringLength(20)]
         public string Caliber { get; set; } = string.Empty;
 
+        public bool Optic { get; set; }
+
         public int EmployeeID { get; set; }
 
         [ForeignKey(nameof(EmployeeID))]

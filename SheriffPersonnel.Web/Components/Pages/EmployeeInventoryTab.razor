@@ -20,9 +20,12 @@
             {
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
                     <MudText Typo="Typo.h6">Employee Inventory Assignments</MudText>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddAssignmentForm">
-                        Add Inventory Item
-                    </MudButton>
+                    @if (CanEdit)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddAssignmentForm">
+                            Add Inventory Item
+                        </MudButton>
+                    }
                 </MudStack>
 
                 <MudTable Items="employeeAssignments" Hover="true" Striped="true" Elevation="0" AllowUnsorted="true">
@@ -35,7 +38,10 @@
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeInventoryAssignmentsDto, object>(x => x.ReturnDate ?? DateTime.MinValue)">Return Date</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeInventoryAssignmentsDto, object>(x => x.ExpireDate ?? DateTime.MinValue)">Expire Date</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeInventoryAssignmentsDto, object>(x => x.Notes ?? string.Empty)">Notes</MudTableSortLabel></MudTh>
-                        <MudTh>Actions</MudTh>
+                        @if (CanEdit)
+                        {
+                            <MudTh>Actions</MudTh>
+                        }
                     </HeaderContent>
                     <RowTemplate Context="assignmentContext">
                         <MudTd DataLabel="Item">@(string.IsNullOrWhiteSpace(assignmentContext.ProductName) ? "-" : assignmentContext.ProductName)</MudTd>
@@ -46,14 +52,17 @@
                         <MudTd DataLabel="Return Date">@(assignmentContext.ReturnDate.HasValue ? assignmentContext.ReturnDate.Value.ToString("MM/dd/yyyy") : "-")</MudTd>
                         <MudTd DataLabel="Expire Date">@(assignmentContext.ExpireDate.HasValue ? assignmentContext.ExpireDate.Value.ToString("MM/dd/yyyy") : "-")</MudTd>
                         <MudTd DataLabel="Notes">@(string.IsNullOrWhiteSpace(assignmentContext.Notes) ? "-" : assignmentContext.Notes)</MudTd>
-                        <MudTd DataLabel="Actions">
-                            <MudTooltip Text="Edit Assignment">
-                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditAssignmentForm(assignmentContext))" />
-                            </MudTooltip>
-                            <MudTooltip Text="Delete Assignment">
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteAssignmentAsync(assignmentContext.EmpInventoryID))" />
-                            </MudTooltip>
-                        </MudTd>
+                        @if (CanEdit)
+                        {
+                            <MudTd DataLabel="Actions">
+                                <MudTooltip Text="Edit Assignment">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditAssignmentForm(assignmentContext))" />
+                                </MudTooltip>
+                                <MudTooltip Text="Delete Assignment">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteAssignmentAsync(assignmentContext.EmpInventoryID))" />
+                                </MudTooltip>
+                            </MudTd>
+                        }
                     </RowTemplate>
                     <NoRecordsContent>
                         <MudText Class="pa-4 text-center">No inventory assignments found for this employee.</MudText>
@@ -73,7 +82,10 @@
 @code {
     [Parameter] public int EmployeeId { get; set; }
     [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public bool CanEdit { get; set; } = true;
     [Parameter] public IEnumerable<InventoryItemsDto>? AvailableInventoryItems { get; set; }
+
+    [CascadingParameter] private Task<AuthenticationState>? authenticationStateTask { get; set; }
 
     private List<EmployeeInventoryAssignmentsDto> employeeAssignments = new();
     private bool isLoading = true;
@@ -82,6 +94,16 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        if (authenticationStateTask != null)
+        {
+            var authState = await authenticationStateTask;
+            var user = authState?.User;
+            bool hasView = user != null && (user.IsInRole("Personnel View") || user.IsInRole("Employee View"));
+            bool hasEdit = user != null && (user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit"));
+            var hasEditPermission = user != null && (hasView && hasEdit);
+            CanEdit = CanEdit && hasEditPermission;
+        }
+
         if (IsEdit && EmployeeId > 0 && (EmployeeId != _lastLoadedEmployeeId || IsEdit != _lastLoadedIsEdit))
         {
             _lastLoadedEmployeeId = EmployeeId;
@@ -111,6 +133,8 @@
 
     private async Task OpenAddAssignmentForm()
     {
+        if (!CanEdit) return;
+
         var parameters = new DialogParameters<AddInventoryItemModal>
         {
             { x => x.EmployeeId, EmployeeId },
@@ -130,6 +154,8 @@
 
     private async Task OpenEditAssignmentForm(EmployeeInventoryAssignmentsDto assignment)
     {
+        if (!CanEdit) return;
+
         var parameters = new DialogParameters<AddInventoryItemModal>
         {
             { x => x.EmployeeId, EmployeeId },
@@ -164,6 +190,8 @@
 
     private async Task DeleteAssignmentAsync(int empInventoryId)
     {
+        if (!CanEdit) return;
+
         bool? confirm = await DialogService.ShowMessageBoxAsync(
             "Confirm Delete",
             "Are you sure you want to delete this inventory assignment?",

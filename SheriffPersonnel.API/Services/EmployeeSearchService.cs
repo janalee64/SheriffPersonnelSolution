@@ -29,7 +29,9 @@ namespace SheriffPersonnel.API.Services
 
                 _logger.LogInformation("Employee search completed successfully. Returned {Count} records.", list.Count);
 
-                return list.Select(e =>
+                return list
+                    .DistinctBy(e => e.EmployeeID)
+                    .Select(e =>
                 {
                     var latestProgram = e.EmployeeChanges?
                         .Where(ec => ec.Program != null && !string.IsNullOrEmpty(ec.Program.ProgramName))
@@ -77,7 +79,9 @@ namespace SheriffPersonnel.API.Services
 
                 _logger.LogInformation("GetActiveEmployeesAsync completed successfully. Returned {Count} records.", list.Count);
 
-                return list.Select(e =>
+                return list
+                    .DistinctBy(e => e.EmployeeID)
+                    .Select(e =>
                 {
                     var latestProgram = e.EmployeeChanges?
                         .Where(ec => ec.Program != null && !string.IsNullOrEmpty(ec.Program.ProgramName))
@@ -221,6 +225,18 @@ namespace SheriffPersonnel.API.Services
                 existing.HomeCity = dto.HomeCity;
                 existing.HomeState = dto.HomeState;
                 existing.HomeZipCode = dto.HomeZipCode;
+                if (!dto.StatusID.HasValue || dto.StatusID.Value <= 0)
+                {
+                    var statuses = await _repository.GetStatusesAsync();
+                    var activeStatus = statuses.FirstOrDefault(s =>
+                        string.Equals(s.StatusCode, "Active", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase));
+                    if (activeStatus != null)
+                    {
+                        dto.StatusID = activeStatus.StatusID;
+                    }
+                }
+
                 existing.StatusID = dto.StatusID;
                 existing.Status = null;
                 existing.LastUserID = dto.LastUserID;

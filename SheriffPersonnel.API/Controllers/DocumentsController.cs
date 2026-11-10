@@ -11,7 +11,7 @@ namespace SheriffPersonnel.API.Controllers
 {
     [ApiController]
     [Route("api/documents")]
-    [Authorize(Roles = "Administrator, Personnel, Inventory, Range, Training, Equipment, SSN")]
+    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
     public class DocumentsController : ControllerBase
     {
         private readonly IDocumentService _documentService;
@@ -81,6 +81,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<ActionResult<EmployeeDocumentDto>> CreateDocument([FromBody] EmployeeDocumentDto dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
@@ -99,6 +100,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<ActionResult<EmployeeDocumentDto>> UpdateDocument(int id, [FromBody] EmployeeDocumentDto dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
@@ -119,6 +121,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Policy = "CanEditPersonnel")]
         public async Task<IActionResult> DeleteDocument(int id)
         {
             try
