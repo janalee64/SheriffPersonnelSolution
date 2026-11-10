@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.EntityFrameworkCore;
@@ -29,6 +30,15 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
+    // Add this configuration:
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        // Only loopback proxies are trusted by default. Clear the list to trust IIS on local network
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
+
     // Configure Serilog
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)
@@ -52,6 +62,23 @@ try
         .EnableTokenAcquisitionToCallDownstreamApi()
         .AddDownstreamApi("MyCustomApi", builder.Configuration.GetSection("MyCustomApi"))
         .AddInMemoryTokenCaches();
+
+    // Add the diagnostic logger to intercept and print OIDC failures
+    builder.Services.Configure<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme, options =>
+    {
+        options.Events.OnRemoteFailure = context =>
+        {
+            context.Response.ContentType = "text/plain";
+            
+            string errorMessage = $"Authentication Failure: {context.Failure?.Message}\n\n" +
+                                $"Details:\n{context.Failure?.ToString()}";
+                                
+            context.Response.WriteAsync(errorMessage);
+            context.HandleResponse(); 
+            
+            return Task.CompletedTask;
+        };
+    });
 
     builder.Services.AddControllersWithViews()
         .AddMicrosoftIdentityUI();
@@ -98,6 +125,7 @@ try
     }
     app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 
+    app.UseForwardedHeaders();
     app.UseHttpsRedirection();
 
     app.UseAuthentication();
