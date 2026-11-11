@@ -6,7 +6,13 @@ namespace SheriffPersonnel.API.Repositories
 {
     public interface IInventoryRepository
     {
-        Task<IEnumerable<EmployeeInventoryAssignment>> GetAllAssignmentsAsync();
+        Task<IEnumerable<EmployeeInventoryAssignment>> GetAllAssignmentsAsync(
+            string? productName = null,
+            int? programId = null,
+            int? statusId = null,
+            DateTime? startDate = null,
+            DateTime? endDate = null,
+            int? maxResults = null);
         Task<IEnumerable<EmployeeInventoryAssignment>> GetAssignmentsByEmployeeIdAsync(int employeeId);
         Task<EmployeeInventoryAssignment?> GetAssignmentByIdAsync(int id);
         Task<Dictionary<int, string>> GetLatestEmployeeProgramsAsync(IEnumerable<int> employeeIds);

@@ -12,7 +12,7 @@
 
 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
     <div>
-        <MudText Typo="Typo.h4">Code Tables</MudText>
+        <MudText Typo="Typo.h4" HtmlTag="h1">Code Tables</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">Manage system lookup codes and reference values.</MudText>
     </div>
     <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAllDataAsync" Disabled="@isLoading">
@@ -99,8 +99,8 @@
                     <MudTd DataLabel="Code"><b>@item.StatusCode</b></MudTd>
                     <MudTd DataLabel="Description">@(item.StatusDescription ?? "-")</MudTd>
                     <MudTd DataLabel="Actions">
-                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditStatusDialog(item)" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("Status", item.StatusID, item.StatusCode)' />
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditStatusDialog(item)" aria-label="@($"Edit status {item.StatusCode}")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("Status", item.StatusID, item.StatusCode)' aria-label="@($"Delete status {item.StatusCode}")" />
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent><MudText Class="pa-4 text-center">No status records found.</MudText></NoRecordsContent>
@@ -139,8 +139,8 @@
                                    Label="@(item.IsActive ? "Active" : "Inactive")" />
                     </MudTd>
                     <MudTd DataLabel="Actions">
-                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditProgramDialog(item)" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("Program", item.ProgramID, item.ProgramName)' />
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditProgramDialog(item)" aria-label="@($"Edit program {item.ProgramName}")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("Program", item.ProgramID, item.ProgramName)' aria-label="@($"Delete program {item.ProgramName}")" />
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent><MudText Class="pa-4 text-center">No program records found.</MudText></NoRecordsContent>
@@ -176,8 +176,8 @@
                                    Label="@(item.IsActive ? "Active" : "Inactive")" />
                     </MudTd>
                     <MudTd DataLabel="Actions">
-                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditUnitDialog(item)" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("Unit", item.UnitID, item.UnitName)' />
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditUnitDialog(item)" aria-label="@($"Edit unit {item.UnitName}")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("Unit", item.UnitID, item.UnitName)' aria-label="@($"Delete unit {item.UnitName}")" />
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent><MudText Class="pa-4 text-center">No unit records found.</MudText></NoRecordsContent>
@@ -211,8 +211,8 @@
                                    Label="@(item.IsActive ? "Active" : "Inactive")" />
                     </MudTd>
                     <MudTd DataLabel="Actions">
-                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditRankDialog(item)" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("Rank", item.RankID, item.RankName)' />
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditRankDialog(item)" aria-label="@($"Edit rank {item.RankName}")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("Rank", item.RankID, item.RankName)' aria-label="@($"Delete rank {item.RankName}")" />
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent><MudText Class="pa-4 text-center">No rank records found.</MudText></NoRecordsContent>
@@ -236,8 +236,8 @@
                 <RowTemplate Context="item">
                     <MudTd DataLabel="Make Name"><b>@item.MakeName</b></MudTd>
                     <MudTd DataLabel="Actions">
-                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditMakeDialog(item)" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("Make", item.MakeID, item.MakeName)' />
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditMakeDialog(item)" aria-label="@($"Edit make {item.MakeName}")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("Make", item.MakeID, item.MakeName)' aria-label="@($"Delete make {item.MakeName}")" />
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent><MudText Class="pa-4 text-center">No make records found.</MudText></NoRecordsContent>
@@ -261,8 +261,8 @@
                 <RowTemplate Context="item">
                     <MudTd DataLabel="Document Type"><b>@item.DocumentType</b></MudTd>
                     <MudTd DataLabel="Actions">
-                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditDocumentTypeDialog(item)" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("DocumentType", item.DocumentTypeID, item.DocumentType)' />
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditDocumentTypeDialog(item)" aria-label="@($"Edit document type {item.DocumentType}")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteDialog("DocumentType", item.DocumentTypeID, item.DocumentType)' aria-label="@($"Delete document type {item.DocumentType}")" />
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent><MudText Class="pa-4 text-center">No document type records found.</MudText></NoRecordsContent>
@@ -884,3 +884,4 @@
         }
     }
 }
+

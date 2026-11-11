@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,14 +16,45 @@ namespace SheriffPersonnel.API.Controllers
     public class DocumentsController : ControllerBase
     {
         private readonly IDocumentService _documentService;
+        private readonly IUserService _userService;
         private readonly ILogger<DocumentsController> _logger;
 
         public DocumentsController(
             IDocumentService documentService,
+            IUserService userService,
             ILogger<DocumentsController> logger)
         {
             _documentService = documentService ?? throw new ArgumentNullException(nameof(documentService));
+            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+
+        private async Task<int> GetLoggedInUserIdAsync()
+        {
+            var userIdClaim = User.FindFirst("UserID")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out int uid))
+            {
+                return uid;
+            }
+
+            var oid = User.FindFirst("oid")?.Value
+                   ?? User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
+
+            var upn = User.FindFirst("preferred_username")?.Value
+                   ?? User.FindFirst(ClaimTypes.Upn)?.Value
+                   ?? User.FindFirst(ClaimTypes.Email)?.Value
+                   ?? User.Identity?.Name;
+
+            if (!string.IsNullOrEmpty(oid) || !string.IsNullOrEmpty(upn))
+            {
+                var user = await _userService.GetUserByEntraOrUpnAsync(oid, upn);
+                if (user != null)
+                {
+                    return user.UserID;
+                }
+            }
+
+            return 0;
         }
 
         [HttpGet("employee/{employeeId:int}")]
@@ -88,7 +120,12 @@ namespace SheriffPersonnel.API.Controllers
 
             try
             {
-                _logger.LogInformation("Creating new document record for Employee ID {EmployeeID}.", dto.EmployeeID);
+                if (dto.UploadedBy <= 0)
+                {
+                    dto.UploadedBy = await GetLoggedInUserIdAsync();
+                }
+
+                _logger.LogInformation("Creating new document record for Employee ID {EmployeeID} by User ID {UploadedBy}.", dto.EmployeeID, dto.UploadedBy);
                 var created = await _documentService.CreateDocumentAsync(dto);
                 return CreatedAtAction(nameof(GetDocumentById), new { id = created.DocumentID }, created);
             }

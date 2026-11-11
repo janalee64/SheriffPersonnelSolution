@@ -23,7 +23,7 @@
             else
             {
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-                    <MudText Typo="Typo.h6">Employee Documents</MudText>
+                    <MudText Typo="Typo.h6" HtmlTag="h3">Employee Documents</MudText>
                     @if (CanEdit)
                     {
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudUpload" OnClick="OpenUploadDocumentForm">
@@ -55,15 +55,15 @@
                         <MudTd DataLabel="Upload Date">@(docContext.UploadDate.HasValue ? docContext.UploadDate.Value.ToString("MM/dd/yyyy hh:mm tt") : "-")</MudTd>
                         <MudTd DataLabel="Actions">
                             <MudTooltip Text="Download Document">
-                                <MudIconButton Icon="@Icons.Material.Filled.Download" Color="Color.Primary" Size="Size.Small" OnClick="@(() => DownloadDocumentAsync(docContext))" Disabled="@isDownloading" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Download" Color="Color.Primary" Size="Size.Small" OnClick="@(() => DownloadDocumentAsync(docContext))" Disabled="@isDownloading" aria-label="@($"Download document {docContext.Title}")" />
                             </MudTooltip>
                             @if (CanEdit)
                             {
                                 <MudTooltip Text="Edit Document">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Secondary" Size="Size.Small" OnClick="@(() => OpenEditDocumentForm(docContext))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Secondary" Size="Size.Small" OnClick="@(() => OpenEditDocumentForm(docContext))" aria-label="@($"Edit document {docContext.Title}")" />
                                 </MudTooltip>
                                 <MudTooltip Text="Delete Document">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteDocumentAsync(docContext))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteDocumentAsync(docContext))" aria-label="@($"Delete document {docContext.Title}")" />
                                 </MudTooltip>
                             }
                         </MudTd>
@@ -144,6 +144,7 @@
             var result = await service.GetEmployeeDocumentsByEmployeeIdAsync(EmployeeId);
             documents = result
                 .OrderByDescending(d => d.UploadDate ?? DateTime.MinValue)
+                .ThenByDescending(d => d.DocumentID)
                 .ToList();
         }
         catch (Exception ex)
@@ -154,6 +155,7 @@
         finally
         {
             isLoading = false;
+            StateHasChanged();
         }
     }
 
@@ -302,3 +304,4 @@
         return $"{dblBytes:0.##} {suffixes[i]}";
     }
 }
+

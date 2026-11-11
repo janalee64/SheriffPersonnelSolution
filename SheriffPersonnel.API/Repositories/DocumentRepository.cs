@@ -20,16 +20,19 @@ namespace SheriffPersonnel.API.Repositories
         public async Task<IEnumerable<Document>> GetDocumentsByEmployeeIdAsync(int employeeId)
         {
             return await _dbContext.Documents
+                .AsNoTracking()
                 .Include(d => d.DocumentType)
                 .Include(d => d.UploadedByUser)
                 .Where(d => d.EmployeeID == employeeId)
                 .OrderByDescending(d => d.UploadDate)
+                .ThenByDescending(d => d.DocumentID)
                 .ToListAsync();
         }
 
         public async Task<Document?> GetDocumentByIdAsync(int id)
         {
             return await _dbContext.Documents
+                .AsNoTracking()
                 .Include(d => d.DocumentType)
                 .Include(d => d.UploadedByUser)
                 .FirstOrDefaultAsync(d => d.DocumentID == id);

@@ -54,10 +54,10 @@
                         {
                             <MudTd DataLabel="Actions">
                                 <MudTooltip Text="Edit Firearm">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditFirearmForm(firearmContext))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditFirearmForm(firearmContext))" aria-label="@($"Edit firearm {firearmContext.SerialNumber}")" />
                                 </MudTooltip>
                                 <MudTooltip Text="Delete Firearm">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteFirearmAsync(firearmContext.FirearmID))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteFirearmAsync(firearmContext.FirearmID))" aria-label="@($"Delete firearm {firearmContext.SerialNumber}")" />
                                 </MudTooltip>
                             </MudTd>
                         }
@@ -121,6 +121,7 @@
                 .OrderBy(f => f.StatusDescription ?? string.Empty)
                 .ThenBy(f => f.MakeName ?? string.Empty)
                 .ThenBy(f => f.ModelNumber ?? string.Empty)
+                .ThenByDescending(f => f.FirearmID)
                 .ToList();
         }
         catch (Exception ex)
@@ -131,6 +132,7 @@
         finally
         {
             isLoading = false;
+            StateHasChanged();
         }
     }
 
@@ -225,4 +227,5 @@
         }
     }
 }
+
 

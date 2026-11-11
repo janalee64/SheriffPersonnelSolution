@@ -17,30 +17,89 @@ namespace SheriffPersonnel.API.Repositories
             _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         }
 
-        public async Task<IEnumerable<EmployeeInventoryAssignment>> GetAllAssignmentsAsync()
+        public async Task<IEnumerable<EmployeeInventoryAssignment>> GetAllAssignmentsAsync(
+            string? productName = null,
+            int? programId = null,
+            int? statusId = null,
+            DateTime? startDate = null,
+            DateTime? endDate = null,
+            int? maxResults = null)
         {
-            return await _dbContext.EmployeeInventoryAssignments
+            var query = _dbContext.EmployeeInventoryAssignments
                 .AsNoTracking()
                 .Include(a => a.InventoryItem)
                     .ThenInclude(i => i!.Category)
                 .Include(a => a.Employee)
                     .ThenInclude(e => e!.Status)
                 .Include(a => a.LastUser)
-                .OrderByDescending(a => a.IssueDate)
-                .ToListAsync();
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(productName))
+            {
+                var term = productName.Trim();
+                var matchingInventoryIds = await _dbContext.InventoryItems
+                    .AsNoTracking()
+                    .Where(i => i.ProductName != null && EF.Functions.Like(i.ProductName, $"%{term}%"))
+                    .Select(i => i.InventoryID)
+                    .ToListAsync();
+
+                if (!matchingInventoryIds.Any())
+                {
+                    return Enumerable.Empty<EmployeeInventoryAssignment>();
+                }
+
+                query = query.Where(a => matchingInventoryIds.Contains(a.InventoryID));
+            }
+
+            if (statusId.HasValue && statusId.Value > 0)
+            {
+                query = query.Where(a => a.Employee != null && a.Employee.StatusID == statusId.Value);
+            }
+
+            if (startDate.HasValue)
+            {
+                var start = startDate.Value.Date;
+                query = query.Where(a => a.IssueDate >= start);
+            }
+
+            if (endDate.HasValue)
+            {
+                var end = endDate.Value.Date.AddDays(1);
+                query = query.Where(a => a.IssueDate < end);
+            }
+
+            if (programId.HasValue && programId.Value > 0)
+            {
+                var targetProgramId = programId.Value;
+                query = query.Where(a => a.Employee != null && a.Employee.EmployeeChanges.Any(ec => ec.ProgramID == targetProgramId));
+            }
+
+            query = query.OrderByDescending(a => a.IssueDate);
+
+            if (maxResults.HasValue && maxResults.Value > 0)
+            {
+                query = query.Take(maxResults.Value);
+            }
+
+            return await query.ToListAsync();
         }
 
         public async Task<IEnumerable<EmployeeInventoryAssignment>> GetAssignmentsByEmployeeIdAsync(int employeeId)
         {
             return await _dbContext.EmployeeInventoryAssignments
                 .AsNoTracking()
+                .AsSplitQuery()
                 .Include(a => a.InventoryItem)
                     .ThenInclude(i => i!.Category)
                 .Include(a => a.Employee)
                     .ThenInclude(e => e!.Status)
+                .Include(a => a.Employee)
+                    .ThenInclude(e => e!.EmployeeChanges)
+                        .ThenInclude(ec => ec.Program)
                 .Include(a => a.LastUser)
                 .Where(a => a.EmployeeID == employeeId)
                 .OrderByDescending(a => a.IssueDate)
+                .ThenByDescending(a => a.EmpInventoryID)
                 .ToListAsync();
         }
 
@@ -48,10 +107,14 @@ namespace SheriffPersonnel.API.Repositories
         {
             return await _dbContext.EmployeeInventoryAssignments
                 .AsNoTracking()
+                .AsSplitQuery()
                 .Include(a => a.InventoryItem)
                     .ThenInclude(i => i!.Category)
                 .Include(a => a.Employee)
                     .ThenInclude(e => e!.Status)
+                .Include(a => a.Employee)
+                    .ThenInclude(e => e!.EmployeeChanges)
+                        .ThenInclude(ec => ec.Program)
                 .Include(a => a.LastUser)
                 .FirstOrDefaultAsync(a => a.EmpInventoryID == id);
         }
@@ -67,17 +130,16 @@ namespace SheriffPersonnel.API.Repositories
                 .Select(ec => new
                 {
                     ec.EmployeeID,
-                    ec.HistoryDate,
                     ec.HistoryID,
                     ProgramName = ec.Program!.ProgramName
                 })
                 .ToListAsync();
 
             return changes
-                .GroupBy(ec => ec.EmployeeID)
+                .GroupBy(x => x.EmployeeID)
                 .ToDictionary(
                     g => g.Key,
-                    g => g.OrderByDescending(x => x.HistoryDate).ThenByDescending(x => x.HistoryID).First().ProgramName
+                    g => g.OrderByDescending(x => x.HistoryID).First().ProgramName
                 );
         }
 

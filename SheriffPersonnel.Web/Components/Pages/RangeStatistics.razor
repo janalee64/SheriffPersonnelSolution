@@ -16,7 +16,7 @@
 
 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
     <div>
-        <MudText Typo="Typo.h4">Range Statistics</MudText>
+        <MudText Typo="Typo.h4" HtmlTag="h1">Range Statistics</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">Manage range statistics, range courses, range officers, and range skills.</MudText>
     </div>
     <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAllDataAsync" Disabled="@isLoading">
@@ -253,12 +253,12 @@
                         <MudTd DataLabel="Serial Number">@(string.IsNullOrWhiteSpace(stat.SerialNumber) ? "-" : stat.SerialNumber)</MudTd>
                         <MudTd DataLabel="Actions">
                             <MudTooltip Text="View Employee Details">
-                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Primary" Size="Size.Small" OnClick="@(() => ViewEmployee(stat.EmployeeID))" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Primary" Size="Size.Small" OnClick="@(() => ViewEmployee(stat.EmployeeID))" aria-label="@($"View employee {stat.EmployeeName}")" />
                             </MudTooltip>
                             @if (stat.RangeID > 0)
                             {
                                 <MudTooltip Text="Delete Record">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteRangeStatAsync(stat.RangeID))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteRangeStatAsync(stat.RangeID))" aria-label="@($"Delete range record for {stat.EmployeeName}")" />
                                 </MudTooltip>
                             }
                         </MudTd>
@@ -316,8 +316,8 @@
                                Label="@(item.IsActive ? "Active" : "Inactive")" />
                 </MudTd>
                 <MudTd DataLabel="Actions">
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditRangeCourseDialog(item)" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteCodeTableDialog("RangeCourse", item.CourseID, item.CourseName)' />
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditRangeCourseDialog(item)" aria-label="@($"Edit course {item.CourseName}")" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteCodeTableDialog("RangeCourse", item.CourseID, item.CourseName)' aria-label="@($"Delete course {item.CourseName}")" />
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent><MudText Class="pa-4 text-center">No range course records found.</MudText></NoRecordsContent>
@@ -354,8 +354,8 @@
                                Label="@(item.IsActive ? "Active" : "Inactive")" />
                 </MudTd>
                 <MudTd DataLabel="Actions">
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditRangeOfficerDialog(item)" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteCodeTableDialog("RangeOfficer", item.RangeOfficerID, item.OfficerName)' />
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditRangeOfficerDialog(item)" aria-label="@($"Edit range officer {item.OfficerName}")" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteCodeTableDialog("RangeOfficer", item.RangeOfficerID, item.OfficerName)' aria-label="@($"Delete range officer {item.OfficerName}")" />
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent><MudText Class="pa-4 text-center">No range officer records found.</MudText></NoRecordsContent>
@@ -379,8 +379,8 @@
             <RowTemplate Context="item">
                 <MudTd DataLabel="Skill Name"><b>@item.SkillName</b></MudTd>
                 <MudTd DataLabel="Actions">
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditRangeSkillDialog(item)" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteCodeTableDialog("RangeSkill", item.RangeSkillID, item.SkillName)' />
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditRangeSkillDialog(item)" aria-label="@($"Edit range skill {item.SkillName}")" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteCodeTableDialog("RangeSkill", item.RangeSkillID, item.SkillName)' aria-label="@($"Delete range skill {item.SkillName}")" />
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent><MudText Class="pa-4 text-center">No range skill records found.</MudText></NoRecordsContent>
@@ -867,7 +867,17 @@
             }
             else
             {
-                rangeStats = (await service.GetAllRangeStatisticsAsync()).ToList();
+                DateOnly? sd = startDate.HasValue ? DateOnly.FromDateTime(startDate.Value) : null;
+                DateOnly? ed = endDate.HasValue ? DateOnly.FromDateTime(endDate.Value) : null;
+                rangeStats = (await service.GetRangeStatisticsAsync(
+                    selectedCourseId,
+                    selectedEmployeeStatusId,
+                    selectedProgramId,
+                    selectedUnitIds,
+                    sd,
+                    ed,
+                    selectedPassFailFilter
+                )).ToList();
                 hasRangeStatsSearched = true;
             }
         }
@@ -1406,3 +1416,4 @@
         }
     }
 }
+

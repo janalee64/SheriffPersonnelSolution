@@ -21,18 +21,21 @@ namespace SheriffPersonnel.API.Repositories
         public async Task<IEnumerable<EmployeeChange>> GetChangesByEmployeeIdAsync(int employeeId)
         {
             return await _dbContext.EmployeeChanges
+                .AsNoTracking()
                 .Include(c => c.Program)
                 .Include(c => c.Rank)
                 .Include(c => c.Unit)
                 .Include(c => c.LastUser)
                 .Where(c => c.EmployeeID == employeeId)
                 .OrderByDescending(c => c.HistoryDate)
+                .ThenByDescending(c => c.HistoryID)
                 .ToListAsync();
         }
 
         public async Task<EmployeeChange?> GetChangeByIdAsync(int id)
         {
             return await _dbContext.EmployeeChanges
+                .AsNoTracking()
                 .Include(c => c.Program)
                 .Include(c => c.Rank)
                 .Include(c => c.Unit)

@@ -362,18 +362,35 @@ namespace SheriffPersonnel.Web.Services
             }
         }
 
-        public async Task<IEnumerable<EmployeeInventoryAssignmentsDto>> GetAllInventoryAssignmentsAsync()
+        public async Task<IEnumerable<EmployeeInventoryAssignmentsDto>> GetAllInventoryAssignmentsAsync(
+            string? productName = null,
+            int? programId = null,
+            int? statusId = null,
+            DateTime? startDate = null,
+            DateTime? endDate = null,
+            int? maxResults = null)
         {
             try
             {
-                _logger.LogInformation("Invoking downstream API for all inventory assignments.");
+                _logger.LogInformation("Invoking downstream API for inventory assignments.");
+
+                var queryParams = new List<string>();
+                if (!string.IsNullOrWhiteSpace(productName)) queryParams.Add($"productName={Uri.EscapeDataString(productName.Trim())}");
+                if (programId.HasValue && programId.Value > 0) queryParams.Add($"programId={programId.Value}");
+                if (statusId.HasValue && statusId.Value > 0) queryParams.Add($"statusId={statusId.Value}");
+                if (startDate.HasValue) queryParams.Add($"startDate={startDate.Value:yyyy-MM-dd}");
+                if (endDate.HasValue) queryParams.Add($"endDate={endDate.Value:yyyy-MM-dd}");
+                if (maxResults.HasValue && maxResults.Value > 0) queryParams.Add($"maxResults={maxResults.Value}");
+
+                var queryString = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
+                var relativePath = $"api/inventory/assignments{queryString}";
 
                 var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<EmployeeInventoryAssignmentsDto>>(
                     "MyCustomApi",
                     options =>
                     {
                         options.HttpMethod = HttpMethod.Get.Method;
-                        options.RelativePath = "api/inventory/assignments";
+                        options.RelativePath = relativePath;
                     });
 
                 return response ?? Array.Empty<EmployeeInventoryAssignmentsDto>();
@@ -385,7 +402,7 @@ namespace SheriffPersonnel.Web.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error calling downstream API for all inventory assignments.");
+                _logger.LogError(ex, "Error calling downstream API for inventory assignments.");
                 return Array.Empty<EmployeeInventoryAssignmentsDto>();
             }
         }
@@ -779,17 +796,42 @@ namespace SheriffPersonnel.Web.Services
             }
         }
 
-        public async Task<IEnumerable<RangeStatisticDTO>> GetAllRangeStatisticsAsync()
+        public async Task<IEnumerable<RangeStatisticDTO>> GetRangeStatisticsAsync(
+            int? courseId = null,
+            int? employeeStatusId = null,
+            int? programId = null,
+            IEnumerable<int>? unitIds = null,
+            DateOnly? startDate = null,
+            DateOnly? endDate = null,
+            string? passFail = null)
         {
             try
             {
-                _logger.LogInformation("Invoking downstream API for all range statistics.");
+                var queryParams = new List<string>();
+                if (courseId.HasValue && courseId.Value > 0) queryParams.Add($"courseId={courseId.Value}");
+                if (employeeStatusId.HasValue && employeeStatusId.Value > 0) queryParams.Add($"employeeStatusId={employeeStatusId.Value}");
+                if (programId.HasValue && programId.Value > 0) queryParams.Add($"programId={programId.Value}");
+                if (unitIds != null)
+                {
+                    foreach (var uid in unitIds.Where(u => u > 0))
+                    {
+                        queryParams.Add($"unitIds={uid}");
+                    }
+                }
+                if (startDate.HasValue) queryParams.Add($"startDate={startDate.Value:yyyy-MM-dd}");
+                if (endDate.HasValue) queryParams.Add($"endDate={endDate.Value:yyyy-MM-dd}");
+                if (!string.IsNullOrWhiteSpace(passFail)) queryParams.Add($"passFail={Uri.EscapeDataString(passFail.Trim())}");
+
+                var queryString = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
+                var relativePath = $"api/rangestatistics{queryString}";
+
+                _logger.LogInformation("Invoking downstream API for range statistics with path: {RelativePath}", relativePath);
                 var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<RangeStatisticDTO>>(
                     "MyCustomApi",
                     options =>
                     {
                         options.HttpMethod = HttpMethod.Get.Method;
-                        options.RelativePath = "api/rangestatistics";
+                        options.RelativePath = relativePath;
                     });
 
                 return response ?? Array.Empty<RangeStatisticDTO>();
@@ -804,6 +846,11 @@ namespace SheriffPersonnel.Web.Services
                 _logger.LogError(ex, "Error fetching range statistics via downstream API.");
                 return Array.Empty<RangeStatisticDTO>();
             }
+        }
+
+        public async Task<IEnumerable<RangeStatisticDTO>> GetAllRangeStatisticsAsync()
+        {
+            return await GetRangeStatisticsAsync();
         }
 
         public async Task<IEnumerable<RangeStatisticDTO>> GetRangeStatisticsByEmployeeIdAsync(int employeeId)
@@ -1468,6 +1515,32 @@ namespace SheriffPersonnel.Web.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to upload document via downstream API.");
+                throw;
+            }
+        }
+
+        public async Task<EmployeeDocumentDto?> UpdateDocumentAsync(EmployeeDocumentDto dto)
+        {
+            try
+            {
+                _logger.LogInformation("Invoking downstream API to update document ID {DocumentID}.", dto.DocumentID);
+                return await _downstreamApi.CallApiForUserAsync<EmployeeDocumentDto, EmployeeDocumentDto>(
+                    "MyCustomApi",
+                    dto,
+                    options =>
+                    {
+                        options.HttpMethod = HttpMethod.Put.Method;
+                        options.RelativePath = $"api/documents/{dto.DocumentID}";
+                    });
+            }
+            catch (MicrosoftIdentityWebChallengeUserException ex)
+            {
+                _consentHandler.HandleException(ex);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update document ID {DocumentID} via downstream API.", dto.DocumentID);
                 throw;
             }
         }

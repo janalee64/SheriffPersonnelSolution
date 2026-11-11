@@ -56,10 +56,10 @@
                         {
                             <MudTd DataLabel="Actions">
                                 <MudTooltip Text="Edit Assignment">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditAssignmentForm(assignmentContext))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditAssignmentForm(assignmentContext))" aria-label="@($"Edit assignment {assignmentContext.ProductName}")" />
                                 </MudTooltip>
                                 <MudTooltip Text="Delete Assignment">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteAssignmentAsync(assignmentContext.EmpInventoryID))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteAssignmentAsync(assignmentContext.EmpInventoryID))" aria-label="@($"Delete assignment {assignmentContext.ProductName}")" />
                                 </MudTooltip>
                             </MudTd>
                         }
@@ -118,7 +118,10 @@
         try
         {
             var assignments = await service.GetEmployeeInventoryAssignmentsByEmployeeIdAsync(EmployeeId);
-            employeeAssignments = assignments.ToList();
+            employeeAssignments = assignments
+                .OrderByDescending(a => a.IssueDate)
+                .ThenByDescending(a => a.EmpInventoryID)
+                .ToList();
         }
         catch (Exception ex)
         {
@@ -128,6 +131,7 @@
         finally
         {
             isLoading = false;
+            StateHasChanged();
         }
     }
 
@@ -219,3 +223,4 @@
         }
     }
 }
+

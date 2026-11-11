@@ -13,7 +13,7 @@
 
 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
     <div>
-        <MudText Typo="Typo.h4">User Administration</MudText>
+        <MudText Typo="Typo.h4" HtmlTag="h1">User Administration</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">Manage system users, Entra ID mappings, and role assignments.</MudText>
     </div>
     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="OpenCreateDialog">
@@ -106,10 +106,10 @@
             </MudTd>
             <MudTd DataLabel="Actions">
                 <MudTooltip Text="Edit User">
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditDialog(context)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditDialog(context)" aria-label="@($"Edit user {context.DisplayName}")" />
                 </MudTooltip>
                 <MudTooltip Text="Delete User">
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => ConfirmDelete(context)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => ConfirmDelete(context)" aria-label="@($"Delete user {context.DisplayName}")" />
                 </MudTooltip>
             </MudTd>
         </RowTemplate>
@@ -451,3 +451,4 @@
         public List<int> RoleIDs { get; set; } = new List<int>();
     }
 }
+

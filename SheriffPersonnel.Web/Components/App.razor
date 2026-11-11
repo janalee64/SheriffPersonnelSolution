@@ -10,6 +10,24 @@
     <link rel="stylesheet" href="@Assets["_content/MudBlazor/MudBlazor.min.css"]" />
     <link rel="stylesheet" href="@Assets["SheriffPersonnel.Web.styles.css"]" />
     <style>
+        .skip-link {
+            position: absolute;
+            top: -100px;
+            left: 10px;
+            background: #110e2d;
+            color: #ffffff;
+            padding: 8px 16px;
+            z-index: 9999;
+            transition: top 0.2s ease;
+            font-weight: bold;
+            border: 2px solid #ffffff;
+            border-radius: 4px;
+        }
+
+        .skip-link:focus {
+            top: 10px;
+        }
+
         .mud-table-head th,
         .mud-table-head .mud-table-cell {
             background-color: var(--mud-palette-primary) !important;
@@ -79,9 +97,9 @@
             }
         }, true);
 
-        // Global hotkey 'N' for setting date picker fields to the current date (excluding birth date fields)
+        // Global hotkey 'Alt+N' for setting date picker fields to the current date (excluding birth date fields)
         document.addEventListener('keydown', function (e) {
-            if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            if (e.altKey && (e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey) {
                 var target = e.target;
                 if (!target || target.tagName !== 'INPUT') return;
 

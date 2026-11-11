@@ -170,7 +170,10 @@ namespace SheriffPersonnel.API.Services
                     var statuses = await _repository.GetStatusesAsync();
                     var activeStatus = statuses.FirstOrDefault(s =>
                         string.Equals(s.StatusCode, "Active", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase));
+                        string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase) ||
+                        (s.StatusCode != null && s.StatusCode.StartsWith("Act", StringComparison.OrdinalIgnoreCase)) ||
+                        (s.StatusDescription != null && s.StatusDescription.StartsWith("Act", StringComparison.OrdinalIgnoreCase)))
+                        ?? statuses.FirstOrDefault();
                     if (activeStatus != null)
                     {
                         dto.StatusID = activeStatus.StatusID;
@@ -230,7 +233,10 @@ namespace SheriffPersonnel.API.Services
                     var statuses = await _repository.GetStatusesAsync();
                     var activeStatus = statuses.FirstOrDefault(s =>
                         string.Equals(s.StatusCode, "Active", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase));
+                        string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase) ||
+                        (s.StatusCode != null && s.StatusCode.StartsWith("Act", StringComparison.OrdinalIgnoreCase)) ||
+                        (s.StatusDescription != null && s.StatusDescription.StartsWith("Act", StringComparison.OrdinalIgnoreCase)))
+                        ?? statuses.FirstOrDefault();
                     if (activeStatus != null)
                     {
                         dto.StatusID = activeStatus.StatusID;

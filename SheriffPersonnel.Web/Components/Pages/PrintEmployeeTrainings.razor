@@ -212,7 +212,7 @@ else
             var result = await service.GetEmployeeTrainingsByEmployeeIdAsync(EmployeeId);
             trainings = result
                 .OrderByDescending(t => t.BeginDate ?? DateOnly.MinValue)
-                .ThenBy(t => t.SchoolName ?? string.Empty)
+                .ThenByDescending(t => t.EmployeeTrainingID)
                 .ToList();
         }
         catch (Exception ex)

@@ -21,16 +21,19 @@ namespace SheriffPersonnel.API.Repositories
         public async Task<IEnumerable<EmployeeTraining>> GetEmployeeTrainingsByEmployeeIdAsync(int employeeId)
         {
             return await _dbContext.EmployeeTrainings
+                .AsNoTracking()
                 .Include(et => et.TrainingSession)
                     .ThenInclude(s => s!.TrainingSchool)
                 .Where(et => et.EmployeeID == employeeId)
-                .OrderByDescending(et => et.LastUpdated)
+                .OrderByDescending(et => et.TrainingSession != null ? et.TrainingSession.BeginDate : DateOnly.MinValue)
+                .ThenByDescending(et => et.EmployeeTrainingID)
                 .ToListAsync();
         }
 
         public async Task<EmployeeTraining?> GetEmployeeTrainingByIdAsync(int id)
         {
             return await _dbContext.EmployeeTrainings
+                .AsNoTracking()
                 .Include(et => et.TrainingSession)
                     .ThenInclude(s => s!.TrainingSchool)
                 .FirstOrDefaultAsync(et => et.EmployeeTrainingID == id);

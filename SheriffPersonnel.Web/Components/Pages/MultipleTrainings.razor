@@ -11,7 +11,7 @@
 
 <PageTitle>Training</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">Training</MudText>
+<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Training</MudText>
 
 <style>
     .folder-styled-tabs .mud-tabs-tabbar {
@@ -433,8 +433,8 @@
                                Label="@(item.IsActive ? "Active" : "Inactive")" />
                 </MudTd>
                 <MudTd DataLabel="Actions">
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditTrainingSchoolDialog(item)" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => OpenDeleteTrainingSchoolDialog(item)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditTrainingSchoolDialog(item)" aria-label="@($"Edit training school {item.SchoolName}")" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => OpenDeleteTrainingSchoolDialog(item)" aria-label="@($"Delete training school {item.SchoolName}")" />
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent><MudText Class="pa-4 text-center">No training school records found.</MudText></NoRecordsContent>
@@ -1624,4 +1624,5 @@
         }
     }
 }
+
 

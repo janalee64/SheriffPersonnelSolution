@@ -22,13 +22,36 @@ namespace SheriffPersonnel.API.Services
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task<IEnumerable<EmployeeInventoryAssignmentsDto>> GetAllAssignmentsAsync()
+        public async Task<IEnumerable<EmployeeInventoryAssignmentsDto>> GetAllAssignmentsAsync(
+            string? productName = null,
+            int? programId = null,
+            int? statusId = null,
+            DateTime? startDate = null,
+            DateTime? endDate = null,
+            int? maxResults = null)
         {
             try
             {
-                var assignments = (await _repository.GetAllAssignmentsAsync()).ToList();
-                var empIds = assignments.Select(a => a.EmployeeID).Distinct();
+                bool hasFilters = !string.IsNullOrWhiteSpace(productName)
+                    || (programId.HasValue && programId.Value > 0)
+                    || (statusId.HasValue && statusId.Value > 0)
+                    || startDate.HasValue
+                    || endDate.HasValue;
+
+                if (!hasFilters && !maxResults.HasValue)
+                {
+                    maxResults = 200;
+                }
+
+                var assignments = (await _repository.GetAllAssignmentsAsync(productName, programId, statusId, startDate, endDate, maxResults)).ToList();
+                if (!assignments.Any())
+                {
+                    return Enumerable.Empty<EmployeeInventoryAssignmentsDto>();
+                }
+
+                var empIds = assignments.Select(a => a.EmployeeID).Distinct().ToList();
                 var programDict = await _repository.GetLatestEmployeeProgramsAsync(empIds);
+
                 return assignments.Select(a => MapToDto(a, programDict.TryGetValue(a.EmployeeID, out var p) ? p : string.Empty));
             }
             catch (Exception ex)
@@ -42,9 +65,8 @@ namespace SheriffPersonnel.API.Services
         {
             try
             {
-                var assignments = (await _repository.GetAssignmentsByEmployeeIdAsync(employeeId)).ToList();
-                var programDict = await _repository.GetLatestEmployeeProgramsAsync(new[] { employeeId });
-                return assignments.Select(a => MapToDto(a, programDict.TryGetValue(a.EmployeeID, out var p) ? p : string.Empty));
+                var assignments = await _repository.GetAssignmentsByEmployeeIdAsync(employeeId);
+                return assignments.Select(a => MapToDto(a));
             }
             catch (Exception ex)
             {
@@ -59,9 +81,7 @@ namespace SheriffPersonnel.API.Services
             {
                 var assignment = await _repository.GetAssignmentByIdAsync(id);
                 if (assignment == null) return null;
-
-                var programDict = await _repository.GetLatestEmployeeProgramsAsync(new[] { assignment.EmployeeID });
-                return MapToDto(assignment, programDict.TryGetValue(assignment.EmployeeID, out var p) ? p : string.Empty);
+                return MapToDto(assignment);
             }
             catch (Exception ex)
             {
@@ -80,8 +100,7 @@ namespace SheriffPersonnel.API.Services
                 var created = await _repository.AddAssignmentAsync(entity);
 
                 var reloaded = await _repository.GetAssignmentByIdAsync(created.EmpInventoryID) ?? created;
-                var programDict = await _repository.GetLatestEmployeeProgramsAsync(new[] { reloaded.EmployeeID });
-                return MapToDto(reloaded, programDict.TryGetValue(reloaded.EmployeeID, out var p) ? p : string.Empty);
+                return MapToDto(reloaded);
             }
             catch (Exception ex)
             {
@@ -342,6 +361,16 @@ namespace SheriffPersonnel.API.Services
             var empStatus = entity.Employee?.Status?.StatusDescription
                 ?? entity.Employee?.Status?.StatusCode
                 ?? string.Empty;
+
+            if (string.IsNullOrEmpty(programName) && entity.Employee?.EmployeeChanges != null && entity.Employee.EmployeeChanges.Count > 0)
+            {
+                programName = entity.Employee.EmployeeChanges
+                    .Where(ec => ec.Program != null && !string.IsNullOrWhiteSpace(ec.Program.ProgramName))
+                    .OrderByDescending(ec => ec.HistoryDate)
+                    .ThenByDescending(ec => ec.HistoryID)
+                    .Select(ec => ec.Program!.ProgramName)
+                    .FirstOrDefault() ?? string.Empty;
+            }
 
             return new EmployeeInventoryAssignmentsDto
             {

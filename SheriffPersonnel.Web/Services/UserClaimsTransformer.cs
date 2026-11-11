@@ -67,6 +67,15 @@ public class UserClaimsTransformer : IClaimsTransformation
  
             if (user != null)
             {
+                if (!identity.HasClaim(c => c.Type == "UserID"))
+                {
+                    identity.AddClaim(new Claim("UserID", user.UserID.ToString()));
+                }
+                if (!identity.HasClaim(c => c.Type == ClaimTypes.NameIdentifier))
+                {
+                    identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, user.UserID.ToString()));
+                }
+
                 foreach (var role in user.Roles)
                 {
                     if (!string.IsNullOrEmpty(role))

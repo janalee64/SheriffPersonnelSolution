@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using SheriffPersonnel.Shared.DTOs;
@@ -7,6 +8,14 @@ namespace SheriffPersonnel.API.Services
     public interface IRangeStatisticService
     {
         Task<IEnumerable<RangeStatisticDTO>> GetAllRangeStatisticsAsync();
+        Task<IEnumerable<RangeStatisticDTO>> GetRangeStatisticsFilteredAsync(
+            int? courseId = null,
+            int? employeeStatusId = null,
+            int? programId = null,
+            IEnumerable<int>? unitIds = null,
+            DateOnly? startDate = null,
+            DateOnly? endDate = null,
+            string? passFail = null);
         Task<IEnumerable<RangeStatisticDTO>> GetRangeStatisticsByEmployeeIdAsync(int employeeId);
         Task<RangeStatisticDTO?> GetRangeStatisticByIdAsync(int id);
         Task<RangeStatisticDTO> CreateRangeStatisticAsync(RangeStatisticDTO dto);

@@ -20,6 +20,7 @@ namespace SheriffPersonnel.API.Repositories
         public async Task<IEnumerable<Firearm>> GetAllFirearmsAsync()
         {
             return await _dbContext.Firearms
+                .AsNoTracking()
                 .Include(f => f.Make)
                 .Include(f => f.Status)
                 .Include(f => f.LastUser)
@@ -32,6 +33,7 @@ namespace SheriffPersonnel.API.Repositories
         public async Task<IEnumerable<Firearm>> GetFirearmsByEmployeeIdAsync(int employeeId)
         {
             return await _dbContext.Firearms
+                .AsNoTracking()
                 .Include(f => f.Make)
                 .Include(f => f.Status)
                 .Include(f => f.LastUser)
@@ -41,12 +43,14 @@ namespace SheriffPersonnel.API.Repositories
                 .OrderBy(f => f.Status != null ? (f.Status.StatusDescription ?? f.Status.StatusCode) : "")
                 .ThenBy(f => f.Make != null ? f.Make.MakeName : "")
                 .ThenBy(f => f.ModelNumber)
+                .ThenByDescending(f => f.FirearmID)
                 .ToListAsync();
         }
 
         public async Task<Firearm?> GetFirearmByIdAsync(int id)
         {
             return await _dbContext.Firearms
+                .AsNoTracking()
                 .Include(f => f.Make)
                 .Include(f => f.Status)
                 .Include(f => f.LastUser)
@@ -94,6 +98,7 @@ namespace SheriffPersonnel.API.Repositories
         public async Task<IEnumerable<Make>> GetMakesAsync()
         {
             return await _dbContext.Makes
+                .AsNoTracking()
                 .OrderBy(m => m.MakeName)
                 .ToListAsync();
         }

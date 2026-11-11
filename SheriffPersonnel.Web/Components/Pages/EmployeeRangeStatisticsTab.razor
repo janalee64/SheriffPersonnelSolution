@@ -67,10 +67,10 @@
                         {
                             <MudTd DataLabel="Actions">
                                 <MudTooltip Text="Edit Record">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditRangeStatForm(statContext))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditRangeStatForm(statContext))" aria-label="Edit range record" />
                                 </MudTooltip>
                                 <MudTooltip Text="Delete Record">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteRangeStatAsync(statContext.RangeID))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteRangeStatAsync(statContext.RangeID))" aria-label="Delete range record" />
                                 </MudTooltip>
                             </MudTd>
                         }
@@ -139,6 +139,7 @@
             var result = await statsTask;
             rangeStats = result
                 .OrderByDescending(r => r.RangeDate ?? DateOnly.MinValue)
+                .ThenByDescending(r => r.RangeID)
                 .ToList();
 
             var skills = await skillsTask;
@@ -152,6 +153,7 @@
         finally
         {
             isLoading = false;
+            StateHasChanged();
         }
     }
 
@@ -174,7 +176,7 @@
     {
         if (!CanEdit) return;
 
-        var firearms = AvailableFirearms ?? await service.GetFirearmsByEmployeeIdAsync(EmployeeId);
+        var firearms = await service.GetFirearmsByEmployeeIdAsync(EmployeeId);
 
         var parameters = new DialogParameters<AddRangeStatisticModal>
         {
@@ -199,7 +201,7 @@
     {
         if (!CanEdit) return;
 
-        var firearms = AvailableFirearms ?? await service.GetFirearmsByEmployeeIdAsync(EmployeeId);
+        var firearms = await service.GetFirearmsByEmployeeIdAsync(EmployeeId);
 
         var parameters = new DialogParameters<AddRangeStatisticModal>
         {
@@ -266,4 +268,5 @@
         }
     }
 }
+
 

@@ -79,10 +79,10 @@
                         {
                             <MudTd DataLabel="Actions">
                                 <MudTooltip Text="Edit Training Record">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditTrainingForm(trainingContext))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditTrainingForm(trainingContext))" aria-label="@($"Edit training {trainingContext.SchoolName}")" />
                                 </MudTooltip>
                                 <MudTooltip Text="Delete Training Record">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteTrainingAsync(trainingContext.EmployeeTrainingID))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteTrainingAsync(trainingContext.EmployeeTrainingID))" aria-label="@($"Delete training {trainingContext.SchoolName}")" />
                                 </MudTooltip>
                             </MudTd>
                         }
@@ -164,7 +164,7 @@
             var result = await service.GetEmployeeTrainingsByEmployeeIdAsync(EmployeeId);
             trainings = result
                 .OrderByDescending(t => t.BeginDate ?? DateOnly.MinValue)
-                .ThenBy(t => t.SchoolName ?? string.Empty)
+                .ThenByDescending(t => t.EmployeeTrainingID)
                 .ToList();
         }
         catch (Exception ex)
@@ -175,6 +175,7 @@
         finally
         {
             isLoading = false;
+            StateHasChanged();
         }
     }
 
@@ -286,3 +287,4 @@
         }
     }
 }
+

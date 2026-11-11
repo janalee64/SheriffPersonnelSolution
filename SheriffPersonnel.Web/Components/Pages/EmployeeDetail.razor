@@ -13,7 +13,7 @@
 <PageTitle>@(IsEdit ? (canEditEmployee ? "Edit Employee" : "View Employee") : "Add New Employee")</PageTitle>
 
 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-    <MudText Typo="Typo.h4">
+    <MudText Typo="Typo.h4" HtmlTag="h1">
         @if (IsEdit)
         {
             @if (canEditEmployee)
@@ -106,14 +106,14 @@ else
     <EditForm Model="@employee" OnValidSubmit="HandleSave">
         <DataAnnotationsValidator />
 
-        <MudTabs Elevation="0" ApplyEffectsToContainer="true" Class="folder-styled-tabs mb-4">
+        <MudTabs @bind-ActivePanelIndex="activeTabIndex" Elevation="0" ApplyEffectsToContainer="true" Class="folder-styled-tabs mb-4">
             <MudTabPanel Text="Employee Details" Icon="@Icons.Material.Filled.Person">
                 <MudStack Spacing="4" Class="mt-4">
                     <!-- Personal Information -->
                     <MudPaper Class="pa-6" Elevation="3">
                         <MudGrid>
                             <MudItem xs="12" sm="8" md="9">
-                                <MudText Typo="Typo.h6" Class="mb-4">Personal Information</MudText>
+                                <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-4">Personal Information</MudText>
                                 <MudGrid>
                                     <MudItem xs="12" sm="4">
                                         <MudTextField @bind-Value="employee.FirstName" For="@(() => employee.FirstName)" Label="First Name" Variant="Variant.Outlined" Required="true" RequiredError="First Name is required" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
@@ -132,7 +132,7 @@ else
                                         </Authorized>
                                     </AuthorizeView>
                                     <MudItem xs="12" sm="6">
-                                        <MudDatePicker @bind-Date="employee.DOB" For="@(() => employee.DOB)" Label="Date of Birth" Variant="Variant.Outlined" Clearable="canEditEmployee" Editable="canEditEmployee" DateFormat="MM/dd/yyyy" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" />
+                                        <MudDatePicker @bind-Date="employee.DOB" For="@(() => employee.DOB)" Label="Date of Birth" Variant="Variant.Outlined" Clearable="canEditEmployee" Editable="canEditEmployee" DateFormat="MM/dd/yyyy" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" ErrorText="Invalid date format" />
                                     </MudItem>
                                 </MudGrid>
                             </MudItem>
@@ -153,13 +153,13 @@ else
                                     {
                                         <MudStack Spacing="1" Justify="Justify.Center">
                                             <InputFile id="employeeImageInput" OnChange="HandleImageUpload" accept="image/*" style="display:none;" />
-                                            <MudTooltip Text="Upload Photo">
-                                                <MudIconButton HtmlTag="label" for="employeeImageInput" Icon="@Icons.Material.Filled.CloudUpload" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Medium" />
+                                             <MudTooltip Text="Upload Photo">
+                                                <MudIconButton HtmlTag="label" for="employeeImageInput" Icon="@Icons.Material.Filled.CloudUpload" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Medium" aria-label="Upload photo" />
                                             </MudTooltip>
                                             @if (employee.EmployeeImage != null && employee.EmployeeImage.Length > 0)
                                             {
                                                 <MudTooltip Text="Remove Image">
-                                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Variant="Variant.Outlined" Size="Size.Medium" OnClick="RemoveImage" />
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Variant="Variant.Outlined" Size="Size.Medium" OnClick="RemoveImage" aria-label="Remove photo" />
                                                 </MudTooltip>
                                             }
                                         </MudStack>
@@ -171,7 +171,7 @@ else
 
                     <!-- Employment Details -->
                     <MudPaper Class="pa-6" Elevation="3">
-                        <MudText Typo="Typo.h6" Class="mb-4">Employment Details</MudText>
+                        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-4">Employment Details</MudText>
                         <MudGrid>
                             <MudItem xs="12" sm="6" md="4">
                                 <MudTextField @bind-Value="employee.BadgeNumber" For="@(() => employee.BadgeNumber)" Label="Badge Number" Variant="Variant.Outlined" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
@@ -197,10 +197,10 @@ else
                                 </MudSelect>
                             </MudItem>
                             <MudItem xs="12" sm="6">
-                                <MudDatePicker @bind-Date="employee.HireDate" For="@(() => employee.HireDate)" Label="Hire Date" Variant="Variant.Outlined" Clearable="canEditEmployee" Editable="canEditEmployee" DateFormat="MM/dd/yyyy" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" />
+                                <MudDatePicker @bind-Date="employee.HireDate" For="@(() => employee.HireDate)" Label="Hire Date" Variant="Variant.Outlined" Clearable="canEditEmployee" Editable="canEditEmployee" DateFormat="MM/dd/yyyy" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" ErrorText="Invalid date format" />
                             </MudItem>
                             <MudItem xs="12" sm="6">
-                                <MudDatePicker @bind-Date="employee.InactiveDate" For="@(() => employee.InactiveDate)" Label="Inactive Date" Variant="Variant.Outlined" Clearable="canEditEmployee" Editable="canEditEmployee" DateFormat="MM/dd/yyyy" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" />
+                                <MudDatePicker @bind-Date="employee.InactiveDate" For="@(() => employee.InactiveDate)" Label="Inactive Date" Variant="Variant.Outlined" Clearable="canEditEmployee" Editable="canEditEmployee" DateFormat="MM/dd/yyyy" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" ErrorText="Invalid date format" />
                             </MudItem>
                             <MudItem xs="12">
                                 <MudCheckBox T="bool" @bind-Value="employee.EmployeeFlag" Label="Sheriff Employee Flag" Color="Color.Primary" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" />
@@ -210,7 +210,7 @@ else
 
                     <!-- Contact Information -->
                     <MudPaper Class="pa-6" Elevation="3">
-                        <MudText Typo="Typo.h6" Class="mb-4">Contact Information</MudText>
+                        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-4">Contact Information</MudText>
                         <MudGrid>
                             <MudItem xs="12" sm="4">
                                 <MudTextField @bind-Value="employee.WorkEmail" For="@(() => employee.WorkEmail)" Label="Work Email" Variant="Variant.Outlined" InputType="InputType.Email" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
@@ -226,7 +226,7 @@ else
 
                     <!-- Home Address -->
                     <MudPaper Class="pa-6" Elevation="3">
-                        <MudText Typo="Typo.h6" Class="mb-4">Home Address</MudText>
+                        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-4">Home Address</MudText>
                         <MudGrid>
                             <MudItem xs="12">
                                 <MudTextField @bind-Value="employee.HomeAddressLine1" For="@(() => employee.HomeAddressLine1)" Label="Address Line 1" Variant="Variant.Outlined" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
@@ -279,7 +279,7 @@ else
             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="Cancel" Disabled="@isSaving">
                 @(canEditEmployee ? "Cancel" : "Back to Search")
             </MudButton>
-            @if (canEditEmployee)
+            @if (canEditEmployee && activeTabIndex == 0)
             {
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="@isSaving">
                     @if (isSaving)
@@ -303,6 +303,8 @@ else
 
     [CascadingParameter]
     private Task<AuthenticationState>? authenticationStateTask { get; set; }
+
+    private int activeTabIndex = 0;
 
     private bool canEditEmployee = false;
     private bool IsEdit => Id.HasValue && Id.Value > 0;
@@ -429,7 +431,10 @@ else
             {
                 var activeStatus = availableStatuses?.FirstOrDefault(s =>
                     string.Equals(s.StatusCode, "Active", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase));
+                    string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase) ||
+                    (s.StatusCode != null && s.StatusCode.StartsWith("Act", StringComparison.OrdinalIgnoreCase)) ||
+                    (s.StatusDescription != null && s.StatusDescription.StartsWith("Act", StringComparison.OrdinalIgnoreCase)))
+                    ?? availableStatuses?.FirstOrDefault();
 
                 employee = new EmployeeDetailDto
                 {
@@ -483,8 +488,11 @@ else
             }
             var activeStatus = availableStatuses?.FirstOrDefault(s =>
                 string.Equals(s.StatusCode, "Active", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase))
+                string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase) ||
+                (s.StatusCode != null && s.StatusCode.StartsWith("Act", StringComparison.OrdinalIgnoreCase)) ||
+                (s.StatusDescription != null && s.StatusDescription.StartsWith("Act", StringComparison.OrdinalIgnoreCase)))
                 ?? availableStatuses?.FirstOrDefault();
+
             if (activeStatus != null)
             {
                 employee.StatusID = activeStatus.StatusID;
@@ -502,8 +510,8 @@ else
 
                 if (updated != null)
                 {
+                    employee = updated;
                     Snackbar.Add("Employee updated successfully!", Severity.Success);
-                    Navigation.NavigateTo("/");
                 }
                 else
                 {
@@ -573,3 +581,4 @@ else
         employee.EmployeeImage = null;
     }
 }
+

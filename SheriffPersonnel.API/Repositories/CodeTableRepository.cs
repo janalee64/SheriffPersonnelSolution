@@ -21,7 +21,7 @@ namespace SheriffPersonnel.API.Repositories
         // Statuses
         public async Task<IEnumerable<Status>> GetStatusesAsync()
         {
-            return await _dbContext.Statuses.OrderBy(s => s.StatusCode).ToListAsync();
+            return await _dbContext.Statuses.AsNoTracking().OrderBy(s => s.StatusCode).ToListAsync();
         }
 
         public async Task<Status?> GetStatusByIdAsync(int id)
@@ -61,7 +61,7 @@ namespace SheriffPersonnel.API.Repositories
         // Programs
         public async Task<IEnumerable<ProgramModel>> GetProgramsAsync()
         {
-            return await _dbContext.Programs.OrderBy(p => p.ProgramName).ToListAsync();
+            return await _dbContext.Programs.AsNoTracking().OrderBy(p => p.ProgramName).ToListAsync();
         }
 
         public async Task<ProgramModel?> GetProgramByIdAsync(int id)
@@ -101,7 +101,7 @@ namespace SheriffPersonnel.API.Repositories
         // Units
         public async Task<IEnumerable<Unit>> GetUnitsAsync()
         {
-            return await _dbContext.Units.OrderBy(u => u.UnitName).ToListAsync();
+            return await _dbContext.Units.AsNoTracking().OrderBy(u => u.UnitName).ToListAsync();
         }
 
         public async Task<Unit?> GetUnitByIdAsync(int id)
@@ -141,7 +141,7 @@ namespace SheriffPersonnel.API.Repositories
         // Ranks
         public async Task<IEnumerable<Rank>> GetRanksAsync()
         {
-            return await _dbContext.Ranks.OrderBy(r => r.RankName).ToListAsync();
+            return await _dbContext.Ranks.AsNoTracking().OrderBy(r => r.RankName).ToListAsync();
         }
 
         public async Task<Rank?> GetRankByIdAsync(int id)
@@ -181,7 +181,7 @@ namespace SheriffPersonnel.API.Repositories
         // Makes
         public async Task<IEnumerable<Make>> GetMakesAsync()
         {
-            return await _dbContext.Makes.OrderBy(m => m.MakeName).ToListAsync();
+            return await _dbContext.Makes.AsNoTracking().OrderBy(m => m.MakeName).ToListAsync();
         }
 
         public async Task<Make?> GetMakeByIdAsync(int id)
@@ -222,6 +222,7 @@ namespace SheriffPersonnel.API.Repositories
         public async Task<IEnumerable<RangeCourse>> GetRangeCoursesAsync()
         {
             return await _dbContext.RangeCourses
+                .AsNoTracking()
                 .OrderBy(rc => rc.SortOrder ?? int.MaxValue)
                 .ThenBy(rc => rc.CourseName)
                 .ToListAsync();
@@ -264,7 +265,7 @@ namespace SheriffPersonnel.API.Repositories
         // Range Officers
         public async Task<IEnumerable<RangeOfficer>> GetRangeOfficersAsync()
         {
-            return await _dbContext.RangeOfficers.OrderBy(ro => ro.OfficerName).ToListAsync();
+            return await _dbContext.RangeOfficers.AsNoTracking().OrderBy(ro => ro.OfficerName).ToListAsync();
         }
 
         public async Task<RangeOfficer?> GetRangeOfficerByIdAsync(int id)
@@ -304,7 +305,7 @@ namespace SheriffPersonnel.API.Repositories
         // Range Skills
         public async Task<IEnumerable<RangeSkill>> GetRangeSkillsAsync()
         {
-            return await _dbContext.RangeSkills.OrderBy(rs => rs.SkillName).ToListAsync();
+            return await _dbContext.RangeSkills.AsNoTracking().OrderBy(rs => rs.SkillName).ToListAsync();
         }
 
         public async Task<RangeSkill?> GetRangeSkillByIdAsync(int id)

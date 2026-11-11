@@ -14,7 +14,7 @@
 
 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
     <div>
-        <MudText Typo="Typo.h4">Inventory Admin</MudText>
+        <MudText Typo="Typo.h4" HtmlTag="h1">Inventory Admin</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">Manage master inventory items catalog and stock details.</MudText>
     </div>
     <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadDataAsync" Disabled="@isLoading">
@@ -159,8 +159,8 @@
                             }
                         </MudTd>
                         <MudTd DataLabel="Actions">
-                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditDialog(item)" />
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => ConfirmDeleteAsync(item)" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditDialog(item)" aria-label="@($"Edit inventory item {item.ProductName}")" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => ConfirmDeleteAsync(item)" aria-label="@($"Delete inventory item {item.ProductName}")" />
                         </MudTd>
                     </RowTemplate>
                     <PagerContent>
@@ -200,8 +200,8 @@
                                Label="@(cat.IsActive ? "Active" : "Inactive")" />
                 </MudTd>
                 <MudTd DataLabel="Actions">
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditCategoryDialog(cat)" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteCodeTableDialog("Category", cat.CategoryID, cat.CategoryName)' />
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditCategoryDialog(cat)" aria-label="@($"Edit category {cat.CategoryName}")" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteCodeTableDialog("Category", cat.CategoryID, cat.CategoryName)' aria-label="@($"Delete category {cat.CategoryName}")" />
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent><MudText Class="pa-4 text-center">No category records found.</MudText></NoRecordsContent>
@@ -227,8 +227,8 @@
                 <MudTd DataLabel="Location Name"><b>@loc.LocationName</b></MudTd>
                 <MudTd DataLabel="Notes">@(loc.Notes ?? "-")</MudTd>
                 <MudTd DataLabel="Actions">
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditLocationDialog(loc)" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteCodeTableDialog("Location", loc.LocationID, loc.LocationName)' />
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditLocationDialog(loc)" aria-label="@($"Edit location {loc.LocationName}")" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteCodeTableDialog("Location", loc.LocationID, loc.LocationName)' aria-label="@($"Delete location {loc.LocationName}")" />
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent><MudText Class="pa-4 text-center">No location records found.</MudText></NoRecordsContent>
@@ -254,8 +254,8 @@
                 <MudTd DataLabel="Supplier Name"><b>@sup.SupplierName</b></MudTd>
                 <MudTd DataLabel="Notes">@(sup.Notes ?? "-")</MudTd>
                 <MudTd DataLabel="Actions">
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditSupplierDialog(sup)" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteCodeTableDialog("Supplier", sup.SupplierID, sup.SupplierName)' />
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditSupplierDialog(sup)" aria-label="@($"Edit supplier {sup.SupplierName}")" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteCodeTableDialog("Supplier", sup.SupplierID, sup.SupplierName)' aria-label="@($"Delete supplier {sup.SupplierName}")" />
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent><MudText Class="pa-4 text-center">No supplier records found.</MudText></NoRecordsContent>
@@ -281,7 +281,7 @@
                 </MudItem>
                 <MudItem xs="12" sm="4" md="4" Class="d-flex align-center">
                     <MudCheckBox T="bool" @bind-Value="showLowStockOnly" Color="Color.Warning" Dense="true">
-                        At or Below Reorder Point Only (Quantity ≤ Reorder)
+                        At or Below Reorder Point Only (Quantity â‰¤ Reorder)
                     </MudCheckBox>
                 </MudItem>
             </MudGrid>
@@ -336,8 +336,8 @@
         }
     </MudTabPanel>
 
-    @* 6. Assigned by Product *@
-    <MudTabPanel Text="Assigned by Product" Icon="@Icons.Material.Filled.AssignmentInd">
+    @* 6. Assigned *@
+    <MudTabPanel Text="Assigned" Icon="@Icons.Material.Filled.AssignmentInd">
         <MudPaper Class="pa-4 mb-4" Elevation="1">
             <MudGrid>
                 <MudItem xs="12" sm="6" md="4">
@@ -617,7 +617,7 @@
     private string searchStockString = string.Empty;
     private bool showLowStockOnly = false;
 
-    // Assigned by Product filter fields
+    // Assigned filter fields
     private string searchAssignedProductName = string.Empty;
     private int? selectedAssignedProgramId;
     private int? selectedAssignedStatusId;
@@ -695,64 +695,21 @@
         }
     }
 
-    private IEnumerable<EmployeeInventoryAssignmentsDto> FilteredAssignedItems
-    {
-        get
-        {
-            var result = assignedItems.AsEnumerable();
+    private List<string> cachedProductNames = new();
 
-            if (!string.IsNullOrWhiteSpace(appliedProductName))
-            {
-                var term = appliedProductName.Trim();
-                result = result.Where(x => x.ProductName != null && x.ProductName.Contains(term, StringComparison.OrdinalIgnoreCase));
-            }
-
-            if (appliedProgramId.HasValue && appliedProgramId.Value > 0)
-            {
-                var progId = appliedProgramId.Value;
-                var progName = programs.FirstOrDefault(p => p.ProgramID == progId)?.ProgramName;
-                if (!string.IsNullOrEmpty(progName))
-                {
-                    result = result.Where(x => string.Equals(x.ProgramName, progName, StringComparison.OrdinalIgnoreCase));
-                }
-            }
-
-            if (appliedStatusId.HasValue && appliedStatusId.Value > 0)
-            {
-                var statId = appliedStatusId.Value;
-                var statObj = statuses.FirstOrDefault(s => s.StatusID == statId);
-                if (statObj != null)
-                {
-                    var statusDesc = statObj.StatusDescription;
-                    var statusCode = statObj.StatusCode;
-                    result = result.Where(x =>
-                        string.Equals(x.EmployeeStatus, statusDesc, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(x.EmployeeStatus, statusCode, StringComparison.OrdinalIgnoreCase));
-                }
-            }
-
-            if (appliedStartDate.HasValue)
-            {
-                var startDate = appliedStartDate.Value.Date;
-                result = result.Where(x => x.IssueDate != default && x.IssueDate.Date >= startDate);
-            }
-
-            if (appliedEndDate.HasValue)
-            {
-                var endDate = appliedEndDate.Value.Date;
-                result = result.Where(x => x.IssueDate != default && x.IssueDate.Date <= endDate);
-            }
-
-            return result;
-        }
-    }
+    private IEnumerable<EmployeeInventoryAssignmentsDto> FilteredAssignedItems => assignedItems;
 
     private async Task PerformAssignedSearch()
     {
         isLoading = true;
         try
         {
-            var taskAssigned = await SearchService.GetAllInventoryAssignmentsAsync();
+            var taskAssigned = await SearchService.GetAllInventoryAssignmentsAsync(
+                searchAssignedProductName,
+                selectedAssignedProgramId,
+                selectedAssignedStatusId,
+                assignedStartDate,
+                assignedEndDate);
             assignedItems = taskAssigned.ToList();
 
             appliedProductName = searchAssignedProductName;
@@ -772,7 +729,7 @@
         }
     }
 
-    private async Task ResetAssignedFilters()
+    private void ResetAssignedFilters()
     {
         searchAssignedProductName = string.Empty;
         selectedAssignedProgramId = null;
@@ -786,25 +743,29 @@
         appliedStartDate = null;
         appliedEndDate = null;
 
-        await PerformAssignedSearch();
+        assignedItems.Clear();
+        StateHasChanged();
     }
 
-    private Task<IEnumerable<string>> SearchProductsAsync(string value, System.Threading.CancellationToken cancellationToken)
+    private void UpdateProductNamesCache()
     {
-        var productNames = items
+        cachedProductNames = items
             .Select(x => x.ProductName)
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Distinct()
             .OrderBy(x => x)
-            .ToList();
+            .ToList()!;
+    }
 
+    private Task<IEnumerable<string>> SearchProductsAsync(string value, System.Threading.CancellationToken cancellationToken)
+    {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return Task.FromResult<IEnumerable<string>>(productNames!);
+            return Task.FromResult<IEnumerable<string>>(cachedProductNames.Take(30));
         }
 
         return Task.FromResult<IEnumerable<string>>(
-            productNames.Where(x => x != null && x.Contains(value, StringComparison.OrdinalIgnoreCase))!
+            cachedProductNames.Where(x => x != null && x.Contains(value, StringComparison.OrdinalIgnoreCase)).Take(30)
         );
     }
 
@@ -830,6 +791,7 @@
             await Task.WhenAll(taskItems, taskCategories, taskSuppliers, taskLocations, taskPrograms, taskStatuses);
 
             items = (await taskItems).ToList();
+            UpdateProductNamesCache();
             categories = (await taskCategories).OrderBy(c => c.CategoryName).ToList();
             suppliers = (await taskSuppliers).OrderBy(s => s.SupplierName).ToList();
             locations = (await taskLocations).OrderBy(l => l.LocationName).ToList();
@@ -860,6 +822,7 @@
         try
         {
             items = (await SearchService.GetInventoryItemsAsync(onlyActive: showActiveOnly ? true : null)).ToList();
+            UpdateProductNamesCache();
         }
         catch (Exception ex)
         {
@@ -1251,3 +1214,4 @@
         }
     }
 }
+

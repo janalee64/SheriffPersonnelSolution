@@ -26,17 +26,23 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpGet("assignments")]
-        public async Task<ActionResult<IEnumerable<EmployeeInventoryAssignmentsDto>>> GetAllAssignments()
+        public async Task<ActionResult<IEnumerable<EmployeeInventoryAssignmentsDto>>> GetAllAssignments(
+            [FromQuery] string? productName = null,
+            [FromQuery] int? programId = null,
+            [FromQuery] int? statusId = null,
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null,
+            [FromQuery] int? maxResults = null)
         {
             try
             {
-                _logger.LogInformation("Retrieving all inventory assignments.");
-                var assignments = await _inventoryService.GetAllAssignmentsAsync();
+                _logger.LogInformation("Retrieving inventory assignments with filters.");
+                var assignments = await _inventoryService.GetAllAssignmentsAsync(productName, programId, statusId, startDate, endDate, maxResults);
                 return Ok(assignments);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving all inventory assignments.");
+                _logger.LogError(ex, "Error retrieving inventory assignments.");
                 return StatusCode(500, $"An error occurred while fetching inventory assignments: {ex.Message}");
             }
         }

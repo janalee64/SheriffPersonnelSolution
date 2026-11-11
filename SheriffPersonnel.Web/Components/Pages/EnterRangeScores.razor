@@ -111,7 +111,7 @@
 
 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
     <div>
-        <MudText Typo="Typo.h4" Class="mb-1">Enter Range Scores</MudText>
+        <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-1">Enter Range Scores</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary">
             Record a new Range Event and bulk-enter scores for participating officers.
         </MudText>
@@ -304,12 +304,13 @@
                                                Color="Color.Primary"
                                                Size="Size.Small"
                                                OnClick="@(() => OpenSkillsModal(row))"
-                                               tabindex="-1" />
+                                               tabindex="-1"
+                                               aria-label="Select skills" />
                             </MudStack>
                         }
                         else
                         {
-                            <MudText Color="Color.Secondary" Typo="Typo.caption" Class="d-flex align-center justify-center">—</MudText>
+                            <MudText Color="Color.Secondary" Typo="Typo.caption" Class="d-flex align-center justify-center">â€”</MudText>
                         }
                     </MudTd>
                     <MudTd DataLabel="Serial Number">
@@ -335,7 +336,8 @@
                                                Size="Size.Small"
                                                OnClick="@(() => OpenAddFirearmModal(row))"
                                                Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)"
-                                               tabindex="-1" />
+                                               tabindex="-1"
+                                               aria-label="Add firearm for officer" />
                             </MudTooltip>
                         </MudStack>
                     </MudTd>
@@ -378,7 +380,7 @@
                         </MudButtonGroup>
                     </MudTd>
                     <MudTd DataLabel="Action" Style="text-align: center;">
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveRow(row)" tabindex="-1" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveRow(row)" tabindex="-1" aria-label="Remove officer row" />
                     </MudTd>
                 </RowTemplate>
             </MudTable>
@@ -393,7 +395,7 @@
                 <MudPaper Class="pa-4 mb-3" Elevation="2" Style="border-left: 4px solid var(--mud-palette-primary);">
                     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
                         <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Filled">Officer #@(index + 1)</MudChip>
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveRow(row)" tabindex="-1" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveRow(row)" tabindex="-1" aria-label="Remove officer row" />
                     </MudStack>
 
                     <MudStack Spacing="3">
@@ -495,7 +497,8 @@
                                                        OnClick="@(() => OpenAddFirearmModal(row))"
                                                        Disabled="@(row.SelectedEmployee == null || row.IsLoadingFirearms)"
                                                        tabindex="-1"
-                                                       Class="mt-1" />
+                                                       Class="mt-1"
+                                                       aria-label="Add firearm for officer" />
                                     </MudTooltip>
                                 </MudStack>
                             </MudItem>
@@ -1338,3 +1341,4 @@
         }
     }
 }
+

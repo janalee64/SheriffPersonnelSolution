@@ -318,7 +318,15 @@ else
             }
             else
             {
-                var allStats = await service.GetAllRangeStatisticsAsync();
+                var allStats = await service.GetRangeStatisticsAsync(
+                    CourseID,
+                    EmployeeStatusID,
+                    ProgramID,
+                    selectedUnitIds,
+                    startDate,
+                    endDate,
+                    PassFail
+                );
 
                 searchResults = allStats.Where(stat =>
                 {

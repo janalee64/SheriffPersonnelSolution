@@ -48,10 +48,10 @@
                         {
                             <MudTd DataLabel="Actions">
                                 <MudTooltip Text="Edit History">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditChangeForm(changeContext))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditChangeForm(changeContext))" aria-label="Edit history record" />
                                 </MudTooltip>
                                 <MudTooltip Text="Delete History">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteChangeAsync(changeContext.HistoryID))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteChangeAsync(changeContext.HistoryID))" aria-label="Delete history record" />
                                 </MudTooltip>
                             </MudTd>
                         }
@@ -112,7 +112,10 @@
         try
         {
             var changes = await service.GetEmployeeChangesByEmployeeIdAsync(EmployeeId);
-            employeeChanges = changes.ToList();
+            employeeChanges = changes
+                .OrderByDescending(c => c.HistoryDate)
+                .ThenByDescending(c => c.HistoryID)
+                .ToList();
         }
         catch (Exception ex)
         {
@@ -122,6 +125,7 @@
         finally
         {
             isLoading = false;
+            StateHasChanged();
         }
     }
 
@@ -215,3 +219,4 @@
         }
     }
 }
+

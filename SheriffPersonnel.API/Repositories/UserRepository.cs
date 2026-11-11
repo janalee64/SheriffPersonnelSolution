@@ -149,8 +149,16 @@ namespace SheriffPersonnel.API.Repositories
 
         public async Task<bool> DeleteUserAsync(int id)
         {
-            var user = await _dbContext.Users.FindAsync(id);
+            var user = await _dbContext.Users
+                .Include(u => u.UserRoles)
+                .FirstOrDefaultAsync(u => u.UserID == id);
+
             if (user == null) return false;
+
+            if (user.UserRoles != null && user.UserRoles.Any())
+            {
+                _dbContext.UserRoles.RemoveRange(user.UserRoles);
+            }
 
             _dbContext.Users.Remove(user);
             await _dbContext.SaveChangesAsync();

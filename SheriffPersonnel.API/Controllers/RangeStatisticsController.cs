@@ -26,17 +26,40 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<RangeStatisticDTO>>> GetAllRangeStatistics()
+        public async Task<ActionResult<IEnumerable<RangeStatisticDTO>>> GetAllRangeStatistics(
+            [FromQuery] int? courseId = null,
+            [FromQuery] int? employeeStatusId = null,
+            [FromQuery] int? programId = null,
+            [FromQuery] List<int>? unitIds = null,
+            [FromQuery] string? startDate = null,
+            [FromQuery] string? endDate = null,
+            [FromQuery] string? passFail = null)
         {
             try
             {
-                _logger.LogInformation("Retrieving all range statistics.");
-                var stats = await _rangeStatisticService.GetAllRangeStatisticsAsync();
+                DateOnly? parsedStartDate = null;
+                if (!string.IsNullOrWhiteSpace(startDate) && DateTime.TryParse(startDate, out var sd))
+                {
+                    parsedStartDate = DateOnly.FromDateTime(sd);
+                }
+
+                DateOnly? parsedEndDate = null;
+                if (!string.IsNullOrWhiteSpace(endDate) && DateTime.TryParse(endDate, out var ed))
+                {
+                    parsedEndDate = DateOnly.FromDateTime(ed);
+                }
+
+                _logger.LogInformation("Retrieving range statistics with filters: courseId={courseId}, statusId={employeeStatusId}, programId={programId}, startDate={startDate}, endDate={endDate}, passFail={passFail}",
+                    courseId, employeeStatusId, programId, startDate, endDate, passFail);
+
+                var stats = await _rangeStatisticService.GetRangeStatisticsFilteredAsync(
+                    courseId, employeeStatusId, programId, unitIds, parsedStartDate, parsedEndDate, passFail);
+
                 return Ok(stats);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving all range statistics.");
+                _logger.LogError(ex, "Error retrieving range statistics.");
                 return StatusCode(500, $"An error occurred while fetching range statistics: {ex.Message}");
             }
         }

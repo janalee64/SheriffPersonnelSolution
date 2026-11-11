@@ -65,6 +65,27 @@ namespace SheriffPersonnel.API.Services
             }
         }
 
+        public async Task<IEnumerable<RangeStatisticDTO>> GetRangeStatisticsFilteredAsync(
+            int? courseId = null,
+            int? employeeStatusId = null,
+            int? programId = null,
+            IEnumerable<int>? unitIds = null,
+            DateOnly? startDate = null,
+            DateOnly? endDate = null,
+            string? passFail = null)
+        {
+            try
+            {
+                var list = await _repository.GetRangeStatisticsFilteredAsync(courseId, employeeStatusId, programId, unitIds, startDate, endDate, passFail);
+                return list.Select(MapToDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting filtered range statistics.");
+                throw;
+            }
+        }
+
         public async Task<IEnumerable<RangeStatisticDTO>> GetRangeStatisticsByEmployeeIdAsync(int employeeId)
         {
             try

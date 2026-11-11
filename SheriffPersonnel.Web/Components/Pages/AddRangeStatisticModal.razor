@@ -141,6 +141,17 @@
                 logger.LogError(ex, "Error loading range courses in AddRangeStatisticModal.");
             }
         }
+        if ((AvailableFirearms == null || !AvailableFirearms.Any()) && EmployeeId > 0)
+        {
+            try
+            {
+                AvailableFirearms = await service.GetFirearmsByEmployeeIdAsync(EmployeeId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error loading firearms in AddRangeStatisticModal.");
+            }
+        }
         await LoadRangeOfficersAsync();
     }
 
