@@ -22,5 +22,6 @@ namespace SheriffPersonnel.API.Repositories
         Task<TrainingSession> AddTrainingSessionAsync(TrainingSession trainingSession);
         Task<TrainingSession> UpdateTrainingSessionAsync(TrainingSession trainingSession);
         Task<IEnumerable<TrainingSchool>> GetTrainingSchoolsAsync();
+        Task<TrainingSchool> AddTrainingSchoolAsync(TrainingSchool school);
     }
 }

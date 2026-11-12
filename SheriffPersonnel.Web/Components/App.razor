@@ -150,6 +150,34 @@
                 target.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }, true);
+
+        // Prevent Enter key in date picker fields from opening the calendar popover dialog
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === 'NumpadEnter') {
+                var target = e.target;
+                if (!target || target.tagName !== 'INPUT') return;
+
+                var isMudPicker = target.closest('.mud-picker, .mud-picker-input-text, .mud-picker-input, .mud-picker-inline, .mud-date-picker') !== null;
+                var inputTypeDate = target.getAttribute('type') === 'date' || target.getAttribute('type') === 'datetime-local';
+                var hasExplicitDateAttr = target.hasAttribute('data-is-date') || (target.parentElement && target.parentElement.hasAttribute('data-is-date'));
+
+                if (isMudPicker || inputTypeDate || hasExplicitDateAttr) {
+                    // Commit any typed date text to ensure binding
+                    target.dispatchEvent(new Event('change', { bubbles: true }));
+                    target.blur();
+
+                    // Close any calendar popover that might be toggled
+                    setTimeout(function () {
+                        var openPopovers = document.querySelectorAll('.mud-popover.mud-popover-open, .mud-picker-popover');
+                        openPopovers.forEach(function (pop) {
+                            if (pop.querySelector('.mud-picker-calendar, .mud-picker-container, .mud-date-picker')) {
+                                pop.classList.remove('mud-popover-open');
+                            }
+                        });
+                    }, 50);
+                }
+            }
+        }, true);
     </script>
 </body>
 

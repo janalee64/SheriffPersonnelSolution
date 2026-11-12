@@ -86,7 +86,7 @@
 <MudTabs Elevation="0" ApplyEffectsToContainer="true" Class="folder-styled-tabs mb-4">
     @* Tab 1: Range Statistics *@
     <MudTabPanel Text="Range Statistics" Icon="@Icons.Material.Filled.BarChart">
-        <MudPaper Class="pa-4 mb-4" Elevation="3">
+        <MudPaper Class="pa-4 mb-4" Elevation="3" @onkeydown="HandleRangeStatsKeyDown">
             <MudGrid>
                 @* Course *@
                 <MudItem xs="12" sm="6" md="3">
@@ -142,12 +142,12 @@
 
                 @* Start Date *@
                 <MudItem xs="12" sm="6" md="3">
-                    <MudDatePicker @bind-Date="startDate" Label="Start Date" Variant="Variant.Outlined" Clearable="true" Margin="Margin.Dense" Editable="true" DateFormat="MM/dd/yyyy" />
+                    <MudDatePicker @ref="rangeStartDatePicker" @bind-Date="startDate" Label="Start Date" Variant="Variant.Outlined" Clearable="true" Margin="Margin.Dense" Editable="true" DateFormat="MM/dd/yyyy" />
                 </MudItem>
 
                 @* End Date *@
                 <MudItem xs="12" sm="6" md="3">
-                    <MudDatePicker @bind-Date="endDate" Label="End Date" Variant="Variant.Outlined" Clearable="true" Margin="Margin.Dense" Editable="true" DateFormat="MM/dd/yyyy" />
+                    <MudDatePicker @ref="rangeEndDatePicker" @bind-Date="endDate" Label="End Date" Variant="Variant.Outlined" Clearable="true" Margin="Margin.Dense" Editable="true" DateFormat="MM/dd/yyyy" />
                 </MudItem>
 
                 @* Pass/Fail *@
@@ -390,7 +390,7 @@
 
     @* Tab 5: Firearm Search *@
     <MudTabPanel Text="Firearm Search" Icon="@Icons.Material.Filled.Search">
-        <MudPaper Class="pa-4 mb-4" Elevation="3">
+        <MudPaper Class="pa-4 mb-4" Elevation="3" @onkeydown="HandleFirearmKeyDown">
             <MudGrid>
                 @* Make *@
                 <MudItem xs="12" sm="6" md="3">
@@ -422,7 +422,8 @@
                                   Variant="Variant.Outlined"
                                   Margin="Margin.Dense"
                                   Clearable="true"
-                                  Immediate="true" />
+                                  Immediate="true"
+                                  OnKeyDown="HandleFirearmKeyDown" />
                 </MudItem>
 
                 @* Serial Number *@
@@ -433,7 +434,8 @@
                                   Variant="Variant.Outlined"
                                   Margin="Margin.Dense"
                                   Clearable="true"
-                                  Immediate="true" />
+                                  Immediate="true"
+                                  OnKeyDown="HandleFirearmKeyDown" />
                 </MudItem>
 
                 @* Search & Reset Filters *@
@@ -740,6 +742,19 @@
                     return true;
                 }).DistinctBy(x => x.RangeID));
 
+    private MudDatePicker? rangeStartDatePicker;
+    private MudDatePicker? rangeEndDatePicker;
+
+    private async Task HandleRangeStatsKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !isRangeStatsLoading)
+        {
+            if (rangeStartDatePicker != null) await rangeStartDatePicker.CloseAsync(false);
+            if (rangeEndDatePicker != null) await rangeEndDatePicker.CloseAsync(false);
+            await PerformRangeStatsSearch();
+        }
+    }
+
     private async Task PerformRangeStatsSearch()
     {
         errorMessage = null;
@@ -1039,6 +1054,14 @@
 
                 return true;
             });
+
+    private async Task HandleFirearmKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !isFirearmsLoading)
+        {
+            await PerformFirearmSearch();
+        }
+    }
 
     private async Task PerformFirearmSearch()
     {

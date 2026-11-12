@@ -310,7 +310,7 @@
                         }
                         else
                         {
-                            <MudText Color="Color.Secondary" Typo="Typo.caption" Class="d-flex align-center justify-center">â€”</MudText>
+                            <MudText Color="Color.Secondary" Typo="Typo.caption" Class="d-flex align-center justify-center">-</MudText>
                         }
                     </MudTd>
                     <MudTd DataLabel="Serial Number">
@@ -412,8 +412,7 @@
                                          CoerceText="true"
                                          CoerceValue="false"
                                          SelectValueOnTab="true"
-                                         MinCharacters="0"
-                                         @onkeydown="@(e => OnCourseKeyDown(e, row))" />
+                                         MinCharacters="0" />
 
                         @if (row.SelectedEmployee != null && !string.IsNullOrEmpty(row.SelectedEmployee.Unit))
                         {
@@ -884,9 +883,56 @@
             return Task.FromResult<IEnumerable<RangeCourseDTO>>(availableCourses);
         }
 
-        return Task.FromResult(availableCourses.Where(c =>
-            (!string.IsNullOrEmpty(c.CourseCode) && c.CourseCode.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
-            (!string.IsNullOrEmpty(c.CourseName) && c.CourseName.Contains(value, StringComparison.OrdinalIgnoreCase))));
+        var term = value.Trim();
+
+        // 1. Look for matching CourseCode first (e.g. typing "P" finds CourseCode == "P", then CourseCode starting with "P")
+        var codeMatches = availableCourses
+            .Where(c => !string.IsNullOrWhiteSpace(c.CourseCode) &&
+                        c.CourseCode.StartsWith(term, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(c => string.Equals(c.CourseCode, term, StringComparison.OrdinalIgnoreCase))
+            .ThenBy(c => c.SortOrder ?? int.MaxValue)
+            .ThenBy(c => c.CourseName)
+            .ToList();
+
+        if (codeMatches.Any())
+        {
+            return Task.FromResult<IEnumerable<RangeCourseDTO>>(codeMatches);
+        }
+
+        // 2. Next check if any CourseCode contains the search term
+        var codeContainsMatches = availableCourses
+            .Where(c => !string.IsNullOrWhiteSpace(c.CourseCode) &&
+                        c.CourseCode.Contains(term, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(c => c.SortOrder ?? int.MaxValue)
+            .ThenBy(c => c.CourseName)
+            .ToList();
+
+        if (codeContainsMatches.Any())
+        {
+            return Task.FromResult<IEnumerable<RangeCourseDTO>>(codeContainsMatches);
+        }
+
+        // 3. Fallback: Search by CourseName or FormattedCourse (starts with first, then contains)
+        var nameStartsWithMatches = availableCourses
+            .Where(c => (!string.IsNullOrWhiteSpace(c.CourseName) && c.CourseName.StartsWith(term, StringComparison.OrdinalIgnoreCase)) ||
+                        (!string.IsNullOrWhiteSpace(c.FormattedCourse) && c.FormattedCourse.StartsWith(term, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(c => c.SortOrder ?? int.MaxValue)
+            .ThenBy(c => c.CourseName)
+            .ToList();
+
+        if (nameStartsWithMatches.Any())
+        {
+            return Task.FromResult<IEnumerable<RangeCourseDTO>>(nameStartsWithMatches);
+        }
+
+        var nameContainsMatches = availableCourses
+            .Where(c => (!string.IsNullOrWhiteSpace(c.CourseName) && c.CourseName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                        (!string.IsNullOrWhiteSpace(c.FormattedCourse) && c.FormattedCourse.Contains(term, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(c => c.SortOrder ?? int.MaxValue)
+            .ThenBy(c => c.CourseName)
+            .ToList();
+
+        return Task.FromResult<IEnumerable<RangeCourseDTO>>(nameContainsMatches);
     }
 
     private List<string> GetAvailableSerials(ScoreEntryRow row)
@@ -902,18 +948,29 @@
     private Task<IEnumerable<string>> SearchRowSerials(ScoreEntryRow row, string value, CancellationToken cancellationToken)
     {
         var serials = GetAvailableSerials(row);
-        var options = new List<string> { NewFirearmOption };
-        options.AddRange(serials);
 
         if (string.IsNullOrWhiteSpace(value))
         {
+            var options = new List<string>(serials) { NewFirearmOption };
             return Task.FromResult<IEnumerable<string>>(options);
         }
 
-        return Task.FromResult(options.Where(s =>
-            s.Equals(NewFirearmOption, StringComparison.OrdinalIgnoreCase) ||
-            s.StartsWith(value, StringComparison.OrdinalIgnoreCase) ||
-            s.Contains(value, StringComparison.OrdinalIgnoreCase)));
+        var matchingSerials = serials
+            .Where(s => s.StartsWith(value, StringComparison.OrdinalIgnoreCase))
+            .Concat(serials.Where(s => !s.StartsWith(value, StringComparison.OrdinalIgnoreCase) && s.Contains(value, StringComparison.OrdinalIgnoreCase)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (matchingSerials.Any())
+        {
+            matchingSerials.Add(NewFirearmOption);
+        }
+        else if (NewFirearmOption.Contains(value, StringComparison.OrdinalIgnoreCase))
+        {
+            matchingSerials.Add(NewFirearmOption);
+        }
+
+        return Task.FromResult<IEnumerable<string>>(matchingSerials);
     }
 
     private async Task OnSerialSelected(ScoreEntryRow row, string? serial)

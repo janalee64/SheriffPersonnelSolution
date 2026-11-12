@@ -24,6 +24,36 @@ namespace SheriffPersonnel.API.Services
             _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
         }
 
+        private async Task<int?> ResolveOrCreateTrainingSchoolIdAsync(int? schoolId, string? schoolName)
+        {
+            if (schoolId.HasValue && schoolId.Value > 0)
+            {
+                return schoolId.Value;
+            }
+
+            if (string.IsNullOrWhiteSpace(schoolName))
+            {
+                return null;
+            }
+
+            var trimmedName = schoolName.Trim();
+            var schools = await _repository.GetTrainingSchoolsAsync();
+            var existingSchool = schools.FirstOrDefault(s => string.Equals(s.SchoolName?.Trim(), trimmedName, StringComparison.OrdinalIgnoreCase));
+            if (existingSchool != null)
+            {
+                return existingSchool.TrainingSchoolID;
+            }
+
+            var newSchool = new TrainingSchool
+            {
+                SchoolName = trimmedName,
+                IsActive = true
+            };
+
+            var createdSchool = await _repository.AddTrainingSchoolAsync(newSchool);
+            return createdSchool.TrainingSchoolID;
+        }
+
         private async Task<int> ResolveValidUserIdAsync(int userId)
         {
             if (userId > 0)
@@ -63,9 +93,23 @@ namespace SheriffPersonnel.API.Services
 
             if (dto.TrainingSessionID <= 0)
             {
+                if (!dto.BeginDate.HasValue)
+                {
+                    throw new ArgumentException("Start Date is required when creating a training session.", nameof(dto.BeginDate));
+                }
+                if (!dto.EndDate.HasValue)
+                {
+                    throw new ArgumentException("End Date is required when creating a training session.", nameof(dto.EndDate));
+                }
+                if (dto.BeginDate.Value > dto.EndDate.Value)
+                {
+                    throw new ArgumentException("End Date cannot be earlier than Start Date.", nameof(dto.EndDate));
+                }
+
+                int? schoolId = await ResolveOrCreateTrainingSchoolIdAsync(dto.TrainingSchoolID, dto.SchoolName);
                 var session = new TrainingSession
                 {
-                    TrainingSchoolID = dto.TrainingSchoolID,
+                    TrainingSchoolID = schoolId,
                     Location = dto.Location,
                     Instructor = dto.Instructor,
                     BeginDate = dto.BeginDate,
@@ -105,9 +149,23 @@ namespace SheriffPersonnel.API.Services
 
             if (dto.TrainingSessionID <= 0)
             {
+                if (!dto.BeginDate.HasValue)
+                {
+                    throw new ArgumentException("Start Date is required when creating a training session.", nameof(dto.BeginDate));
+                }
+                if (!dto.EndDate.HasValue)
+                {
+                    throw new ArgumentException("End Date is required when creating a training session.", nameof(dto.EndDate));
+                }
+                if (dto.BeginDate.Value > dto.EndDate.Value)
+                {
+                    throw new ArgumentException("End Date cannot be earlier than Start Date.", nameof(dto.EndDate));
+                }
+
+                int? schoolId = await ResolveOrCreateTrainingSchoolIdAsync(dto.TrainingSchoolID, dto.SchoolName);
                 var session = new TrainingSession
                 {
-                    TrainingSchoolID = dto.TrainingSchoolID,
+                    TrainingSchoolID = schoolId,
                     Location = dto.Location,
                     Instructor = dto.Instructor,
                     BeginDate = dto.BeginDate,
@@ -184,9 +242,11 @@ namespace SheriffPersonnel.API.Services
         {
             if (dto == null) throw new ArgumentNullException(nameof(dto));
 
+            int? schoolId = await ResolveOrCreateTrainingSchoolIdAsync(dto.TrainingSchoolID, dto.SchoolName);
+
             var entity = new TrainingSession
             {
-                TrainingSchoolID = dto.TrainingSchoolID,
+                TrainingSchoolID = schoolId,
                 Location = dto.Location,
                 Instructor = dto.Instructor,
                 BeginDate = dto.BeginDate,
@@ -216,7 +276,9 @@ namespace SheriffPersonnel.API.Services
             var existing = await _repository.GetTrainingSessionByIdAsync(id);
             if (existing == null) return null;
 
-            existing.TrainingSchoolID = dto.TrainingSchoolID;
+            int? schoolId = await ResolveOrCreateTrainingSchoolIdAsync(dto.TrainingSchoolID, dto.SchoolName);
+
+            existing.TrainingSchoolID = schoolId;
             existing.Location = dto.Location;
             existing.Instructor = dto.Instructor;
             existing.BeginDate = dto.BeginDate;

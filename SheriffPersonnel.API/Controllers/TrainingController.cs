@@ -71,6 +71,11 @@ namespace SheriffPersonnel.API.Controllers
                 var created = await _trainingService.CreateEmployeeTrainingAsync(dto);
                 return CreatedAtAction(nameof(GetEmployeeTrainingById), new { id = created.EmployeeTrainingID }, created);
             }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Validation error creating employee training record: {Message}", ex.Message);
+                return BadRequest(ex.Message);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating employee training record.");
@@ -91,6 +96,11 @@ namespace SheriffPersonnel.API.Controllers
                 if (updated == null) return NotFound($"Employee training record with ID {id} was not found.");
 
                 return Ok(updated);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Validation error updating employee training record: {Message}", ex.Message);
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {

@@ -49,6 +49,9 @@ try
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
     builder.Services.AddProblemDetails();
 
+    // Add Memory Cache
+    builder.Services.AddMemoryCache();
+
     // Add MudBlazor services
     builder.Services.AddMudServices();
 

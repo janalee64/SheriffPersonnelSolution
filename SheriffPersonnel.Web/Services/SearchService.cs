@@ -1,6 +1,8 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Identity.Abstractions;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Identity.Web;
@@ -13,15 +15,34 @@ namespace SheriffPersonnel.Web.Services
         private readonly IDownstreamApi _downstreamApi;
         private readonly MicrosoftIdentityConsentAndConditionalAccessHandler _consentHandler;
         private readonly Microsoft.Extensions.Logging.ILogger<SearchService> _logger;
+        private readonly IMemoryCache? _cache;
 
         public SearchService(
             IDownstreamApi downstreamApi,
             MicrosoftIdentityConsentAndConditionalAccessHandler consentHandler,
-            Microsoft.Extensions.Logging.ILogger<SearchService> logger)
+            Microsoft.Extensions.Logging.ILogger<SearchService> logger,
+            IMemoryCache? cache = null)
         {
             _downstreamApi = downstreamApi ?? throw new ArgumentNullException(nameof(downstreamApi));
             _consentHandler = consentHandler ?? throw new ArgumentNullException(nameof(consentHandler));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _cache = cache;
+        }
+
+        private async Task<IEnumerable<T>> GetCachedOrFetchAsync<T>(string cacheKey, Func<Task<IEnumerable<T>>> fetchFunc, TimeSpan? duration = null)
+        {
+            if (_cache != null && _cache.TryGetValue(cacheKey, out IEnumerable<T>? cached) && cached != null)
+            {
+                return cached;
+            }
+
+            var result = await fetchFunc();
+            var list = result as List<T> ?? result.ToList();
+            if (_cache != null && list.Count > 0)
+            {
+                _cache.Set(cacheKey, (IEnumerable<T>)list, duration ?? TimeSpan.FromMinutes(30));
+            }
+            return list;
         }
 
         public async Task<IEnumerable<EmployeeSearchResultDto>> SearchEmployeesAsync(EmployeeSearchRequestDto request)
@@ -61,36 +82,39 @@ namespace SheriffPersonnel.Web.Services
 
         public async Task<IEnumerable<StatusesDto>> GetAvailableStatusesAsync()
         {
-            try
+            return await GetCachedOrFetchAsync("SearchService_Statuses", async () =>
             {
-                _logger.LogInformation("Invoking downstream API for available employee statuses.");
+                try
+                {
+                    _logger.LogInformation("Invoking downstream API for available employee statuses.");
 
-                var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<StatusesDto>>(
-                    "MyCustomApi",
-                    options =>
-                    {
-                        options.HttpMethod = HttpMethod.Get.Method;
-                        options.RelativePath = "api/employee/search/statuses";
-                    });
+                    var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<StatusesDto>>(
+                        "MyCustomApi",
+                        options =>
+                        {
+                            options.HttpMethod = HttpMethod.Get.Method;
+                            options.RelativePath = "api/employee/search/statuses";
+                        });
 
-                return response ?? Array.Empty<StatusesDto>();
-            }
-            catch (MicrosoftIdentityWebChallengeUserException ex)
-            {
-                _logger.LogWarning(ex, "Entra ID user challenge/consent required during GetAvailableStatusesAsync.");
-                _consentHandler.HandleException(ex);
-                throw;
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogError(ex, "HTTP request failure during GetAvailableStatusesAsync downstream API call. StatusCode: {StatusCode}", ex.StatusCode);
-                return Array.Empty<StatusesDto>();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unhandled error occurred in GetAvailableStatusesAsync.");
-                return Array.Empty<StatusesDto>();
-            }
+                    return response ?? Array.Empty<StatusesDto>();
+                }
+                catch (MicrosoftIdentityWebChallengeUserException ex)
+                {
+                    _logger.LogWarning(ex, "Entra ID user challenge/consent required during GetAvailableStatusesAsync.");
+                    _consentHandler.HandleException(ex);
+                    throw;
+                }
+                catch (HttpRequestException ex)
+                {
+                    _logger.LogError(ex, "HTTP request failure during GetAvailableStatusesAsync downstream API call. StatusCode: {StatusCode}", ex.StatusCode);
+                    return Array.Empty<StatusesDto>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Unhandled error occurred in GetAvailableStatusesAsync.");
+                    return Array.Empty<StatusesDto>();
+                }
+            });
         }
 
         public async Task<EmployeeDetailDto?> GetEmployeeByIdAsync(int id)
@@ -304,62 +328,71 @@ namespace SheriffPersonnel.Web.Services
 
         public async Task<IEnumerable<ProgramsDto>> GetProgramsAsync()
         {
-            try
+            return await GetCachedOrFetchAsync("SearchService_Programs", async () =>
             {
-                var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<ProgramsDto>>(
-                    "MyCustomApi",
-                    options =>
-                    {
-                        options.HttpMethod = HttpMethod.Get.Method;
-                        options.RelativePath = "api/employeechanges/programs";
-                    });
-                return response ?? Array.Empty<ProgramsDto>();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching programs via downstream API.");
-                return Array.Empty<ProgramsDto>();
-            }
+                try
+                {
+                    var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<ProgramsDto>>(
+                        "MyCustomApi",
+                        options =>
+                        {
+                            options.HttpMethod = HttpMethod.Get.Method;
+                            options.RelativePath = "api/employeechanges/programs";
+                        });
+                    return response ?? Array.Empty<ProgramsDto>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error fetching programs via downstream API.");
+                    return Array.Empty<ProgramsDto>();
+                }
+            });
         }
 
         public async Task<IEnumerable<RanksDto>> GetRanksAsync()
         {
-            try
+            return await GetCachedOrFetchAsync("SearchService_Ranks", async () =>
             {
-                var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<RanksDto>>(
-                    "MyCustomApi",
-                    options =>
-                    {
-                        options.HttpMethod = HttpMethod.Get.Method;
-                        options.RelativePath = "api/employeechanges/ranks";
-                    });
-                return response ?? Array.Empty<RanksDto>();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching ranks via downstream API.");
-                return Array.Empty<RanksDto>();
-            }
+                try
+                {
+                    var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<RanksDto>>(
+                        "MyCustomApi",
+                        options =>
+                        {
+                            options.HttpMethod = HttpMethod.Get.Method;
+                            options.RelativePath = "api/employeechanges/ranks";
+                        });
+                    return response ?? Array.Empty<RanksDto>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error fetching ranks via downstream API.");
+                    return Array.Empty<RanksDto>();
+                }
+            });
         }
 
         public async Task<IEnumerable<UnitsDto>> GetUnitsAsync()
         {
-            try
+            return await GetCachedOrFetchAsync("SearchService_Units", async () =>
             {
-                var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<UnitsDto>>(
-                    "MyCustomApi",
-                    options =>
-                    {
-                        options.HttpMethod = HttpMethod.Get.Method;
-                        options.RelativePath = "api/employeechanges/units";
-                    });
-                return response ?? Array.Empty<UnitsDto>();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching units via downstream API.");
-                return Array.Empty<UnitsDto>();
-            }
+                try
+                {
+                    var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<UnitsDto>>(
+                        "MyCustomApi",
+                        options =>
+                        {
+                            options.HttpMethod = HttpMethod.Get.Method;
+                            options.RelativePath = "api/employeechanges/units";
+                        });
+                    return response ?? Array.Empty<UnitsDto>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error fetching units via downstream API.");
+                    return Array.Empty<UnitsDto>();
+                }
+            });
         }
 
         public async Task<IEnumerable<EmployeeInventoryAssignmentsDto>> GetAllInventoryAssignmentsAsync(
@@ -778,22 +811,25 @@ namespace SheriffPersonnel.Web.Services
 
         public async Task<IEnumerable<MakesDto>> GetMakesAsync()
         {
-            try
+            return await GetCachedOrFetchAsync("SearchService_Makes", async () =>
             {
-                var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<MakesDto>>(
-                    "MyCustomApi",
-                    options =>
-                    {
-                        options.HttpMethod = HttpMethod.Get.Method;
-                        options.RelativePath = "api/firearms/makes";
-                    });
-                return response ?? Array.Empty<MakesDto>();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching firearm makes via downstream API.");
-                return Array.Empty<MakesDto>();
-            }
+                try
+                {
+                    var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<MakesDto>>(
+                        "MyCustomApi",
+                        options =>
+                        {
+                            options.HttpMethod = HttpMethod.Get.Method;
+                            options.RelativePath = "api/firearms/makes";
+                        });
+                    return response ?? Array.Empty<MakesDto>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error fetching firearm makes via downstream API.");
+                    return Array.Empty<MakesDto>();
+                }
+            });
         }
 
         public async Task<IEnumerable<RangeStatisticDTO>> GetRangeStatisticsAsync(
@@ -985,42 +1021,48 @@ namespace SheriffPersonnel.Web.Services
 
         public async Task<IEnumerable<RangeCourseDTO>> GetRangeCoursesAsync()
         {
-            try
+            return await GetCachedOrFetchAsync("SearchService_RangeCourses", async () =>
             {
-                var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<RangeCourseDTO>>(
-                    "MyCustomApi",
-                    options =>
-                    {
-                        options.HttpMethod = HttpMethod.Get.Method;
-                        options.RelativePath = "api/rangestatistics/courses";
-                    });
-                return response ?? Array.Empty<RangeCourseDTO>();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching range courses via downstream API.");
-                return Array.Empty<RangeCourseDTO>();
-            }
+                try
+                {
+                    var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<RangeCourseDTO>>(
+                        "MyCustomApi",
+                        options =>
+                        {
+                            options.HttpMethod = HttpMethod.Get.Method;
+                            options.RelativePath = "api/rangestatistics/courses";
+                        });
+                    return response ?? Array.Empty<RangeCourseDTO>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error fetching range courses via downstream API.");
+                    return Array.Empty<RangeCourseDTO>();
+                }
+            });
         }
 
         public async Task<IEnumerable<RangeEventDTO>> GetRangeEventsAsync()
         {
-            try
+            return await GetCachedOrFetchAsync("SearchService_RangeEvents", async () =>
             {
-                var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<RangeEventDTO>>(
-                    "MyCustomApi",
-                    options =>
-                    {
-                        options.HttpMethod = HttpMethod.Get.Method;
-                        options.RelativePath = "api/rangestatistics/events";
-                    });
-                return response ?? Array.Empty<RangeEventDTO>();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching range events via downstream API.");
-                return Array.Empty<RangeEventDTO>();
-            }
+                try
+                {
+                    var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<RangeEventDTO>>(
+                        "MyCustomApi",
+                        options =>
+                        {
+                            options.HttpMethod = HttpMethod.Get.Method;
+                            options.RelativePath = "api/rangestatistics/events";
+                        });
+                    return response ?? Array.Empty<RangeEventDTO>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error fetching range events via downstream API.");
+                    return Array.Empty<RangeEventDTO>();
+                }
+            });
         }
 
         public async Task<RangeEventDTO?> CreateRangeEventAsync(RangeEventDTO dto)
@@ -1468,29 +1510,32 @@ namespace SheriffPersonnel.Web.Services
 
         public async Task<IEnumerable<DocumentTypeDto>> GetDocumentTypesAsync()
         {
-            try
+            return await GetCachedOrFetchAsync("SearchService_DocumentTypes", async () =>
             {
-                _logger.LogInformation("Invoking downstream API for document types.");
-                var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<DocumentTypeDto>>(
-                    "MyCustomApi",
-                    options =>
-                    {
-                        options.HttpMethod = HttpMethod.Get.Method;
-                        options.RelativePath = "api/documents/types";
-                    });
+                try
+                {
+                    _logger.LogInformation("Invoking downstream API for document types.");
+                    var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<DocumentTypeDto>>(
+                        "MyCustomApi",
+                        options =>
+                        {
+                            options.HttpMethod = HttpMethod.Get.Method;
+                            options.RelativePath = "api/documents/types";
+                        });
 
-                return response ?? Array.Empty<DocumentTypeDto>();
-            }
-            catch (MicrosoftIdentityWebChallengeUserException ex)
-            {
-                _consentHandler.HandleException(ex);
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to get document types.");
-                return Array.Empty<DocumentTypeDto>();
-            }
+                    return response ?? Array.Empty<DocumentTypeDto>();
+                }
+                catch (MicrosoftIdentityWebChallengeUserException ex)
+                {
+                    _consentHandler.HandleException(ex);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to get document types.");
+                    return Array.Empty<DocumentTypeDto>();
+                }
+            });
         }
 
         public async Task<EmployeeDocumentDto?> UploadDocumentAsync(EmployeeDocumentDto dto)

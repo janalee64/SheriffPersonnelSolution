@@ -131,6 +131,12 @@
         </MudText>
     </TitleContent>
     <DialogContent>
+        @if (!string.IsNullOrEmpty(dialogErrorMessage))
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-3" Dense="true" CloseIconClicked="() => dialogErrorMessage = null">
+                @dialogErrorMessage
+            </MudAlert>
+        }
         <EditForm Model="userFormModel" OnValidSubmit="SaveUserAsync">
             <DataAnnotationsValidator />
 
@@ -164,6 +170,10 @@
                                     <MudItem xs="12" sm="6">
                                         <MudCheckBox T="bool" Value="@IsRoleSelected(role.RoleID)" ValueChanged="@((bool selected) => ToggleRoleSelection(role.RoleID, selected))" Color="Color.Primary">
                                             <b>@role.RoleName</b>
+                                            @if (IsPersonnelViewRole(role))
+                                            {
+                                                <MudText Typo="Typo.caption" Color="Color.Error" Class="ml-1 font-weight-bold">(Required)</MudText>
+                                            }
                                             @if (!string.IsNullOrWhiteSpace(role.RoleDescription))
                                             {
                                                 <MudText Typo="Typo.caption" Class="d-block text-muted">@role.RoleDescription</MudText>
@@ -224,11 +234,14 @@
 </MudDialog>
 
 @code {
+    private const string PersonnelViewRoleName = "Personnel View";
+
     private List<UserDTO> users = new();
     private List<RoleDTO> availableRoles = new();
     private string searchString = string.Empty;
     private bool isLoading = false;
     private string? errorMessage;
+    private string? dialogErrorMessage;
 
     // Add / Edit Dialog state
     private bool isDialogVisible = false;
@@ -262,6 +275,15 @@
 
             users = (await userListTask).ToList();
             availableRoles = (await roleListTask).ToList();
+
+            if (!isEditMode && isDialogVisible)
+            {
+                var pv = GetPersonnelViewRole();
+                if (pv != null && !userFormModel.RoleIDs.Contains(pv.RoleID))
+                {
+                    userFormModel.RoleIDs.Add(pv.RoleID);
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -293,10 +315,19 @@
     private void OpenCreateDialog()
     {
         isEditMode = false;
+        dialogErrorMessage = null;
+
+        var defaultRoleIds = new List<int>();
+        var personnelViewRole = GetPersonnelViewRole();
+        if (personnelViewRole != null)
+        {
+            defaultRoleIds.Add(personnelViewRole.RoleID);
+        }
+
         userFormModel = new UserFormModel
         {
             IsActive = true,
-            RoleIDs = new List<int>()
+            RoleIDs = defaultRoleIds
         };
         isDialogVisible = true;
     }
@@ -304,6 +335,7 @@
     private void OpenEditDialog(UserDTO user)
     {
         isEditMode = true;
+        dialogErrorMessage = null;
         editingUser = user;
         userFormModel = new UserFormModel
         {
@@ -321,6 +353,7 @@
     private void CloseDialog()
     {
         isDialogVisible = false;
+        dialogErrorMessage = null;
     }
 
     private bool IsRoleSelected(int roleId)
@@ -333,18 +366,61 @@
         if (isSelected && !userFormModel.RoleIDs.Contains(roleId))
         {
             userFormModel.RoleIDs.Add(roleId);
+            if (IsPersonnelViewRoleId(roleId))
+            {
+                dialogErrorMessage = null;
+            }
         }
         else if (!isSelected && userFormModel.RoleIDs.Contains(roleId))
         {
             userFormModel.RoleIDs.Remove(roleId);
+            if (IsPersonnelViewRoleId(roleId))
+            {
+                dialogErrorMessage = $"The '{PersonnelViewRoleName}' role is required and must be checked.";
+            }
         }
+    }
+
+    private RoleDTO? GetPersonnelViewRole() =>
+        availableRoles.FirstOrDefault(r => string.Equals(r.RoleName?.Trim(), PersonnelViewRoleName, StringComparison.OrdinalIgnoreCase));
+
+    private bool IsPersonnelViewRole(RoleDTO role) =>
+        string.Equals(role.RoleName?.Trim(), PersonnelViewRoleName, StringComparison.OrdinalIgnoreCase);
+
+    private bool IsPersonnelViewRoleId(int roleId)
+    {
+        var pv = GetPersonnelViewRole();
+        return pv != null && pv.RoleID == roleId;
     }
 
     private async Task SaveUserAsync()
     {
+        dialogErrorMessage = null;
+
         if (string.IsNullOrWhiteSpace(userFormModel.DisplayName) || string.IsNullOrWhiteSpace(userFormModel.UserPrincipalName))
         {
+            dialogErrorMessage = "Please fill out all required fields.";
             Snackbar.Add("Please fill out all required fields.", Severity.Warning);
+            return;
+        }
+
+        if (availableRoles.Count == 0)
+        {
+            try
+            {
+                availableRoles = (await UserService.GetRolesAsync()).ToList();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Failed to reload roles during user save.");
+            }
+        }
+
+        var personnelViewRole = GetPersonnelViewRole();
+        if (personnelViewRole != null && !userFormModel.RoleIDs.Contains(personnelViewRole.RoleID))
+        {
+            dialogErrorMessage = $"The '{PersonnelViewRoleName}' role is required and must be checked.";
+            Snackbar.Add($"The '{PersonnelViewRoleName}' role is required.", Severity.Warning);
             return;
         }
 

@@ -135,15 +135,12 @@
                     <MudNumericField T="int" @bind-Value="assignmentQuantity" Label="Quantity Per Employee *" Variant="Variant.Outlined" Min="1" Required="true" />
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudTextField @bind-Value="serialNumber" Label="Serial Number" Variant="Variant.Outlined" MaxLength="100" HelperText="Optional (applies to assigned records)" />
-                </MudItem>
-                <MudItem xs="12" sm="6">
                     <MudDatePicker @bind-Date="expireDate" Label="Expire Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" />
                 </MudItem>
                 <MudItem xs="12" sm="6">
                     <MudDatePicker @bind-Date="returnDate" Label="Return Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" />
                 </MudItem>
-                <MudItem xs="12" sm="6">
+                <MudItem xs="12">
                     <MudTextField @bind-Value="notes" Label="Notes" Variant="Variant.Outlined" MaxLength="255" />
                 </MudItem>
             </MudGrid>
@@ -296,7 +293,6 @@
     // Assignment Details fields
     private DateTime? issueDate = DateTime.Today;
     private int assignmentQuantity = 1;
-    private string? serialNumber;
     private DateTime? expireDate;
     private DateTime? returnDate;
     private string? notes;
@@ -495,6 +491,8 @@
 
     private async Task SubmitAssignmentAsync()
     {
+        if (isAssigning) return;
+
         if (selectedInventoryIds.Count == 0)
         {
             Snackbar.Add("Please select at least one equipment item.", Severity.Warning);
@@ -510,6 +508,7 @@
         isAssigning = true;
         errorMessage = null;
         lastResult = null;
+        StateHasChanged();
 
         try
         {
@@ -519,7 +518,6 @@
                 InventoryIDs = selectedInventoryIds.ToList(),
                 IssueDate = issueDate ?? DateTime.Today,
                 Quantity = assignmentQuantity > 0 ? assignmentQuantity : 1,
-                SerialNumber = serialNumber,
                 ExpireDate = expireDate,
                 ReturnDate = returnDate,
                 Notes = notes
@@ -527,10 +525,23 @@
 
             var result = await SearchService.AssignMultipleEquipmentAsync(request);
 
-            if (result != null)
+            if (result != null && result.TotalAssignmentsCreated > 0)
             {
                 lastResult = result;
                 Snackbar.Add($"Successfully assigned {result.TotalItemsAssigned} equipment item(s) to {result.TotalEmployeesAssigned} employee(s)!", Severity.Success);
+
+                // Clear selections to deactivate the Assign button and prevent accidental duplicate assignments
+                selectedInventoryIds.Clear();
+                selectedEmployeeIds.Clear();
+                notes = null;
+                expireDate = null;
+                returnDate = null;
+                assignmentQuantity = 1;
+            }
+            else if (result != null)
+            {
+                lastResult = result;
+                Snackbar.Add("No equipment assignments were created.", Severity.Warning);
             }
             else
             {
@@ -546,6 +557,7 @@
         finally
         {
             isAssigning = false;
+            StateHasChanged();
         }
     }
 }

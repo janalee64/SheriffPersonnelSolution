@@ -123,9 +123,9 @@ namespace SheriffPersonnel.API.Services
                 var issueDate = request.IssueDate != default ? request.IssueDate : DateTime.Now;
                 var qty = request.Quantity > 0 ? request.Quantity : 1;
 
-                foreach (var empId in request.EmployeeIDs)
+                foreach (var empId in request.EmployeeIDs.Distinct())
                 {
-                    foreach (var invId in request.InventoryIDs)
+                    foreach (var invId in request.InventoryIDs.Distinct())
                     {
                         assignments.Add(new EmployeeInventoryAssignment
                         {

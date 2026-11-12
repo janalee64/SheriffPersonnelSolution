@@ -281,7 +281,7 @@
                 </MudItem>
                 <MudItem xs="12" sm="4" md="4" Class="d-flex align-center">
                     <MudCheckBox T="bool" @bind-Value="showLowStockOnly" Color="Color.Warning" Dense="true">
-                        At or Below Reorder Point Only (Quantity â‰¤ Reorder)
+                        At or Below Reorder Point Only (Quantity &le; Reorder)
                     </MudCheckBox>
                 </MudItem>
             </MudGrid>
@@ -338,7 +338,7 @@
 
     @* 6. Assigned *@
     <MudTabPanel Text="Assigned" Icon="@Icons.Material.Filled.AssignmentInd">
-        <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudPaper Class="pa-4 mb-4" Elevation="1" @onkeydown="HandleAssignedKeyDown">
             <MudGrid>
                 <MudItem xs="12" sm="6" md="4">
                     <MudAutocomplete T="string"
@@ -353,6 +353,8 @@
                                      CoerceValue="true"
                                      Adornment="Adornment.Start"
                                      AdornmentIcon="@Icons.Material.Filled.Search"
+                                     Immediate="true"
+                                     OnKeyDown="HandleAssignedKeyDown"
                                      Clearable="true" />
                 </MudItem>
                 <MudItem xs="12" sm="6" md="4">
@@ -375,10 +377,10 @@
                 </MudItem>
 
                 <MudItem xs="12" sm="6" md="4">
-                    <MudDatePicker @bind-Date="assignedStartDate" Label="Start Date" Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="MM/dd/yyyy" Clearable="true" Editable="true" />
+                    <MudDatePicker @ref="assignedStartDatePicker" @bind-Date="assignedStartDate" Label="Start Date" Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="MM/dd/yyyy" Clearable="true" Editable="true" />
                 </MudItem>
                 <MudItem xs="12" sm="6" md="4">
-                    <MudDatePicker @bind-Date="assignedEndDate" Label="End Date" Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="MM/dd/yyyy" Clearable="true" Editable="true" />
+                    <MudDatePicker @ref="assignedEndDatePicker" @bind-Date="assignedEndDate" Label="End Date" Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="MM/dd/yyyy" Clearable="true" Editable="true" />
                 </MudItem>
                 <MudItem xs="12" sm="12" md="4" Class="d-flex align-center gap-2">
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search" OnClick="PerformAssignedSearch">
@@ -698,6 +700,19 @@
     private List<string> cachedProductNames = new();
 
     private IEnumerable<EmployeeInventoryAssignmentsDto> FilteredAssignedItems => assignedItems;
+
+    private MudDatePicker? assignedStartDatePicker;
+    private MudDatePicker? assignedEndDatePicker;
+
+    private async Task HandleAssignedKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !isLoading)
+        {
+            if (assignedStartDatePicker != null) await assignedStartDatePicker.CloseAsync(false);
+            if (assignedEndDatePicker != null) await assignedEndDatePicker.CloseAsync(false);
+            await PerformAssignedSearch();
+        }
+    }
 
     private async Task PerformAssignedSearch()
     {

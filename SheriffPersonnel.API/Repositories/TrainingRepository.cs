@@ -132,6 +132,15 @@ namespace SheriffPersonnel.API.Repositories
                 .ToListAsync();
         }
 
+        public async Task<TrainingSchool> AddTrainingSchoolAsync(TrainingSchool school)
+        {
+            if (school == null) throw new ArgumentNullException(nameof(school));
+
+            await _dbContext.TrainingSchools.AddAsync(school);
+            await _dbContext.SaveChangesAsync();
+            return school;
+        }
+
         public async Task<IEnumerable<EmployeeTraining>> GetTrainingBySchoolAsync(TrainingBySchoolRequestDto request)
         {
             if (request == null) throw new ArgumentNullException(nameof(request));

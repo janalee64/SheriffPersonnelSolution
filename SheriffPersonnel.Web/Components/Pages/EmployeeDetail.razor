@@ -106,7 +106,7 @@ else
     <EditForm Model="@employee" OnValidSubmit="HandleSave">
         <DataAnnotationsValidator />
 
-        <MudTabs @bind-ActivePanelIndex="activeTabIndex" Elevation="0" ApplyEffectsToContainer="true" Class="folder-styled-tabs mb-4">
+        <MudTabs ActivePanelIndex="@activeTabIndex" ActivePanelIndexChanged="OnTabChangedAsync" Elevation="0" ApplyEffectsToContainer="true" Class="folder-styled-tabs mb-4">
             <MudTabPanel Text="Employee Details" Icon="@Icons.Material.Filled.Person">
                 <MudStack Spacing="4" Class="mt-4">
                     <!-- Personal Information -->
@@ -248,27 +248,45 @@ else
             @if (IsEdit)
             {
                 <MudTabPanel Text="Employee History" Icon="@Icons.Material.Filled.History">
-                    <EmployeeHistoryTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailablePrograms="@availablePrograms" AvailableRanks="@availableRanks" AvailableUnits="@availableUnits" />
+                    @if (visitedTabs.Contains(1))
+                    {
+                        <EmployeeHistoryTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailablePrograms="@availablePrograms" AvailableRanks="@availableRanks" AvailableUnits="@availableUnits" />
+                    }
                 </MudTabPanel>
 
                 <MudTabPanel Text="Inventory Assignments" Icon="@Icons.Material.Filled.Inventory">
-                    <EmployeeInventoryTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableInventoryItems="@availableInventoryItems" />
+                    @if (visitedTabs.Contains(2))
+                    {
+                        <EmployeeInventoryTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableInventoryItems="@availableInventoryItems" />
+                    }
                 </MudTabPanel>
 
                 <MudTabPanel Text="Firearms" Icon="@Icons.Material.Filled.Security">
-                    <EmployeeFirearmsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableMakes="@availableMakes" AvailableStatuses="@availableStatuses" />
+                    @if (visitedTabs.Contains(3))
+                    {
+                        <EmployeeFirearmsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableMakes="@availableMakes" AvailableStatuses="@availableStatuses" />
+                    }
                 </MudTabPanel>
 
                 <MudTabPanel Text="Range Statistics" Icon="@Icons.Material.Filled.SportsScore">
-                    <EmployeeRangeStatisticsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableCourses="@availableRangeCourses" AvailableEvents="@availableRangeEvents" AvailableFirearms="@availableFirearms" />
+                    @if (visitedTabs.Contains(4))
+                    {
+                        <EmployeeRangeStatisticsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableCourses="@availableRangeCourses" AvailableEvents="@availableRangeEvents" />
+                    }
                 </MudTabPanel>
 
                 <MudTabPanel Text="Trainings" Icon="@Icons.Material.Filled.School">
-                    <EmployeeTrainingsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableTrainingSessions="@availableTrainingSessions" />
+                    @if (visitedTabs.Contains(5))
+                    {
+                        <EmployeeTrainingsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableTrainingSessions="@availableTrainingSessions" />
+                    }
                 </MudTabPanel>
 
                 <MudTabPanel Text="Documents" Icon="@Icons.Material.Filled.InsertDriveFile">
-                    <EmployeeDocumentsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" />
+                    @if (visitedTabs.Contains(6))
+                    {
+                        <EmployeeDocumentsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" />
+                    }
                 </MudTabPanel>
             }
 
@@ -305,6 +323,7 @@ else
     private Task<AuthenticationState>? authenticationStateTask { get; set; }
 
     private int activeTabIndex = 0;
+    private readonly HashSet<int> visitedTabs = new() { 0 };
 
     private bool canEditEmployee = false;
     private bool IsEdit => Id.HasValue && Id.Value > 0;
@@ -322,7 +341,6 @@ else
     private IEnumerable<MakesDto>? availableMakes;
     private IEnumerable<RangeCourseDTO>? availableRangeCourses;
     private IEnumerable<RangeEventDTO>? availableRangeEvents;
-    private IEnumerable<FirearmsDto>? availableFirearms;
     private IEnumerable<TrainingSessionsDto>? availableTrainingSessions;
 
     private bool isLoading = true;
@@ -338,7 +356,71 @@ else
     {
         if (Id.HasValue && employee.EmployeeID != Id.Value)
         {
+            activeTabIndex = 0;
+            visitedTabs.Clear();
+            visitedTabs.Add(0);
             await LoadDataAsync();
+        }
+    }
+
+    private async Task OnTabChangedAsync(int newIndex)
+    {
+        activeTabIndex = newIndex;
+        visitedTabs.Add(newIndex);
+        await LoadTabLookupsAsync(newIndex);
+    }
+
+    private async Task LoadTabLookupsAsync(int tabIndex)
+    {
+        try
+        {
+            switch (tabIndex)
+            {
+                case 1: // History
+                    if (availablePrograms == null || availableRanks == null || availableUnits == null)
+                    {
+                        var programsTask = availablePrograms == null ? service.GetProgramsAsync() : Task.FromResult(availablePrograms);
+                        var ranksTask = availableRanks == null ? service.GetRanksAsync() : Task.FromResult(availableRanks);
+                        var unitsTask = availableUnits == null ? service.GetUnitsAsync() : Task.FromResult(availableUnits);
+                        await Task.WhenAll(programsTask, ranksTask, unitsTask);
+                        availablePrograms = await programsTask;
+                        availableRanks = await ranksTask;
+                        availableUnits = await unitsTask;
+                    }
+                    break;
+                case 2: // Inventory
+                    if (availableInventoryItems == null)
+                    {
+                        availableInventoryItems = await service.GetInventoryItemsAsync(onlyActive: true);
+                    }
+                    break;
+                case 3: // Firearms
+                    if (availableMakes == null)
+                    {
+                        availableMakes = await service.GetMakesAsync();
+                    }
+                    break;
+                case 4: // Range Statistics
+                    if (availableRangeCourses == null || availableRangeEvents == null)
+                    {
+                        var coursesTask = availableRangeCourses == null ? service.GetRangeCoursesAsync() : Task.FromResult(availableRangeCourses);
+                        var eventsTask = availableRangeEvents == null ? service.GetRangeEventsAsync() : Task.FromResult(availableRangeEvents);
+                        await Task.WhenAll(coursesTask, eventsTask);
+                        availableRangeCourses = await coursesTask;
+                        availableRangeEvents = await eventsTask;
+                    }
+                    break;
+                case 5: // Trainings
+                    if (availableTrainingSessions == null)
+                    {
+                        availableTrainingSessions = await service.GetTrainingSessionsAsync();
+                    }
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading lookup data for tab index {TabIndex}.", tabIndex);
         }
     }
 
@@ -376,21 +458,20 @@ else
                 Navigation.NavigateTo("/");
                 return;
             }
-            availableStatuses = await service.GetAvailableStatusesAsync();
-            availablePrograms = await service.GetProgramsAsync();
-            availableRanks = await service.GetRanksAsync();
-            availableUnits = await service.GetUnitsAsync();
-            availableInventoryItems = await service.GetInventoryItemsAsync(onlyActive: true);
-            availableMakes = await service.GetMakesAsync();
-            availableRangeCourses = await service.GetRangeCoursesAsync();
-            availableRangeEvents = await service.GetRangeEventsAsync();
-            availableTrainingSessions = await service.GetTrainingSessionsAsync();
+            // Fetch only what is needed for the initial Employee Details tab in parallel
+            var statusesTask = service.GetAvailableStatusesAsync();
+            var employeeTask = IsEdit
+                ? service.GetEmployeeByIdAsync(Id!.Value)
+                : Task.FromResult<EmployeeDetailDto?>(null);
+
+            await Task.WhenAll(statusesTask, employeeTask);
+
+            availableStatuses = await statusesTask;
 
             if (IsEdit)
             {
-                availableFirearms = await service.GetFirearmsByEmployeeIdAsync(Id!.Value);
                 logger.LogInformation("Loading employee details for ID {EmployeeID}.", Id!.Value);
-                var fetched = await service.GetEmployeeByIdAsync(Id.Value);
+                var fetched = await employeeTask;
 
 
                 if (fetched == null)

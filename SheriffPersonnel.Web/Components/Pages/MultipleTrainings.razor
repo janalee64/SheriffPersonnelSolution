@@ -266,11 +266,27 @@
                 </MudItem>
 
                 <MudItem xs="12" sm="6">
-                    <MudDatePicker @bind-Date="beginDate" Label="Begin Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" Disabled="!isNewSession" />
+                    <MudDatePicker @bind-Date="beginDate"
+                                   Label="@(isNewSession ? "Start Date *" : "Start Date")"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true"
+                                   Editable="true"
+                                   DateFormat="MM/dd/yyyy"
+                                   Disabled="!isNewSession"
+                                   Required="@isNewSession"
+                                   RequiredError="Start Date is required" />
                 </MudItem>
 
                 <MudItem xs="12" sm="6">
-                    <MudDatePicker @bind-Date="endDate" Label="End Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" Disabled="!isNewSession" />
+                    <MudDatePicker @bind-Date="endDate"
+                                   Label="@(isNewSession ? "End Date *" : "End Date")"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true"
+                                   Editable="true"
+                                   DateFormat="MM/dd/yyyy"
+                                   Disabled="!isNewSession"
+                                   Required="@isNewSession"
+                                   RequiredError="End Date is required" />
                 </MudItem>
             </MudGrid>
 
@@ -383,7 +399,7 @@
                            Size="Size.Large"
                            StartIcon="@Icons.Material.Filled.CheckCircle"
                            OnClick="SubmitAssignmentAsync"
-                           Disabled="@(isAssigning || selectedEmployeeIds.Count == 0 || (!isNewSession && (selectedTrainingSession == null || selectedTrainingSession.TrainingSessionID <= 0)))">
+                           Disabled="@IsAssignDisabled">
                     @if (isAssigning)
                     {
                         <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
@@ -577,7 +593,7 @@
             </MudStack>
         </MudStack>
 
-        <MudPaper Class="pa-4 mb-4" Elevation="2" Style="background-color: var(--mud-palette-background-gray); border: 1px solid var(--mud-palette-lines-default);">
+        <MudPaper Class="pa-4 mb-4" Elevation="2" Style="background-color: var(--mud-palette-background-gray); border: 1px solid var(--mud-palette-lines-default);" @onkeydown="HandleTbsKeyDown">
             <MudGrid Spacing="3">
                 <MudItem xs="12" sm="6" md="4">
                     <MudAutocomplete T="TrainingSchoolsDto"
@@ -594,6 +610,8 @@
                                      CoerceText="true"
                                      CoerceValue="false"
                                      Clearable="true"
+                                     Immediate="true"
+                                     OnKeyDown="HandleTbsKeyDown"
                                      AdornmentIcon="@Icons.Material.Filled.Search"
                                      AdornmentColor="Color.Primary" />
                 </MudItem>
@@ -634,7 +652,8 @@
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" sm="6" md="4">
-                    <MudDatePicker @bind-Date="tbsStartDate"
+                    <MudDatePicker @ref="tbsStartDatePicker"
+                                   @bind-Date="tbsStartDate"
                                    Label="Start Date"
                                    Variant="Variant.Outlined"
                                    Clearable="true"
@@ -643,7 +662,8 @@
                                    Margin="Margin.Dense" />
                 </MudItem>
                 <MudItem xs="12" sm="6" md="4">
-                    <MudDatePicker @bind-Date="tbsEndDate"
+                    <MudDatePicker @ref="tbsEndDatePicker"
+                                   @bind-Date="tbsEndDate"
                                    Label="End Date"
                                    Variant="Variant.Outlined"
                                    Clearable="true"
@@ -942,6 +962,19 @@
         if (tbsSelectedSchool != null && !string.Equals(tbsSelectedSchool.SchoolName, text, StringComparison.OrdinalIgnoreCase))
         {
             tbsSelectedSchool = availableSchools?.FirstOrDefault(s => string.Equals(s.SchoolName, text, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private MudDatePicker? tbsStartDatePicker;
+    private MudDatePicker? tbsEndDatePicker;
+
+    private async Task HandleTbsKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !isLoadingTbs)
+        {
+            if (tbsStartDatePicker != null) await tbsStartDatePicker.CloseAsync(false);
+            if (tbsEndDatePicker != null) await tbsEndDatePicker.CloseAsync(false);
+            await ExecuteTrainingBySchoolSearchAsync();
         }
     }
 
@@ -1545,6 +1578,15 @@
         return name;
     }
 
+    private bool IsAssignDisabled =>
+        isAssigning ||
+        selectedEmployeeIds.Count == 0 ||
+        (!isNewSession && (selectedTrainingSession == null || selectedTrainingSession.TrainingSessionID <= 0)) ||
+        (isNewSession && (!beginDate.HasValue ||
+                          !endDate.HasValue ||
+                          (isNewSchool && string.IsNullOrWhiteSpace(newSchoolName)) ||
+                          (!isNewSchool && (selectedSchool == null || selectedSchool.TrainingSchoolID <= 0))));
+
     private async Task SubmitAssignmentAsync()
     {
         if (selectedEmployeeIds.Count == 0)
@@ -1559,18 +1601,50 @@
             return;
         }
 
-        if (isNewSession && isNewSchool)
+        if (isNewSession)
         {
-            if (string.IsNullOrWhiteSpace(newSchoolName))
+            if (isNewSchool)
             {
-                Snackbar.Add("Please enter a School Name or select an existing training school.", Severity.Warning);
+                if (string.IsNullOrWhiteSpace(newSchoolName))
+                {
+                    Snackbar.Add("Please enter a School Name or select an existing training school.", Severity.Warning);
+                    return;
+                }
+            }
+            else
+            {
+                if (selectedSchool == null || selectedSchool.TrainingSchoolID <= 0)
+                {
+                    Snackbar.Add("Please select an existing training school or switch to 'Add New School'.", Severity.Warning);
+                    return;
+                }
+            }
+
+            if (!beginDate.HasValue)
+            {
+                Snackbar.Add("Start Date is required.", Severity.Error);
                 return;
             }
 
-            var createdSchool = await CreateNewSchoolAsync();
-            if (createdSchool == null)
+            if (!endDate.HasValue)
             {
+                Snackbar.Add("End Date is required.", Severity.Error);
                 return;
+            }
+
+            if (beginDate.Value > endDate.Value)
+            {
+                Snackbar.Add("End Date cannot be earlier than Start Date.", Severity.Error);
+                return;
+            }
+
+            if (isNewSchool)
+            {
+                var createdSchool = await CreateNewSchoolAsync();
+                if (createdSchool == null)
+                {
+                    return;
+                }
             }
         }
 
@@ -1606,6 +1680,24 @@
 
                 // Refresh available training sessions list
                 availableSessions = await service.GetTrainingSessionsAsync();
+
+                if (result.TotalAssigned > 0)
+                {
+                    selectedEmployeeIds.Clear();
+
+                    if (isNewSession)
+                    {
+                        isNewSession = false;
+                        if (result.TrainingSessionID > 0)
+                        {
+                            selectedTrainingSession = availableSessions?.FirstOrDefault(s => s.TrainingSessionID == result.TrainingSessionID);
+                            if (selectedTrainingSession != null)
+                            {
+                                PopulateSessionFields(selectedTrainingSession);
+                            }
+                        }
+                    }
+                }
             }
             else
             {
@@ -1621,6 +1713,7 @@
         finally
         {
             isAssigning = false;
+            StateHasChanged();
         }
     }
 }

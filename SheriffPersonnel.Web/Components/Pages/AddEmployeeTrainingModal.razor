@@ -55,12 +55,14 @@
                     <MudAutocomplete T="TrainingSchoolsDto"
                                      Value="selectedSchool"
                                      ValueChanged="OnTrainingSchoolChanged"
+                                     Text="@schoolText"
+                                     TextChanged="OnSchoolTextChanged"
                                      SearchFunc="SearchTrainingSchools"
                                      ToStringFunc="GetSchoolText"
                                      Label="Training School"
                                      Variant="Variant.Outlined"
                                      ResetValueOnEmptyText="true"
-                                     CoerceText="true"
+                                     CoerceText="false"
                                      CoerceValue="false"
                                      Clearable="true"
                                      Disabled="!isNewSession"
@@ -77,10 +79,10 @@
                     <MudNumericField T="decimal?" @bind-Value="TrainingRecord.SessionHours" Label="Session Hours" Variant="Variant.Outlined" Format="F2" Min="0m" Max="999.99m" Disabled="!isNewSession" />
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudDatePicker @bind-Date="beginDate" Label="Begin Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" Disabled="!isNewSession" />
+                    <MudDatePicker @bind-Date="beginDate" Label="Start Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" Disabled="!isNewSession" Required="@isNewSession" RequiredError="Start Date is required" />
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudDatePicker @bind-Date="endDate" Label="End Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" Disabled="!isNewSession" />
+                    <MudDatePicker @bind-Date="endDate" Label="End Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" Disabled="!isNewSession" Required="@isNewSession" RequiredError="End Date is required" />
                 </MudItem>
             </MudGrid>
 
@@ -137,6 +139,7 @@
 
     private IEnumerable<TrainingSchoolsDto>? availableSchools;
     private TrainingSchoolsDto? selectedSchool;
+    private string schoolText = string.Empty;
 
     private bool IsEditRecord => TrainingRecord != null && TrainingRecord.EmployeeTrainingID > 0;
 
@@ -204,6 +207,14 @@
                     SchoolName = TrainingRecord.SchoolName
                 };
             }
+        }
+        if (selectedSchool != null)
+        {
+            schoolText = selectedSchool.SchoolName;
+        }
+        else if (!string.IsNullOrEmpty(TrainingRecord.SchoolName))
+        {
+            schoolText = TrainingRecord.SchoolName;
         }
     }
 
@@ -299,10 +310,19 @@
                 };
             }
         }
+        else if (!string.IsNullOrEmpty(session.SchoolName))
+        {
+            selectedSchool = new TrainingSchoolsDto
+            {
+                TrainingSchoolID = 0,
+                SchoolName = session.SchoolName
+            };
+        }
         else
         {
             selectedSchool = null;
         }
+        schoolText = session.SchoolName ?? string.Empty;
     }
 
     private void ClearSessionFields()
@@ -317,13 +337,41 @@
         beginDate = null;
         endDate = null;
         selectedSchool = null;
+        schoolText = string.Empty;
     }
 
     private void OnTrainingSchoolChanged(TrainingSchoolsDto? school)
     {
         selectedSchool = school;
+        schoolText = school?.SchoolName ?? string.Empty;
         TrainingRecord.TrainingSchoolID = school?.TrainingSchoolID;
         TrainingRecord.SchoolName = school?.SchoolName;
+    }
+
+    private void OnSchoolTextChanged(string text)
+    {
+        schoolText = text;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            selectedSchool = null;
+            TrainingRecord.TrainingSchoolID = null;
+            TrainingRecord.SchoolName = null;
+            return;
+        }
+
+        var matchingSchool = availableSchools?.FirstOrDefault(s => string.Equals(s.SchoolName, text.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (matchingSchool != null)
+        {
+            selectedSchool = matchingSchool;
+            TrainingRecord.TrainingSchoolID = matchingSchool.TrainingSchoolID;
+            TrainingRecord.SchoolName = matchingSchool.SchoolName;
+        }
+        else
+        {
+            selectedSchool = null;
+            TrainingRecord.TrainingSchoolID = null;
+            TrainingRecord.SchoolName = text.Trim();
+        }
     }
 
     private Task<IEnumerable<TrainingSchoolsDto>> SearchTrainingSchools(string value, CancellationToken token)
@@ -410,7 +458,29 @@
 
         if (isNewSession)
         {
+            if (!beginDate.HasValue)
+            {
+                Snackbar.Add("Start Date is required.", Severity.Error);
+                return;
+            }
+
+            if (!endDate.HasValue)
+            {
+                Snackbar.Add("End Date is required.", Severity.Error);
+                return;
+            }
+
+            if (beginDate.Value > endDate.Value)
+            {
+                Snackbar.Add("End Date cannot be earlier than Start Date.", Severity.Error);
+                return;
+            }
+
             TrainingRecord.TrainingSessionID = 0;
+            if (string.IsNullOrWhiteSpace(TrainingRecord.SchoolName) && !string.IsNullOrWhiteSpace(schoolText))
+            {
+                TrainingRecord.SchoolName = schoolText.Trim();
+            }
         }
 
         TrainingRecord.EmployeeID = EmployeeId;
