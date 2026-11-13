@@ -101,19 +101,19 @@ namespace SheriffPersonnel.API.Repositories
                             ? query.OrderByDescending(e => e.FirstName)
                             : query.OrderBy(e => e.FirstName),
                         "status" => request.SortDescending
-                            ? query.OrderByDescending(e => e.Status != null ? e.Status.StatusDescription : "")
-                            : query.OrderBy(e => e.Status != null ? e.Status.StatusDescription : ""),
-                        _ => query.OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
+                            ? query.OrderByDescending(e => e.Status != null ? (e.Status.StatusDescription ?? e.Status.StatusCode) : "").ThenByDescending(e => e.LastName).ThenByDescending(e => e.FirstName)
+                            : query.OrderBy(e => e.Status != null ? (e.Status.StatusDescription ?? e.Status.StatusCode) : "").ThenBy(e => e.LastName).ThenBy(e => e.FirstName),
+                        _ => query.OrderBy(e => e.Status != null ? (e.Status.StatusDescription ?? e.Status.StatusCode) : "").ThenBy(e => e.LastName).ThenBy(e => e.FirstName)
                     };
                 }
                 else
                 {
-                    query = query.OrderBy(e => e.LastName).ThenBy(e => e.FirstName);
+                    query = query.OrderBy(e => e.Status != null ? (e.Status.StatusDescription ?? e.Status.StatusCode) : "").ThenBy(e => e.LastName).ThenBy(e => e.FirstName);
                 }
             }
             else
             {
-                query = query.OrderBy(e => e.LastName).ThenBy(e => e.FirstName);
+                query = query.OrderBy(e => e.Status != null ? (e.Status.StatusDescription ?? e.Status.StatusCode) : "").ThenBy(e => e.LastName).ThenBy(e => e.FirstName);
             }
 
             return await query.ToListAsync();

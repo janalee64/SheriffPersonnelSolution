@@ -90,6 +90,12 @@ namespace SheriffPersonnel.API.Repositories
             var firearm = await _dbContext.Firearms.FindAsync(id);
             if (firearm == null) return false;
 
+            var hasRangeStats = await _dbContext.RangeStatistics.AnyAsync(rs => rs.FirearmID == id);
+            if (hasRangeStats)
+            {
+                throw new InvalidOperationException("Cannot delete firearm because it is tied to range statistics data.");
+            }
+
             _dbContext.Firearms.Remove(firearm);
             await _dbContext.SaveChangesAsync();
             return true;

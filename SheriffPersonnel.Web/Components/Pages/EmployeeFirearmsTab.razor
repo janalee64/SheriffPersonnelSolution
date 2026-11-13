@@ -220,6 +220,11 @@
                 Snackbar.Add("Failed to delete firearm record.", Severity.Error);
             }
         }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogWarning(ex, "Cannot delete firearm record {FirearmID}: {Message}", firearmId, ex.Message);
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error deleting firearm record.");

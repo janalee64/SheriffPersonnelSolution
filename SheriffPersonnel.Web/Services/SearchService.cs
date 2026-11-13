@@ -795,11 +795,34 @@ namespace SheriffPersonnel.Web.Services
                         options.HttpMethod = HttpMethod.Delete.Method;
                         options.RelativePath = $"api/firearms/{id}";
                     });
-                return response?.IsSuccessStatusCode ?? false;
+
+                if (response == null) return false;
+
+                if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                {
+                    var msg = await response.Content.ReadAsStringAsync();
+                    throw new InvalidOperationException(!string.IsNullOrWhiteSpace(msg) ? msg.Trim('"') : "Cannot delete firearm because it is tied to range statistics data.");
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorMsg = await response.Content.ReadAsStringAsync();
+                    if (!string.IsNullOrWhiteSpace(errorMsg) && (errorMsg.Contains("range", StringComparison.OrdinalIgnoreCase) || errorMsg.Contains("tied to range statistics", StringComparison.OrdinalIgnoreCase) || errorMsg.Contains("REFERENCE constraint", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        throw new InvalidOperationException("Cannot delete firearm because it is tied to range statistics data.");
+                    }
+                    return false;
+                }
+
+                return true;
             }
             catch (MicrosoftIdentityWebChallengeUserException ex)
             {
                 _consentHandler.HandleException(ex);
+                throw;
+            }
+            catch (InvalidOperationException)
+            {
                 throw;
             }
             catch (Exception ex)

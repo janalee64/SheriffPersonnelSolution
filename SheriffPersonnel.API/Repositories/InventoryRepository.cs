@@ -88,14 +88,10 @@ namespace SheriffPersonnel.API.Repositories
         {
             return await _dbContext.EmployeeInventoryAssignments
                 .AsNoTracking()
-                .AsSplitQuery()
                 .Include(a => a.InventoryItem)
                     .ThenInclude(i => i!.Category)
                 .Include(a => a.Employee)
                     .ThenInclude(e => e!.Status)
-                .Include(a => a.Employee)
-                    .ThenInclude(e => e!.EmployeeChanges)
-                        .ThenInclude(ec => ec.Program)
                 .Include(a => a.LastUser)
                 .Where(a => a.EmployeeID == employeeId)
                 .OrderByDescending(a => a.IssueDate)
@@ -107,14 +103,10 @@ namespace SheriffPersonnel.API.Repositories
         {
             return await _dbContext.EmployeeInventoryAssignments
                 .AsNoTracking()
-                .AsSplitQuery()
                 .Include(a => a.InventoryItem)
                     .ThenInclude(i => i!.Category)
                 .Include(a => a.Employee)
                     .ThenInclude(e => e!.Status)
-                .Include(a => a.Employee)
-                    .ThenInclude(e => e!.EmployeeChanges)
-                        .ThenInclude(ec => ec.Program)
                 .Include(a => a.LastUser)
                 .FirstOrDefaultAsync(a => a.EmpInventoryID == id);
         }
@@ -181,6 +173,22 @@ namespace SheriffPersonnel.API.Repositories
             if (assignment == null) throw new ArgumentNullException(nameof(assignment));
 
             assignment.LastUpdated = DateTime.Now;
+
+            var existing = await _dbContext.EmployeeInventoryAssignments.FindAsync(assignment.EmpInventoryID);
+            if (existing != null)
+            {
+                existing.InventoryID = assignment.InventoryID;
+                existing.IssueDate = assignment.IssueDate;
+                existing.Quantity = assignment.Quantity;
+                existing.SerialNumber = assignment.SerialNumber;
+                existing.Notes = assignment.Notes;
+                existing.ReturnDate = assignment.ReturnDate;
+                existing.ExpireDate = assignment.ExpireDate;
+                existing.LastUserID = assignment.LastUserID;
+                existing.LastUpdated = assignment.LastUpdated;
+                await _dbContext.SaveChangesAsync();
+                return existing;
+            }
 
             var entry = _dbContext.Entry(assignment);
             if (entry.State == EntityState.Detached)
@@ -255,6 +263,28 @@ namespace SheriffPersonnel.API.Repositories
             if (item == null) throw new ArgumentNullException(nameof(item));
 
             item.LastUpdated = DateTime.Now;
+
+            var existing = await _dbContext.InventoryItems.FindAsync(item.InventoryID);
+            if (existing != null)
+            {
+                existing.SKU = item.SKU;
+                existing.ProductName = item.ProductName;
+                existing.CategoryID = item.CategoryID;
+                existing.SupplierID = item.SupplierID;
+                existing.LocationID = item.LocationID;
+                existing.BrandName = item.BrandName;
+                existing.Size = item.Size;
+                existing.Color = item.Color;
+                existing.UnitPrice = item.UnitPrice;
+                existing.ReorderPoint = item.ReorderPoint;
+                existing.StockQuantity = item.StockQuantity;
+                existing.LastPurchaseDate = item.LastPurchaseDate;
+                existing.LastUserID = item.LastUserID;
+                existing.IsActive = item.IsActive;
+                existing.LastUpdated = item.LastUpdated;
+                await _dbContext.SaveChangesAsync();
+                return existing;
+            }
 
             var entry = _dbContext.Entry(item);
             if (entry.State == EntityState.Detached)

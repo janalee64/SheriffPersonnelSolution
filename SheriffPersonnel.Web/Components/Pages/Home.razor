@@ -32,11 +32,11 @@
     <EditForm Model="@searchRequest" OnValidSubmit="HandleSearch">
         <MudGrid>
             <MudItem xs="12" sm="6" md="4">
-                <MudTextField @bind-Value="searchRequest.FirstName" Label="First Name" Variant="Variant.Outlined" Clearable="true" Placeholder="Enter first name..." Immediate="true" OnKeyDown="HandleKeyDown" />
+                <MudTextField @bind-Value="searchRequest.LastName" Label="Last Name" Variant="Variant.Outlined" Clearable="true" Placeholder="Enter last name..." Immediate="true" OnKeyDown="HandleKeyDown" />
             </MudItem>
 
             <MudItem xs="12" sm="6" md="4">
-                <MudTextField @bind-Value="searchRequest.LastName" Label="Last Name" Variant="Variant.Outlined" Clearable="true" Placeholder="Enter last name..." Immediate="true" OnKeyDown="HandleKeyDown" />
+                <MudTextField @bind-Value="searchRequest.FirstName" Label="First Name" Variant="Variant.Outlined" Clearable="true" Placeholder="Enter first name..." Immediate="true" OnKeyDown="HandleKeyDown" />
             </MudItem>
 
             <MudItem xs="12" sm="6" md="4">
@@ -256,6 +256,28 @@ else if (hasSearched)
             isEmployeeFlagChecked = searchState.IsEmployeeFlagChecked;
             hasSearched = searchState.HasSearched;
         }
+        else
+        {
+            SetDefaultStatusFilter();
+        }
+    }
+
+    private void SetDefaultStatusFilter()
+    {
+        var activeStatus = availableStatuses?.FirstOrDefault(s =>
+            string.Equals(s.StatusCode, "Active", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase) ||
+            (s.StatusCode != null && s.StatusCode.StartsWith("Act", StringComparison.OrdinalIgnoreCase)) ||
+            (s.StatusDescription != null && s.StatusDescription.StartsWith("Act", StringComparison.OrdinalIgnoreCase)));
+
+        if (activeStatus != null)
+        {
+            searchRequest.Status = activeStatus.StatusDescription ?? activeStatus.StatusCode;
+        }
+        else
+        {
+            searchRequest.Status = "Active";
+        }
     }
 
     private Color GetStatusColor(string? status)
@@ -301,7 +323,11 @@ else if (hasSearched)
             searchRequest.EmployeeFlag = isEmployeeFlagChecked ? true : null;
 
             logger.LogInformation("Executing employee search from UI...");
-            searchResults = await service.SearchEmployeesAsync(searchRequest);
+            var results = await service.SearchEmployeesAsync(searchRequest);
+            searchResults = results?.OrderBy(e => e.Status ?? string.Empty)
+                                    .ThenBy(e => e.LastName ?? string.Empty)
+                                    .ThenBy(e => e.FirstName ?? string.Empty)
+                                    .ToList();
             hasSearched = true;
 
             searchState.SearchRequest = searchRequest;
@@ -324,6 +350,7 @@ else if (hasSearched)
     private void ResetFilters()
     {
         searchRequest = new EmployeeSearchRequestDto();
+        SetDefaultStatusFilter();
         isEmployeeFlagChecked = false;
         searchResults = null;
         hasSearched = false;
@@ -336,11 +363,11 @@ else if (hasSearched)
     {
         var filters = new List<string>();
 
-        if (!string.IsNullOrWhiteSpace(searchRequest.FirstName))
-            filters.Add($"First Name: \"{searchRequest.FirstName.Trim()}\"");
-
         if (!string.IsNullOrWhiteSpace(searchRequest.LastName))
             filters.Add($"Last Name: \"{searchRequest.LastName.Trim()}\"");
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.FirstName))
+            filters.Add($"First Name: \"{searchRequest.FirstName.Trim()}\"");
 
         if (!string.IsNullOrWhiteSpace(searchRequest.BadgeNumber))
             filters.Add($"Badge Number: \"{searchRequest.BadgeNumber.Trim()}\"");
@@ -394,11 +421,11 @@ else if (hasSearched)
     {
         var queryParams = new List<string>();
 
-        if (!string.IsNullOrWhiteSpace(searchRequest.FirstName))
-            queryParams.Add($"firstName={Uri.EscapeDataString(searchRequest.FirstName.Trim())}");
-
         if (!string.IsNullOrWhiteSpace(searchRequest.LastName))
             queryParams.Add($"lastName={Uri.EscapeDataString(searchRequest.LastName.Trim())}");
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.FirstName))
+            queryParams.Add($"firstName={Uri.EscapeDataString(searchRequest.FirstName.Trim())}");
 
         if (!string.IsNullOrWhiteSpace(searchRequest.BadgeNumber))
             queryParams.Add($"badgeNumber={Uri.EscapeDataString(searchRequest.BadgeNumber.Trim())}");

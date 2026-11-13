@@ -263,11 +263,11 @@ else
     {
         var filters = new List<string>();
 
-        if (!string.IsNullOrWhiteSpace(searchRequest.FirstName))
-            filters.Add($"First Name: \"{searchRequest.FirstName.Trim()}\"");
-
         if (!string.IsNullOrWhiteSpace(searchRequest.LastName))
             filters.Add($"Last Name: \"{searchRequest.LastName.Trim()}\"");
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.FirstName))
+            filters.Add($"First Name: \"{searchRequest.FirstName.Trim()}\"");
 
         if (!string.IsNullOrWhiteSpace(searchRequest.BadgeNumber))
             filters.Add($"Badge Number: \"{searchRequest.BadgeNumber.Trim()}\"");

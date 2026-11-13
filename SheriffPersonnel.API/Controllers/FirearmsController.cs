@@ -127,6 +127,16 @@ namespace SheriffPersonnel.API.Controllers
 
                 return NoContent();
             }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Cannot delete firearm ID {FirearmID}: {Message}", id, ex.Message);
+                return Conflict(ex.Message);
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database update error deleting firearm ID {FirearmID}.", id);
+                return Conflict("Cannot delete firearm because it is tied to range statistics data.");
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting firearm ID {FirearmID}.", id);

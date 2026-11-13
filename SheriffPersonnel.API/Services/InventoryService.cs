@@ -65,8 +65,16 @@ namespace SheriffPersonnel.API.Services
         {
             try
             {
-                var assignments = await _repository.GetAssignmentsByEmployeeIdAsync(employeeId);
-                return assignments.Select(a => MapToDto(a));
+                var assignments = (await _repository.GetAssignmentsByEmployeeIdAsync(employeeId)).ToList();
+                if (!assignments.Any())
+                {
+                    return Enumerable.Empty<EmployeeInventoryAssignmentsDto>();
+                }
+
+                var programDict = await _repository.GetLatestEmployeeProgramsAsync(new[] { employeeId });
+                var programName = programDict.TryGetValue(employeeId, out var p) ? p : string.Empty;
+
+                return assignments.Select(a => MapToDto(a, programName));
             }
             catch (Exception ex)
             {
@@ -81,7 +89,11 @@ namespace SheriffPersonnel.API.Services
             {
                 var assignment = await _repository.GetAssignmentByIdAsync(id);
                 if (assignment == null) return null;
-                return MapToDto(assignment);
+
+                var programDict = await _repository.GetLatestEmployeeProgramsAsync(new[] { assignment.EmployeeID });
+                var programName = programDict.TryGetValue(assignment.EmployeeID, out var p) ? p : string.Empty;
+
+                return MapToDto(assignment, programName);
             }
             catch (Exception ex)
             {
@@ -100,7 +112,10 @@ namespace SheriffPersonnel.API.Services
                 var created = await _repository.AddAssignmentAsync(entity);
 
                 var reloaded = await _repository.GetAssignmentByIdAsync(created.EmpInventoryID) ?? created;
-                return MapToDto(reloaded);
+                var programDict = await _repository.GetLatestEmployeeProgramsAsync(new[] { reloaded.EmployeeID });
+                var programName = programDict.TryGetValue(reloaded.EmployeeID, out var p) ? p : string.Empty;
+
+                return MapToDto(reloaded, programName);
             }
             catch (Exception ex)
             {
