@@ -7,7 +7,7 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<PrintEmployeeTrainings> logger
 
-@attribute [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
+@attribute [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, SSN")]
 
 <PageTitle>Employee Trainings Report</PageTitle>
 
@@ -91,7 +91,7 @@ else
                                 @("-")
                             }
                         </td>
-                        <td style="text-align: right;">@(item.HoursCompleted.HasValue ? item.HoursCompleted.Value.ToString("F2") : "-")</td>
+                        <td style="text-align: right;">@(item.SessionHours.HasValue ? item.SessionHours.Value.ToString("F2") : "-")</td>
                         <td>@(item.ExpireDate.HasValue ? item.ExpireDate.Value.ToString("MM/dd/yyyy") : "-")</td>
                         <td>@(string.IsNullOrWhiteSpace(item.OrderNumber) ? "-" : item.OrderNumber)</td>
                         <td style="text-align: right;">@item.RegistrationCost.ToString("C2")</td>
@@ -180,7 +180,7 @@ else
     private string? errorMessage;
     private bool printTriggered = false;
 
-    private decimal TotalHoursCompleted => trainings?.Sum(t => t.HoursCompleted ?? 0m) ?? 0m;
+    private decimal TotalHoursCompleted => trainings?.Sum(t => t.SessionHours ?? 0m) ?? 0m;
     private decimal TotalRegistrationCost => trainings?.Sum(t => t.RegistrationCost) ?? 0m;
     private decimal TotalTravelCost => trainings?.Sum(t => t.TravelCost) ?? 0m;
 

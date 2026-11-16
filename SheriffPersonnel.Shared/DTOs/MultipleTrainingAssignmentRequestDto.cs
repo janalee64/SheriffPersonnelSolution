@@ -15,7 +15,6 @@ namespace SheriffPersonnel.Shared.DTOs
         public DateOnly? EndDate { get; set; }
         public decimal? SessionHours { get; set; }
 
-        public decimal? HoursCompleted { get; set; }
         public DateOnly? ExpireDate { get; set; }
         public string? OrderNumber { get; set; }
         public decimal RegistrationCost { get; set; }

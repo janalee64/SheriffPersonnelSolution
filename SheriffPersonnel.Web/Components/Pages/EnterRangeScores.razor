@@ -107,6 +107,44 @@
         flex-grow: 1 !important;
         text-align: left !important;
     }
+
+    /* Override MudBlazor's `body * { scrollbar-width: thin; scrollbar-color: ... }` so ::-webkit-scrollbar takes effect */
+    .range-scores-scroll-container,
+    .range-scores-scroll-container *,
+    .range-scores-table,
+    .range-scores-table .mud-table-container {
+        scrollbar-width: auto !important;
+        scrollbar-color: auto !important;
+    }
+
+    /* Increase horizontal scrollbar thickness to at least double the default 8px size */
+    .range-scores-scroll-container::-webkit-scrollbar,
+    .range-scores-table::-webkit-scrollbar,
+    .range-scores-table .mud-table-container::-webkit-scrollbar {
+        height: 24px !important;
+        width: 24px !important;
+    }
+
+    .range-scores-scroll-container::-webkit-scrollbar-track,
+    .range-scores-table::-webkit-scrollbar-track,
+    .range-scores-table .mud-table-container::-webkit-scrollbar-track {
+        background: #e0e0e0 !important;
+        border-radius: 6px !important;
+    }
+
+    .range-scores-scroll-container::-webkit-scrollbar-thumb,
+    .range-scores-table::-webkit-scrollbar-thumb,
+    .range-scores-table .mud-table-container::-webkit-scrollbar-thumb {
+        background: #9e9e9e !important;
+        border-radius: 6px !important;
+        border: 2px solid #e0e0e0 !important;
+    }
+
+    .range-scores-scroll-container::-webkit-scrollbar-thumb:hover,
+    .range-scores-table::-webkit-scrollbar-thumb:hover,
+    .range-scores-table .mud-table-container::-webkit-scrollbar-thumb:hover {
+        background: #757575 !important;
+    }
 </style>
 
 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
@@ -217,7 +255,7 @@
     }
     else
     {
-        <div class="d-none d-md-block overflow-x-auto">
+        <div class="d-none d-md-block overflow-x-auto range-scores-scroll-container">
             <!-- Desktop Grid View -->
             <MudTable Items="scoreRows" Hover="true" Striped="true" Elevation="0" Dense="true" Class="range-scores-table">
                 <HeaderContent>

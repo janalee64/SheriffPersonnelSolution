@@ -81,7 +81,7 @@
     }
 </style>
 
-<MudTabs Elevation="0" ApplyEffectsToContainer="true" Class="folder-styled-tabs mb-4">
+<MudTabs Elevation="0" ApplyEffectsToContainer="true" Class="folder-styled-tabs mb-4" @bind-ActivePanelIndex="activeTabIndex">
     @* 1. Inventory Maintenance *@
     <MudTabPanel Text="Inventory Maintenance" Icon="@Icons.Material.Filled.Inventory">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
@@ -174,7 +174,12 @@
         }
     </MudTabPanel>
 
-    @* 2. Categories *@
+    @* 2. Multiple Equipment *@
+    <MudTabPanel Text="Multiple Equipment" Icon="@Icons.Material.Filled.Build">
+        <MultipleEquipmentTab @ref="multipleEquipmentTabRef" />
+    </MudTabPanel>
+
+    @* 3. Categories *@
     <MudTabPanel Text="Categories" Icon="@Icons.Material.Filled.Category">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
             <MudTextField @bind-Value="searchCategory" Placeholder="Search categories..." Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Style="max-width: 400px;" />
@@ -209,7 +214,7 @@
         </MudTable>
     </MudTabPanel>
 
-    @* 3. Locations *@
+    @* 4. Locations *@
     <MudTabPanel Text="Locations" Icon="@Icons.Material.Filled.Place">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
             <MudTextField @bind-Value="searchLocation" Placeholder="Search locations..." Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Style="max-width: 400px;" />
@@ -236,7 +241,7 @@
         </MudTable>
     </MudTabPanel>
 
-    @* 4. Suppliers *@
+    @* 5. Suppliers *@
     <MudTabPanel Text="Suppliers" Icon="@Icons.Material.Filled.LocalShipping">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
             <MudTextField @bind-Value="searchSupplier" Placeholder="Search suppliers..." Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Style="max-width: 400px;" />
@@ -248,11 +253,21 @@
             <HeaderContent>
                 <MudTh><MudTableSortLabel SortBy="new Func<SuppliersDto, object>(x => x.SupplierName)">Supplier Name</MudTableSortLabel></MudTh>
                 <MudTh><MudTableSortLabel SortBy="new Func<SuppliersDto, object>(x => x.Notes ?? string.Empty)">Notes</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<SuppliersDto, object>(x => x.IsActive)">Status</MudTableSortLabel></MudTh>
                 <MudTh Style="width: 120px;">Actions</MudTh>
             </HeaderContent>
             <RowTemplate Context="sup">
                 <MudTd DataLabel="Supplier Name"><b>@sup.SupplierName</b></MudTd>
                 <MudTd DataLabel="Notes">@(sup.Notes ?? "-")</MudTd>
+                <MudTd DataLabel="Status">
+                    <MudSwitch T="bool"
+                               Value="@sup.IsActive"
+                               ValueChanged="@((bool val) => ToggleSupplierActiveAsync(sup, val))"
+                               Color="Color.Success"
+                               UncheckedColor="Color.Default"
+                               Size="Size.Small"
+                               Label="@(sup.IsActive ? "Active" : "Inactive")" />
+                </MudTd>
                 <MudTd DataLabel="Actions">
                     <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditSupplierDialog(sup)" aria-label="@($"Edit supplier {sup.SupplierName}")" />
                     <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick='() => OpenDeleteCodeTableDialog("Supplier", sup.SupplierID, sup.SupplierName)' aria-label="@($"Delete supplier {sup.SupplierName}")" />
@@ -263,11 +278,11 @@
         </MudTable>
     </MudTabPanel>
 
-    @* 5. Stock Levels *@
+    @* 6. Stock Levels *@
     <MudTabPanel Text="Stock Levels" Icon="@Icons.Material.Filled.Assessment">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
             <MudGrid Style="flex-grow: 1;">
-                <MudItem xs="12" sm="4" md="4">
+                <MudItem xs="12" sm="6" md="3">
                     <MudSelect T="int?" Value="selectedStockCategoryId" ValueChanged="OnStockCategoryFilterChanged" Label="Filter by Category" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
                         <MudSelectItem T="int?" Value="@((int?)null)">All Categories</MudSelectItem>
                         @foreach (var cat in categories)
@@ -276,13 +291,16 @@
                         }
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" sm="4" md="4">
+                <MudItem xs="12" sm="6" md="3">
                     <MudTextField @bind-Value="searchStockString" Placeholder="Search by product, category, or supplier..." Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true" Clearable="true" />
                 </MudItem>
-                <MudItem xs="12" sm="4" md="4" Class="d-flex align-center">
+                <MudItem xs="12" sm="8" md="4" Class="d-flex align-center">
                     <MudCheckBox T="bool" @bind-Value="showLowStockOnly" Color="Color.Warning" Dense="true">
                         At or Below Reorder Point Only (Quantity &le; Reorder)
                     </MudCheckBox>
+                </MudItem>
+                <MudItem xs="12" sm="4" md="2" Class="d-flex align-center">
+                    <MudCheckBox T="bool" Value="showStockActiveOnly" ValueChanged="OnShowStockActiveOnlyChanged" Color="Color.Primary" Dense="true" Label="Active Only" />
                 </MudItem>
             </MudGrid>
         </MudStack>
@@ -304,6 +322,7 @@
                         <MudTh><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.StockQuantity ?? 0)">Quantity</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.ReorderPoint ?? 0)">Reorder</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.SupplierName ?? string.Empty)">Supplier</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.IsActive)">Status</MudTableSortLabel></MudTh>
                     </HeaderContent>
                     <RowTemplate Context="item">
                         <MudTd DataLabel="Product Name"><b>@item.ProductName</b></MudTd>
@@ -324,6 +343,16 @@
                         </MudTd>
                         <MudTd DataLabel="Reorder">@(item.ReorderPoint.HasValue ? item.ReorderPoint.Value.ToString() : "-")</MudTd>
                         <MudTd DataLabel="Supplier">@(string.IsNullOrWhiteSpace(item.SupplierName) ? "-" : item.SupplierName)</MudTd>
+                        <MudTd DataLabel="Status">
+                            @if (item.IsActive)
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Outlined">Active</MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined">Inactive</MudChip>
+                            }
+                        </MudTd>
                     </RowTemplate>
                     <PagerContent>
                         <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
@@ -336,7 +365,7 @@
         }
     </MudTabPanel>
 
-    @* 6. Assigned *@
+    @* 7. Assigned *@
     <MudTabPanel Text="Assigned" Icon="@Icons.Material.Filled.AssignmentInd">
         <MudPaper Class="pa-4 mb-4" Elevation="1" @onkeydown="HandleAssignedKeyDown">
             <MudGrid>
@@ -478,7 +507,7 @@
                 <MudItem xs="12" sm="4">
                     <MudSelect T="int?" @bind-Value="editingItem.SupplierID" Label="Supplier" Variant="Variant.Outlined" Clearable="true">
                         <MudSelectItem T="int?" Value="@((int?)null)">-- Select Supplier --</MudSelectItem>
-                        @foreach (var sup in suppliers)
+                        @foreach (var sup in suppliers.Where(s => s.IsActive || s.SupplierID == editingItem.SupplierID))
                         {
                             <MudSelectItem T="int?" Value="@((int?)sup.SupplierID)">@sup.SupplierName</MudSelectItem>
                         }
@@ -581,6 +610,9 @@
                     <MudItem xs="12">
                         <MudTextField @bind-Value="editingSupplier.Notes" Label="Notes" Variant="Variant.Outlined" Lines="3" />
                     </MudItem>
+                    <MudItem xs="12">
+                        <MudCheckBox T="bool" @bind-Value="editingSupplier.IsActive" Label="Active Supplier" Color="Color.Primary" />
+                    </MudItem>
                 </MudGrid>
             }
         </EditForm>
@@ -602,6 +634,13 @@
 </MudDialog>
 
 @code {
+    [SupplyParameterFromQuery(Name = "tab")]
+    public int? InitialTab { get; set; }
+
+    private int activeTabIndex = 0;
+    private bool hasAppliedInitialTab = false;
+    private MultipleEquipmentTab? multipleEquipmentTabRef;
+
     private List<InventoryItemsDto> items = new();
     private List<CategoriesDto> categories = new();
     private List<SuppliersDto> suppliers = new();
@@ -618,6 +657,7 @@
     private int? selectedStockCategoryId;
     private string searchStockString = string.Empty;
     private bool showLowStockOnly = false;
+    private bool showStockActiveOnly = true;
 
     // Assigned filter fields
     private string searchAssignedProductName = string.Empty;
@@ -692,8 +732,10 @@
         {
             var stockCatId = selectedStockCategoryId;
             var lowStockOnly = showLowStockOnly;
+            var activeOnly = showStockActiveOnly;
             return items.Where(x => (!stockCatId.HasValue || x.CategoryID == stockCatId.Value)
-                          && (!lowStockOnly || IsReorderNeeded(x)));
+                          && (!lowStockOnly || IsReorderNeeded(x))
+                          && (!activeOnly || x.IsActive));
         }
     }
 
@@ -784,6 +826,15 @@
         );
     }
 
+    protected override void OnParametersSet()
+    {
+        if (!hasAppliedInitialTab && InitialTab.HasValue)
+        {
+            activeTabIndex = InitialTab.Value;
+            hasAppliedInitialTab = true;
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await LoadDataAsync();
@@ -796,7 +847,7 @@
 
         try
         {
-            var taskItems = SearchService.GetInventoryItemsAsync(onlyActive: showActiveOnly ? true : null);
+            var taskItems = SearchService.GetInventoryItemsAsync(onlyActive: (showActiveOnly && showStockActiveOnly) ? true : null);
             var taskCategories = CodeTableService.GetCategoriesAsync();
             var taskSuppliers = CodeTableService.GetSuppliersAsync();
             var taskLocations = CodeTableService.GetLocationsAsync();
@@ -812,6 +863,18 @@
             locations = (await taskLocations).OrderBy(l => l.LocationName).ToList();
             programs = (await taskPrograms).OrderBy(p => p.ProgramName).ToList();
             statuses = (await taskStatuses).OrderBy(s => s.StatusDescription ?? s.StatusCode).ToList();
+
+            if (multipleEquipmentTabRef != null)
+            {
+                try
+                {
+                    await multipleEquipmentTabRef.LoadDataAsync();
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Error refreshing Multiple Equipment tab.");
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -836,7 +899,7 @@
         isLoading = true;
         try
         {
-            items = (await SearchService.GetInventoryItemsAsync(onlyActive: showActiveOnly ? true : null)).ToList();
+            items = (await SearchService.GetInventoryItemsAsync(onlyActive: (showActiveOnly && showStockActiveOnly) ? true : null)).ToList();
             UpdateProductNamesCache();
         }
         catch (Exception ex)
@@ -854,6 +917,27 @@
     private void OnStockCategoryFilterChanged(int? categoryId)
     {
         selectedStockCategoryId = categoryId;
+    }
+
+    private async Task OnShowStockActiveOnlyChanged(bool value)
+    {
+        showStockActiveOnly = value;
+        isLoading = true;
+        try
+        {
+            items = (await SearchService.GetInventoryItemsAsync(onlyActive: (showActiveOnly && showStockActiveOnly) ? true : null)).ToList();
+            UpdateProductNamesCache();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error fetching inventory items.");
+            Snackbar.Add($"Error loading inventory items: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 
     private bool StockFilterFunc(InventoryItemsDto item)
@@ -1100,7 +1184,7 @@
         activeCodeTable = "Supplier";
         activeCodeTableTitle = "Supplier";
         isCodeTableEditMode = false;
-        editingSupplier = new SuppliersDto();
+        editingSupplier = new SuppliersDto { IsActive = true };
         codeTableDialogFormModel = editingSupplier;
         isCodeTableDialogVisible = true;
     }
@@ -1114,10 +1198,27 @@
         {
             SupplierID = item.SupplierID,
             SupplierName = item.SupplierName,
-            Notes = item.Notes
+            Notes = item.Notes,
+            IsActive = item.IsActive
         };
         codeTableDialogFormModel = editingSupplier;
         isCodeTableDialogVisible = true;
+    }
+
+    private async Task ToggleSupplierActiveAsync(SuppliersDto supplier, bool newStatus)
+    {
+        supplier.IsActive = newStatus;
+        try
+        {
+            await CodeTableService.UpdateSupplierAsync(supplier.SupplierID, supplier);
+            Snackbar.Add($"Supplier '{supplier.SupplierName}' status updated.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error toggling supplier active status for SupplierID {SupplierID}", supplier.SupplierID);
+            supplier.IsActive = !newStatus;
+            Snackbar.Add($"Failed to update status for '{supplier.SupplierName}'.", Severity.Error);
+        }
     }
 
     private async Task SaveCodeTableItemAsync()

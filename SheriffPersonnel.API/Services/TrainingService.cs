@@ -126,7 +126,6 @@ namespace SheriffPersonnel.API.Services
             {
                 EmployeeID = dto.EmployeeID,
                 TrainingSessionID = dto.TrainingSessionID,
-                HoursCompleted = dto.HoursCompleted,
                 ExpireDate = dto.ExpireDate,
                 OrderNumber = dto.OrderNumber,
                 RegistrationCost = dto.RegistrationCost,
@@ -177,7 +176,6 @@ namespace SheriffPersonnel.API.Services
             }
 
             existing.TrainingSessionID = dto.TrainingSessionID;
-            existing.HoursCompleted = dto.HoursCompleted;
             existing.ExpireDate = dto.ExpireDate;
             existing.OrderNumber = dto.OrderNumber;
             existing.RegistrationCost = dto.RegistrationCost;
@@ -307,7 +305,6 @@ namespace SheriffPersonnel.API.Services
             {
                 TrainingSchoolID = s.TrainingSchoolID,
                 SchoolName = s.SchoolName,
-                Address = s.Address,
                 IsActive = s.IsActive ?? true
             });
         }
@@ -428,7 +425,6 @@ namespace SheriffPersonnel.API.Services
                     {
                         EmployeeID = empId,
                         TrainingSessionID = sessionId,
-                        HoursCompleted = request.HoursCompleted,
                         ExpireDate = request.ExpireDate,
                         OrderNumber = request.OrderNumber,
                         RegistrationCost = request.RegistrationCost,
@@ -485,7 +481,7 @@ namespace SheriffPersonnel.API.Services
                     Program = latestProgram,
                     UnitName = latestUnit,
                     BeginDate = session?.BeginDate,
-                    Hours = et.HoursCompleted ?? session?.SessionHours,
+                    Hours = session?.SessionHours,
                     SchoolName = school?.SchoolName ?? request.SchoolName ?? string.Empty
                 };
             });
@@ -500,7 +496,6 @@ namespace SheriffPersonnel.API.Services
                 EmployeeTrainingID = entity.EmployeeTrainingID,
                 EmployeeID = entity.EmployeeID,
                 TrainingSessionID = entity.TrainingSessionID,
-                HoursCompleted = entity.HoursCompleted,
                 ExpireDate = entity.ExpireDate,
                 OrderNumber = entity.OrderNumber,
                 RegistrationCost = entity.RegistrationCost,

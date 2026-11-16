@@ -7,7 +7,7 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<EmployeeTrainingsTab> logger
 
-@attribute [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
+@attribute [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, SSN")]
 
 <MudStack Spacing="4" Class="mt-4">
     @if (IsEdit && EmployeeId > 0)
@@ -46,7 +46,7 @@
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeTrainingsDto, object>(x => x.Location ?? string.Empty)">Location</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeTrainingsDto, object>(x => x.Instructor ?? string.Empty)">Instructor</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeTrainingsDto, object>(x => x.BeginDate ?? DateOnly.MinValue)">Dates</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeTrainingsDto, object>(x => x.HoursCompleted ?? 0m)">Hours Completed</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeTrainingsDto, object>(x => x.SessionHours ?? 0m)">Hours Completed</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeTrainingsDto, object>(x => x.ExpireDate ?? DateOnly.MinValue)">Expire Date</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeTrainingsDto, object>(x => x.OrderNumber ?? string.Empty)">Order Number</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeTrainingsDto, object>(x => x.RegistrationCost)">Reg. Cost</MudTableSortLabel></MudTh>
@@ -70,7 +70,7 @@
                                 @("-")
                             }
                         </MudTd>
-                        <MudTd DataLabel="Hours Completed">@(trainingContext.HoursCompleted.HasValue ? trainingContext.HoursCompleted.Value.ToString("F2") : "-")</MudTd>
+                        <MudTd DataLabel="Hours Completed">@(trainingContext.SessionHours.HasValue ? trainingContext.SessionHours.Value.ToString("F2") : "-")</MudTd>
                         <MudTd DataLabel="Expire Date">@(trainingContext.ExpireDate.HasValue ? trainingContext.ExpireDate.Value.ToString("MM/dd/yyyy") : "-")</MudTd>
                         <MudTd DataLabel="Order Number">@(string.IsNullOrWhiteSpace(trainingContext.OrderNumber) ? "-" : trainingContext.OrderNumber)</MudTd>
                         <MudTd DataLabel="Reg. Cost">@trainingContext.RegistrationCost.ToString("C2")</MudTd>
@@ -116,7 +116,7 @@
     private int _lastLoadedEmployeeId;
     private bool _lastLoadedIsEdit;
 
-    private decimal TotalHoursCompleted => trainings?.Sum(t => t.HoursCompleted ?? 0m) ?? 0m;
+    private decimal TotalHoursCompleted => trainings?.Sum(t => t.SessionHours ?? 0m) ?? 0m;
 
     protected override async Task OnInitializedAsync()
     {
@@ -226,7 +226,6 @@
                     EmployeeTrainingID = trainingRecord.EmployeeTrainingID,
                     EmployeeID = trainingRecord.EmployeeID,
                     TrainingSessionID = trainingRecord.TrainingSessionID,
-                    HoursCompleted = trainingRecord.HoursCompleted,
                     ExpireDate = trainingRecord.ExpireDate,
                     OrderNumber = trainingRecord.OrderNumber,
                     RegistrationCost = trainingRecord.RegistrationCost,

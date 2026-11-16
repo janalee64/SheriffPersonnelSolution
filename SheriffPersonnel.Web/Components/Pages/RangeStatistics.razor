@@ -394,13 +394,22 @@
             <MudGrid>
                 @* Make *@
                 <MudItem xs="12" sm="6" md="3">
-                    <MudSelect T="int?" @bind-Value="selectedFirearmMakeId" Label="Make" Variant="Variant.Outlined" Clearable="true" Dense="true">
-                        <MudSelectItem T="int?" Value="@((int?)null)">All Makes</MudSelectItem>
-                        @foreach (var m in availableMakes)
-                        {
-                            <MudSelectItem T="int?" Value="@((int?)m.MakeID)">@m.MakeName</MudSelectItem>
-                        }
-                    </MudSelect>
+                    <MudAutocomplete T="MakesDto"
+                                     Value="selectedFirearmMake"
+                                     ValueChanged="OnFirearmMakeChanged"
+                                     SearchFunc="SearchFirearmMakes"
+                                     ToStringFunc="@(m => m == null ? string.Empty : m.MakeName)"
+                                     Label="Make"
+                                     Placeholder="Search by Make..."
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     Dense="true"
+                                     Clearable="true"
+                                     ResetValueOnEmptyText="true"
+                                     CoerceText="true"
+                                     CoerceValue="false"
+                                     SelectValueOnTab="true"
+                                     MinCharacters="0" />
                 </MudItem>
 
                 @* Employee Status *@
@@ -655,6 +664,7 @@
 
     // Firearm Search tab state
     private List<FirearmsDto> firearms = new();
+    private MakesDto? selectedFirearmMake;
     private int? selectedFirearmMakeId;
     private int? selectedFirearmEmployeeStatusId;
     private string searchModelNumber = string.Empty;
@@ -1055,6 +1065,25 @@
                 return true;
             });
 
+    private void OnFirearmMakeChanged(MakesDto? make)
+    {
+        selectedFirearmMake = make;
+        selectedFirearmMakeId = make?.MakeID;
+    }
+
+    private Task<IEnumerable<MakesDto>> SearchFirearmMakes(string value, CancellationToken token)
+    {
+        if (availableMakes == null || !availableMakes.Any())
+            return Task.FromResult(Enumerable.Empty<MakesDto>());
+
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.FromResult<IEnumerable<MakesDto>>(availableMakes);
+
+        return Task.FromResult(
+            availableMakes.Where(m => !string.IsNullOrEmpty(m.MakeName) && m.MakeName.Contains(value, StringComparison.OrdinalIgnoreCase))
+        );
+    }
+
     private async Task HandleFirearmKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !isFirearmsLoading)
@@ -1084,6 +1113,7 @@
 
     private void ResetFirearmFilters()
     {
+        selectedFirearmMake = null;
         selectedFirearmMakeId = null;
         selectedFirearmEmployeeStatusId = null;
         searchModelNumber = string.Empty;

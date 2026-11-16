@@ -20,7 +20,7 @@
             else
             {
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-                    <MudText Typo="Typo.h6">Range Statistics</MudText>
+                    <MudText Typo="Typo.h6">Range Records</MudText>
                     @if (CanEdit)
                     {
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddRangeStatForm">
@@ -181,14 +181,14 @@
         var parameters = new DialogParameters<AddRangeStatisticModal>
         {
             { x => x.EmployeeId, EmployeeId },
-            { x => x.RangeStat, new RangeStatisticDTO { EmployeeID = EmployeeId } },
+            { x => x.RangeStat, new RangeStatisticDTO { EmployeeID = EmployeeId, PassFail = "Pass" } },
             { x => x.AvailableCourses, AvailableCourses },
             { x => x.AvailableEvents, AvailableEvents },
             { x => x.AvailableFirearms, firearms }
         };
 
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
-        var dialog = await DialogService.ShowAsync<AddRangeStatisticModal>("Add Range Statistic", parameters, options);
+        var dialog = await DialogService.ShowAsync<AddRangeStatisticModal>("Add Range Record", parameters, options);
         var result = await dialog.Result;
 
         if (result != null && !result.Canceled)
@@ -218,6 +218,8 @@
                     LastUpdated = stat.LastUpdated,
                     RangeEventID = stat.RangeEventID,
                     RangeDate = stat.RangeDate,
+                    RangeOfficerID = stat.RangeOfficerID,
+                    RangeOfficerName = stat.RangeOfficerName,
                     EventDescription = stat.EventDescription,
                     SelectedSkillIDs = stat.SelectedSkillIDs?.ToList() ?? new List<int>()
                 }
@@ -228,7 +230,7 @@
         };
 
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
-        var dialog = await DialogService.ShowAsync<AddRangeStatisticModal>("Edit Range Statistic", parameters, options);
+        var dialog = await DialogService.ShowAsync<AddRangeStatisticModal>("Edit Range Record", parameters, options);
         var result = await dialog.Result;
 
         if (result != null && !result.Canceled)
@@ -243,7 +245,7 @@
 
         bool? confirm = await DialogService.ShowMessageBoxAsync(
             "Confirm Delete",
-            "Are you sure you want to delete this range statistic record?",
+            "Are you sure you want to delete this range record?",
             yesText: "Delete", cancelText: "Cancel");
 
         if (confirm != true) return;

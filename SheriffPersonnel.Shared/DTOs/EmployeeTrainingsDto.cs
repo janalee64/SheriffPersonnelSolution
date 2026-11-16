@@ -7,7 +7,6 @@ namespace SheriffPersonnel.Shared.DTOs
         public int EmployeeTrainingID { get; set; }
         public int EmployeeID { get; set; }
         public int TrainingSessionID { get; set; }
-        public decimal? HoursCompleted { get; set; }
         public DateOnly? ExpireDate { get; set; }
         public string? OrderNumber { get; set; }
         public decimal RegistrationCost { get; set; }

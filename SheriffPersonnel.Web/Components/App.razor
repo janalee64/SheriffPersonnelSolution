@@ -61,6 +61,23 @@
             scroll-margin-bottom: 120px;
             scroll-margin-top: 80px;
         }
+
+        .mud-drawer-mini .mud-tooltip-root {
+            display: block;
+            width: 100%;
+        }
+
+        .mud-drawer--closed.mud-drawer-mini .mud-nav-link .mud-nav-link-text {
+            position: absolute;
+            clip: rect(1px, 1px, 1px, 1px);
+            clip-path: inset(50%);
+            white-space: nowrap;
+            padding: 0;
+            border: 0;
+            height: 1px;
+            width: 1px;
+            overflow: hidden;
+        }
     </style>
     <ImportMap />
     <link rel="icon" type="image/ico" href="favicon.ico" />
@@ -74,12 +91,52 @@
     <script src="@Assets["_content/MudBlazor/MudBlazor.min.js"]"></script>
     <script>
         window.downloadFileFromByteArray = (fileName, base64String, contentType) => {
-            const link = document.createElement('a');
-            link.download = fileName;
-            link.href = `data:${contentType};base64,${base64String}`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            try {
+                const byteCharacters = atob(base64String);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: contentType || 'application/octet-stream' });
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.download = fileName;
+                link.href = blobUrl;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+            } catch (e) {
+                const link = document.createElement('a');
+                link.download = fileName;
+                link.href = `data:${contentType};base64,${base64String}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        };
+
+        window.previewFileFromByteArray = (fileName, base64String, contentType) => {
+            const byteCharacters = atob(base64String);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: contentType || 'application/octet-stream' });
+            const blobUrl = URL.createObjectURL(blob);
+            const newWindow = window.open(blobUrl, '_blank');
+            if (!newWindow) {
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.target = '_blank';
+                link.rel = 'noopener';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 300000);
         };
 
         // Scroll focused elements into view above sticky bottom action bar

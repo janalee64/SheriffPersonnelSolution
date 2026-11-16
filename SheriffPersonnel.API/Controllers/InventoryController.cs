@@ -11,7 +11,7 @@ namespace SheriffPersonnel.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
+    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, SSN")]
     public class InventoryController : ControllerBase
     {
         private readonly IInventoryService _inventoryService;
@@ -101,7 +101,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPost("assign-multiple")]
-        [Authorize(Policy = "CanEditPersonnel")]
+        [Authorize(Roles = "Inventory, Administrator")]
         public async Task<ActionResult<MultipleEquipmentAssignmentResultDto>> AssignMultipleEquipment([FromBody] MultipleEquipmentAssignmentRequestDto request)
         {
             if (request == null) return BadRequest("Payload cannot be null.");

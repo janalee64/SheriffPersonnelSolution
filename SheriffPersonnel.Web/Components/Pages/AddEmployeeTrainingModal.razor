@@ -91,9 +91,6 @@
             <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-2">Employee Completion Details</MudText>
             <MudGrid>
                 <MudItem xs="12" sm="6">
-                    <MudNumericField T="decimal?" @bind-Value="TrainingRecord.HoursCompleted" Label="Hours Completed" Variant="Variant.Outlined" Format="F2" Min="0m" Max="999.99m" />
-                </MudItem>
-                <MudItem xs="12" sm="6">
                     <MudDatePicker @bind-Date="expireDate" Label="Expire Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" />
                 </MudItem>
                 <MudItem xs="12" sm="6">

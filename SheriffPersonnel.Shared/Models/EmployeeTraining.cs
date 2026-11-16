@@ -20,9 +20,6 @@ namespace SheriffPersonnel.Shared.Models
         [ForeignKey(nameof(TrainingSessionID))]
         public virtual TrainingSession? TrainingSession { get; set; }
 
-        [Column(TypeName = "decimal(5, 2)")]
-        public decimal? HoursCompleted { get; set; }
-
         public DateOnly? ExpireDate { get; set; }
 
         [StringLength(10)]

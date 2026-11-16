@@ -563,7 +563,12 @@ namespace SheriffPersonnel.Web.Services
                         options.HttpMethod = HttpMethod.Get.Method;
                         options.RelativePath = relativePath;
                     });
-                return response ?? Array.Empty<InventoryItemsDto>();
+                var items = response ?? Array.Empty<InventoryItemsDto>();
+                if (onlyActive.HasValue)
+                {
+                    items = items.Where(i => i.IsActive == onlyActive.Value).ToList();
+                }
+                return items;
             }
             catch (Exception ex)
             {
@@ -1093,7 +1098,7 @@ namespace SheriffPersonnel.Web.Services
             try
             {
                 _logger.LogInformation("Invoking downstream API to create range event.");
-                return await _downstreamApi.CallApiForUserAsync<RangeEventDTO, RangeEventDTO>(
+                var result = await _downstreamApi.CallApiForUserAsync<RangeEventDTO, RangeEventDTO>(
                     "MyCustomApi",
                     dto,
                     options =>
@@ -1101,6 +1106,8 @@ namespace SheriffPersonnel.Web.Services
                         options.HttpMethod = HttpMethod.Post.Method;
                         options.RelativePath = "api/rangestatistics/events";
                     });
+                _cache?.Remove("SearchService_RangeEvents");
+                return result;
             }
             catch (Exception ex)
             {
@@ -1533,32 +1540,29 @@ namespace SheriffPersonnel.Web.Services
 
         public async Task<IEnumerable<DocumentTypeDto>> GetDocumentTypesAsync()
         {
-            return await GetCachedOrFetchAsync("SearchService_DocumentTypes", async () =>
+            try
             {
-                try
-                {
-                    _logger.LogInformation("Invoking downstream API for document types.");
-                    var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<DocumentTypeDto>>(
-                        "MyCustomApi",
-                        options =>
-                        {
-                            options.HttpMethod = HttpMethod.Get.Method;
-                            options.RelativePath = "api/documents/types";
-                        });
+                _logger.LogInformation("Invoking downstream API for document types.");
+                var response = await _downstreamApi.CallApiForUserAsync<IEnumerable<DocumentTypeDto>>(
+                    "MyCustomApi",
+                    options =>
+                    {
+                        options.HttpMethod = HttpMethod.Get.Method;
+                        options.RelativePath = "api/documents/types";
+                    });
 
-                    return response ?? Array.Empty<DocumentTypeDto>();
-                }
-                catch (MicrosoftIdentityWebChallengeUserException ex)
-                {
-                    _consentHandler.HandleException(ex);
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to get document types.");
-                    return Array.Empty<DocumentTypeDto>();
-                }
-            });
+                return response ?? Array.Empty<DocumentTypeDto>();
+            }
+            catch (MicrosoftIdentityWebChallengeUserException ex)
+            {
+                _consentHandler.HandleException(ex);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get document types.");
+                return Array.Empty<DocumentTypeDto>();
+            }
         }
 
         public async Task<EmployeeDocumentDto?> UploadDocumentAsync(EmployeeDocumentDto dto)

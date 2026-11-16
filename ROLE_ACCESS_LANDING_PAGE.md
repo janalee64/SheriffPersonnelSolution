@@ -17,8 +17,7 @@ When a user logs in with only the `Administrator` role (or any role other than `
 - Display a welcome header and interactive cards/tiles for available modules based on the user's assigned roles:
   - **User Admin & Code Tables**: Visible to `Administrator`.
   - **Employee Search**: Visible to `Personnel`.
-  - **Inventory Admin**: Visible to `Inventory`.
-  - **Multiple Equipment**: Visible to `Equipment`.
+  - **Inventory Admin & Multiple Equipment**: Visible to `Inventory`.
   - **Multiple Trainings**: Visible to `Training`.
   - **Range Statistics**: Visible to `Range`.
   - **Enter Range Scores**: Visible to all authenticated users.
@@ -29,8 +28,7 @@ When a user logs in with only the `Administrator` role (or any role other than `
   1. `Personnel` -> `/employees`
   2. `Administrator` -> `/admin/users`
   3. `Inventory` -> `/inventoryadmin`
-  4. `Equipment` -> `/multipleequipment`
-  5. `Training` -> `/multipletrainings`
-  6. `Range` -> `/rangestatistics`
-  7. Fallback -> `/enterrangescores`
+  4. `Training` -> `/multipletrainings`
+  5. `Range` -> `/rangestatistics`
+  6. Fallback -> `/enterrangescores`
 

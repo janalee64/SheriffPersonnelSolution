@@ -15,9 +15,6 @@ namespace SheriffPersonnel.Shared.Models
         [StringLength(150)]
         public string SchoolName { get; set; } = string.Empty;
 
-        [StringLength(200)]
-        public string? Address { get; set; }
-
         public bool? IsActive { get; set; } = true;
 
         public virtual ICollection<TrainingSession> TrainingSessions { get; set; } = new List<TrainingSession>();

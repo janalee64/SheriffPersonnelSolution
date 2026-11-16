@@ -46,6 +46,7 @@ namespace SheriffPersonnel.API.Repositories
                     .ThenInclude(f => f!.Make)
                 .Include(rs => rs.Course)
                 .Include(rs => rs.RangeEvent)
+                    .ThenInclude(re => re!.RangeOfficer)
                 .Include(rs => rs.LastUser)
                 .Include(rs => rs.RangeSkills)
                 .AsQueryable();
@@ -132,6 +133,7 @@ namespace SheriffPersonnel.API.Repositories
                     .ThenInclude(f => f!.Make)
                 .Include(rs => rs.Course)
                 .Include(rs => rs.RangeEvent)
+                    .ThenInclude(re => re!.RangeOfficer)
                 .Include(rs => rs.LastUser)
                 .Include(rs => rs.RangeSkills)
                 .Where(rs => rs.EmployeeID == employeeId)
@@ -156,6 +158,7 @@ namespace SheriffPersonnel.API.Repositories
                     .ThenInclude(f => f!.Make)
                 .Include(rs => rs.Course)
                 .Include(rs => rs.RangeEvent)
+                    .ThenInclude(re => re!.RangeOfficer)
                 .Include(rs => rs.LastUser)
                 .Include(rs => rs.RangeSkills)
                 .FirstOrDefaultAsync(rs => rs.RangeID == id);
@@ -175,16 +178,49 @@ namespace SheriffPersonnel.API.Repositories
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
 
-            entity.LastUpdated = DateTime.Now;
+            var existing = await _dbContext.RangeStatistics
+                .Include(rs => rs.RangeSkills)
+                .FirstOrDefaultAsync(rs => rs.RangeID == entity.RangeID);
 
-            var entry = _dbContext.Entry(entity);
-            if (entry.State == EntityState.Detached)
+            if (existing != null)
             {
-                _dbContext.RangeStatistics.Update(entity);
-            }
+                existing.EmployeeID = entity.EmployeeID;
+                existing.FirearmID = entity.FirearmID;
+                existing.CourseID = entity.CourseID;
+                existing.RoundsFired = entity.RoundsFired;
+                existing.PassFail = entity.PassFail;
+                existing.LastUserID = entity.LastUserID;
+                existing.RangeEventID = entity.RangeEventID;
+                existing.LastUpdated = DateTime.Now;
 
-            await _dbContext.SaveChangesAsync();
-            return entity;
+                existing.RangeSkills.Clear();
+                if (entity.RangeSkills != null && entity.RangeSkills.Any())
+                {
+                    var skillIds = entity.RangeSkills.Select(s => s.RangeSkillID).ToList();
+                    var skills = await _dbContext.RangeSkills
+                        .Where(s => skillIds.Contains(s.RangeSkillID))
+                        .ToListAsync();
+                    foreach (var s in skills)
+                    {
+                        existing.RangeSkills.Add(s);
+                    }
+                }
+
+                await _dbContext.SaveChangesAsync();
+                return existing;
+            }
+            else
+            {
+                entity.LastUpdated = DateTime.Now;
+                var entry = _dbContext.Entry(entity);
+                if (entry.State == EntityState.Detached)
+                {
+                    _dbContext.RangeStatistics.Update(entity);
+                }
+
+                await _dbContext.SaveChangesAsync();
+                return entity;
+            }
         }
 
         public async Task<bool> DeleteRangeStatisticAsync(int id)

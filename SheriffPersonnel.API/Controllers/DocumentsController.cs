@@ -12,7 +12,7 @@ namespace SheriffPersonnel.API.Controllers
 {
     [ApiController]
     [Route("api/documents")]
-    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
+    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, SSN")]
     public class DocumentsController : ControllerBase
     {
         private readonly IDocumentService _documentService;
@@ -88,6 +88,28 @@ namespace SheriffPersonnel.API.Controllers
             {
                 _logger.LogError(ex, "Error retrieving document ID {DocumentID}.", id);
                 return StatusCode(500, $"An error occurred while fetching document record: {ex.Message}");
+            }
+        }
+
+        [HttpGet("{id:int}/preview")]
+        public async Task<IActionResult> PreviewDocument(int id)
+        {
+            try
+            {
+                _logger.LogInformation("Previewing document content for ID {DocumentID}.", id);
+                var doc = await _documentService.GetDocumentEntityByIdAsync(id);
+                if (doc == null) return NotFound($"Document record with ID {id} was not found.");
+
+                var mime = string.IsNullOrWhiteSpace(doc.MimeType) ? "application/octet-stream" : doc.MimeType;
+                var fileName = string.IsNullOrWhiteSpace(doc.FileName) ? $"document_{id}" : doc.FileName;
+
+                Response.Headers["Content-Disposition"] = $"inline; filename=\"{fileName}\"";
+                return File(doc.FileData, mime);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error previewing document file ID {DocumentID}.", id);
+                return StatusCode(500, $"An error occurred while previewing document file: {ex.Message}");
             }
         }
 

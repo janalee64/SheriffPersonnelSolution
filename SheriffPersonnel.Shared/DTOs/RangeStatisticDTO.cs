@@ -26,6 +26,8 @@ namespace SheriffPersonnel.Shared.DTOs
         public DateTime LastUpdated { get; set; } = DateTime.Now;
         public int RangeEventID { get; set; }
         public DateOnly? RangeDate { get; set; }
+        public int? RangeOfficerID { get; set; }
+        public string? RangeOfficerName { get; set; }
         public string? EventDescription { get; set; }
         public List<int> SelectedSkillIDs { get; set; } = new();
 

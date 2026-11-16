@@ -16,16 +16,20 @@
             <DataAnnotationsValidator />
             <MudGrid>
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="int?" @bind-Value="Firearm.MakeID" Label="Make" Variant="Variant.Outlined" Clearable="true">
-                        <MudSelectItem T="int?" Value="@((int?)null)">-- Select Make --</MudSelectItem>
-                        @if (AvailableMakes != null)
-                        {
-                            @foreach (var make in AvailableMakes)
-                            {
-                                <MudSelectItem T="int?" Value="@make.MakeID">@make.MakeName</MudSelectItem>
-                            }
-                        }
-                    </MudSelect>
+                    <MudAutocomplete T="MakesDto"
+                                     Value="selectedMake"
+                                     ValueChanged="OnMakeChanged"
+                                     SearchFunc="SearchMakes"
+                                     ToStringFunc="@(m => m == null ? string.Empty : m.MakeName)"
+                                     Label="Make"
+                                     Placeholder="-- Select Make --"
+                                     Variant="Variant.Outlined"
+                                     Clearable="true"
+                                     ResetValueOnEmptyText="true"
+                                     CoerceText="true"
+                                     CoerceValue="false"
+                                     SelectValueOnTab="true"
+                                     MinCharacters="0" />
                 </MudItem>
                 <MudItem xs="12" sm="6">
                     <MudTextField @bind-Value="Firearm.ModelNumber" For="@(() => Firearm.ModelNumber)" Label="Model Number" Variant="Variant.Outlined" Required="true" RequiredError="Model number is required" />
@@ -88,6 +92,7 @@
     [Parameter]
     public IEnumerable<StatusesDto>? AvailableStatuses { get; set; }
 
+    private MakesDto? selectedMake;
     private bool isSaving = false;
 
     private bool IsEditRecord => Firearm != null && Firearm.FirearmID > 0;
@@ -102,6 +107,45 @@
         {
             Firearm.StatusID = statuses.First().StatusID;
         }
+        InitSelectedMake();
+    }
+
+    protected override void OnParametersSet()
+    {
+        InitSelectedMake();
+    }
+
+    private void InitSelectedMake()
+    {
+        if (selectedMake == null && Firearm.MakeID.HasValue && Firearm.MakeID.Value > 0 && AvailableMakes != null)
+        {
+            selectedMake = AvailableMakes.FirstOrDefault(m => m.MakeID == Firearm.MakeID.Value);
+        }
+    }
+
+    private void OnMakeChanged(MakesDto? make)
+    {
+        selectedMake = make;
+        Firearm.MakeID = make?.MakeID;
+        Firearm.MakeName = make?.MakeName;
+    }
+
+    private Task<IEnumerable<MakesDto>> SearchMakes(string value, CancellationToken token)
+    {
+        if (AvailableMakes == null || !AvailableMakes.Any())
+        {
+            return Task.FromResult(Enumerable.Empty<MakesDto>());
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult(AvailableMakes);
+        }
+
+        var result = AvailableMakes.Where(m =>
+            !string.IsNullOrEmpty(m.MakeName) && m.MakeName.Contains(value, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult(result);
     }
 
     private void Cancel()

@@ -1,4 +1,6 @@
 @page "/employee/documents"
+@using System.IO
+@using System.IO.Compression
 @using SheriffPersonnel.Shared.DTOs
 @using SheriffPersonnel.Web.Services
 @inject SearchService service
@@ -22,27 +24,90 @@
             }
             else
             {
-                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-                    <MudText Typo="Typo.h6" HtmlTag="h3">Employee Documents</MudText>
-                    @if (CanEdit)
-                    {
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudUpload" OnClick="OpenUploadDocumentForm">
-                            Upload Document
-                        </MudButton>
-                    }
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudText Typo="Typo.h6" HtmlTag="h3">Employee Documents</MudText>
+                        @if (selectedDocumentIds.Count > 0)
+                        {
+                            <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Filled" OnClose="ClearSelection">
+                                @($"{selectedDocumentIds.Count} selected")
+                            </MudChip>
+                        }
+                    </MudStack>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
+                        @if (documents.Count > 0)
+                        {
+                            <MudButton Variant="Variant.Outlined" 
+                                       Color="Color.Primary" 
+                                       StartIcon="@(AreAllSelected ? Icons.Material.Filled.CheckBoxOutlineBlank : Icons.Material.Filled.SelectAll)" 
+                                       OnClick="ToggleSelectAll"
+                                       Disabled="@(isLoading || isDownloading || isPreviewing)"
+                                       aria-label="@(AreAllSelected ? "Deselect all documents" : "Select all documents")">
+                                @(AreAllSelected ? "Deselect All" : "Select All")
+                            </MudButton>
+
+                            <MudTooltip Text="@(selectedDocumentIds.Count > 1 ? "Download checked documents as a ZIP archive" : "Download checked document")">
+                                <MudButton Variant="Variant.Filled" 
+                                           Color="Color.Success" 
+                                           StartIcon="@(isDownloadingChecked ? null : Icons.Material.Filled.Download)" 
+                                           OnClick="DownloadCheckedDocumentsAsync" 
+                                           Disabled="@(!selectedDocumentIds.Any() || isDownloading || isPreviewing)"
+                                           aria-label="@(selectedDocumentIds.Count > 1 ? "Download checked documents as a ZIP archive" : "Download checked document")">
+                                    @if (isDownloadingChecked)
+                                    {
+                                        <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" Color="Color.Inherit" />
+                                        <span>Downloading...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Download Checked@(selectedDocumentIds.Count > 0 ? $" ({selectedDocumentIds.Count})" : "")</span>
+                                    }
+                                </MudButton>
+                            </MudTooltip>
+                        }
+                        @if (CanEdit)
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudUpload" OnClick="OpenUploadDocumentForm" Disabled="@(isDownloading || isPreviewing)">
+                                Upload Document
+                            </MudButton>
+                        }
+                    </MudStack>
                 </MudStack>
 
                 <MudTable Items="documents" Hover="true" Striped="true" Elevation="0" AllowUnsorted="true">
                     <HeaderContent>
+                        <MudTh Style="width: 110px; text-align: center;">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1">
+                                <MudCheckBox T="bool" 
+                                             Value="@AreAllSelected" 
+                                             ValueChanged="@((bool _) => ToggleSelectAll())" 
+                                             Color="Color.Default" 
+                                             Dense="true" 
+                                             Size="Size.Small" 
+                                             aria-label="Select all documents for download"
+                                             Disabled="@(documents.Count == 0 || isDownloading || isPreviewing)" />
+                                <MudText Typo="Typo.subtitle2" Style="font-weight: 700; color: inherit;">Download</MudText>
+                            </MudStack>
+                        </MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeDocumentDto, object>(x => x.Title ?? string.Empty)">Title</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeDocumentDto, object>(x => x.DocumentTypeName ?? string.Empty)">Type</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeDocumentDto, object>(x => x.FileName ?? string.Empty)">File Name</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeDocumentDto, object>(x => x.FileSizeBytes)">Size</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeDocumentDto, object>(x => x.UploadedByName ?? string.Empty)">Uploaded By</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeDocumentDto, object>(x => x.UploadDate ?? DateTime.MinValue)">Upload Date</MudTableSortLabel></MudTh>
-                        <MudTh Style="width: 140px;">Actions</MudTh>
+                        <MudTh Style="width: 180px;">Actions</MudTh>
                     </HeaderContent>
                     <RowTemplate Context="docContext">
+                        <MudTd DataLabel="Download" Style="text-align: center;">
+                            <MudCheckBox T="bool" 
+                                         Value="@IsDocumentSelected(docContext.DocumentID)" 
+                                         ValueChanged="@((bool val) => ToggleDocumentSelection(docContext.DocumentID, val))" 
+                                         Color="Color.Primary" 
+                                         Dense="true" 
+                                         Size="Size.Small" 
+                                         aria-label="@($"Select document {docContext.Title} for download")"
+                                         Disabled="@(isDownloading || isPreviewing)" />
+                        </MudTd>
                         <MudTd DataLabel="Title"><b>@docContext.Title</b></MudTd>
                         <MudTd DataLabel="Type">
                             <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Outlined">
@@ -54,8 +119,11 @@
                         <MudTd DataLabel="Uploaded By">@(string.IsNullOrWhiteSpace(docContext.UploadedByName) ? "-" : docContext.UploadedByName)</MudTd>
                         <MudTd DataLabel="Upload Date">@(docContext.UploadDate.HasValue ? docContext.UploadDate.Value.ToString("MM/dd/yyyy hh:mm tt") : "-")</MudTd>
                         <MudTd DataLabel="Actions">
+                            <MudTooltip Text="Preview Document">
+                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" Size="Size.Small" OnClick="@(() => PreviewDocumentAsync(docContext))" Disabled="@(isPreviewing || isDownloading)" aria-label="@($"Preview document {docContext.Title}")" />
+                            </MudTooltip>
                             <MudTooltip Text="Download Document">
-                                <MudIconButton Icon="@Icons.Material.Filled.Download" Color="Color.Primary" Size="Size.Small" OnClick="@(() => DownloadDocumentAsync(docContext))" Disabled="@isDownloading" aria-label="@($"Download document {docContext.Title}")" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Download" Color="Color.Primary" Size="Size.Small" OnClick="@(() => DownloadDocumentAsync(docContext))" Disabled="@(isDownloading || isPreviewing)" aria-label="@($"Download document {docContext.Title}")" />
                             </MudTooltip>
                             @if (CanEdit)
                             {
@@ -87,16 +155,53 @@
     [Parameter] public int EmployeeId { get; set; }
     [Parameter] public bool IsEdit { get; set; } = true;
     [Parameter] public bool CanEdit { get; set; } = true;
+    [Parameter] public string? EmployeeName { get; set; }
     [Parameter] public IEnumerable<DocumentTypeDto>? AvailableDocumentTypes { get; set; }
 
     [CascadingParameter]
     private Task<AuthenticationState>? authenticationStateTask { get; set; }
 
     private List<EmployeeDocumentDto> documents = new();
+    private HashSet<int> selectedDocumentIds = new();
     private bool isLoading = true;
     private bool isDownloading = false;
+    private bool isDownloadingChecked = false;
+    private bool isPreviewing = false;
     private int _lastLoadedEmployeeId;
     private bool _lastLoadedIsEdit;
+
+    private bool AreAllSelected => documents.Count > 0 && selectedDocumentIds.Count == documents.Count;
+
+    private bool IsDocumentSelected(int documentId) => selectedDocumentIds.Contains(documentId);
+
+    private void ToggleDocumentSelection(int documentId, bool isSelected)
+    {
+        if (isSelected)
+        {
+            selectedDocumentIds.Add(documentId);
+        }
+        else
+        {
+            selectedDocumentIds.Remove(documentId);
+        }
+    }
+
+    private void ToggleSelectAll()
+    {
+        if (AreAllSelected)
+        {
+            selectedDocumentIds.Clear();
+        }
+        else
+        {
+            selectedDocumentIds = documents.Select(d => d.DocumentID).ToHashSet();
+        }
+    }
+
+    private void ClearSelection()
+    {
+        selectedDocumentIds.Clear();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -130,6 +235,7 @@
 
         if (IsEdit && EmployeeId > 0 && (EmployeeId != _lastLoadedEmployeeId || IsEdit != _lastLoadedIsEdit))
         {
+            selectedDocumentIds.Clear();
             _lastLoadedEmployeeId = EmployeeId;
             _lastLoadedIsEdit = IsEdit;
             await LoadDocumentsAsync();
@@ -146,6 +252,8 @@
                 .OrderByDescending(d => d.UploadDate ?? DateTime.MinValue)
                 .ThenByDescending(d => d.DocumentID)
                 .ToList();
+
+            selectedDocumentIds.RemoveWhere(id => !documents.Any(d => d.DocumentID == id));
         }
         catch (Exception ex)
         {
@@ -163,10 +271,7 @@
     {
         if (!CanEdit) return;
 
-        if (AvailableDocumentTypes == null || !AvailableDocumentTypes.Any())
-        {
-            AvailableDocumentTypes = await service.GetDocumentTypesAsync();
-        }
+        AvailableDocumentTypes = await service.GetDocumentTypesAsync();
 
         var parameters = new DialogParameters<AddEmployeeDocumentModal>
         {
@@ -189,10 +294,7 @@
     {
         if (!CanEdit) return;
 
-        if (AvailableDocumentTypes == null || !AvailableDocumentTypes.Any())
-        {
-            AvailableDocumentTypes = await service.GetDocumentTypesAsync();
-        }
+        AvailableDocumentTypes = await service.GetDocumentTypesAsync();
 
         var parameters = new DialogParameters<AddEmployeeDocumentModal>
         {
@@ -223,26 +325,80 @@
         }
     }
 
+    private async Task PreviewDocumentAsync(EmployeeDocumentDto doc)
+    {
+        if (isPreviewing || isDownloading) return;
+
+        isPreviewing = true;
+        try
+        {
+            logger.LogInformation("Previewing document ID {DocumentID} for Employee ID {EmployeeID}.", doc.DocumentID, EmployeeId);
+
+            var fileData = doc.FileData;
+            var fileName = !string.IsNullOrWhiteSpace(doc.FileName) ? doc.FileName : doc.Title;
+            var mime = doc.MimeType;
+
+            if (fileData == null || fileData.Length == 0)
+            {
+                var fullDoc = await service.GetDocumentByIdAsync(doc.DocumentID);
+                fileData = fullDoc?.FileData;
+                if (!string.IsNullOrWhiteSpace(fullDoc?.FileName)) fileName = fullDoc.FileName;
+                if (!string.IsNullOrWhiteSpace(fullDoc?.MimeType)) mime = fullDoc.MimeType;
+            }
+
+            if (fileData == null || fileData.Length == 0)
+            {
+                Snackbar.Add("Failed to preview document content: File data is empty or missing.", Severity.Error);
+                return;
+            }
+
+            var base64 = Convert.ToBase64String(fileData);
+            if (string.IsNullOrWhiteSpace(mime) || string.Equals(mime, "application/octet-stream", StringComparison.OrdinalIgnoreCase))
+            {
+                mime = GetMimeTypeFromExtension(fileName);
+            }
+
+            await JSRuntime.InvokeVoidAsync("previewFileFromByteArray", fileName, base64, mime);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error previewing document ID {DocumentID}.", doc.DocumentID);
+            Snackbar.Add($"Error previewing document: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isPreviewing = false;
+        }
+    }
+
     private async Task DownloadDocumentAsync(EmployeeDocumentDto doc)
     {
-        if (isDownloading) return;
+        if (isDownloading || isPreviewing) return;
 
         isDownloading = true;
         try
         {
             logger.LogInformation("Downloading document ID {DocumentID} for Employee ID {EmployeeID}.", doc.DocumentID, EmployeeId);
             
-            var fullDoc = await service.GetDocumentByIdAsync(doc.DocumentID);
-            if (fullDoc == null || fullDoc.FileData == null || fullDoc.FileData.Length == 0)
+            var fileData = doc.FileData;
+            var fileName = !string.IsNullOrWhiteSpace(doc.FileName) ? doc.FileName : doc.Title;
+            var mime = string.IsNullOrWhiteSpace(doc.MimeType) ? "application/octet-stream" : doc.MimeType;
+
+            if (fileData == null || fileData.Length == 0)
+            {
+                var fullDoc = await service.GetDocumentByIdAsync(doc.DocumentID);
+                fileData = fullDoc?.FileData;
+                if (!string.IsNullOrWhiteSpace(fullDoc?.FileName)) fileName = fullDoc.FileName;
+                if (!string.IsNullOrWhiteSpace(fullDoc?.MimeType)) mime = fullDoc.MimeType;
+            }
+
+            if (fileData == null || fileData.Length == 0)
             {
                 Snackbar.Add("Failed to download document content: File data is empty or missing.", Severity.Error);
                 return;
             }
 
-            var base64 = Convert.ToBase64String(fullDoc.FileData);
-            var mime = string.IsNullOrWhiteSpace(doc.MimeType) ? "application/octet-stream" : doc.MimeType;
-            var fileName = string.IsNullOrWhiteSpace(doc.FileName) ? doc.Title : doc.FileName;
-
+            var base64 = Convert.ToBase64String(fileData);
             await JSRuntime.InvokeVoidAsync("downloadFileFromByteArray", fileName, base64, mime);
             Snackbar.Add($"Document '{fileName}' downloaded.", Severity.Info);
         }
@@ -255,6 +411,145 @@
         {
             isDownloading = false;
         }
+    }
+
+    private async Task DownloadCheckedDocumentsAsync()
+    {
+        if (!selectedDocumentIds.Any() || isDownloading || isPreviewing) return;
+
+        isDownloading = true;
+        isDownloadingChecked = true;
+        try
+        {
+            var selectedDocs = documents.Where(d => selectedDocumentIds.Contains(d.DocumentID)).ToList();
+            if (selectedDocs.Count == 0) return;
+
+            // If only 1 document is selected, download directly as single file
+            if (selectedDocs.Count == 1)
+            {
+                var singleDoc = selectedDocs[0];
+                var fileData = singleDoc.FileData;
+                var fileName = !string.IsNullOrWhiteSpace(singleDoc.FileName) ? singleDoc.FileName : singleDoc.Title;
+                var mime = string.IsNullOrWhiteSpace(singleDoc.MimeType) ? "application/octet-stream" : singleDoc.MimeType;
+
+                if (fileData == null || fileData.Length == 0)
+                {
+                    var fullDoc = await service.GetDocumentByIdAsync(singleDoc.DocumentID);
+                    fileData = fullDoc?.FileData;
+                    if (!string.IsNullOrWhiteSpace(fullDoc?.FileName)) fileName = fullDoc.FileName;
+                    if (!string.IsNullOrWhiteSpace(fullDoc?.MimeType)) mime = fullDoc.MimeType;
+                }
+
+                if (fileData == null || fileData.Length == 0)
+                {
+                    Snackbar.Add("Selected document contains no file data.", Severity.Warning);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(Path.GetExtension(fileName)))
+                {
+                    fileName += GetDefaultExtensionForMime(mime);
+                }
+
+                var base64 = Convert.ToBase64String(fileData);
+                await JSRuntime.InvokeVoidAsync("downloadFileFromByteArray", fileName, base64, mime);
+                Snackbar.Add($"Document '{fileName}' downloaded.", Severity.Success);
+                return;
+            }
+
+            // Multiple documents: bundle into a zip archive to avoid auto-opening individual files
+            logger.LogInformation("Creating zip archive for {Count} checked documents for Employee ID {EmployeeID}.", selectedDocs.Count, EmployeeId);
+            Snackbar.Add($"Preparing zip download for {selectedDocs.Count} documents...", Severity.Info);
+
+            using var memoryStream = new MemoryStream();
+            using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                var usedEntryNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var doc in selectedDocs)
+                {
+                    var fileData = doc.FileData;
+                    var fileName = !string.IsNullOrWhiteSpace(doc.FileName) ? doc.FileName : doc.Title;
+                    var mime = string.IsNullOrWhiteSpace(doc.MimeType) ? "application/octet-stream" : doc.MimeType;
+
+                    if (fileData == null || fileData.Length == 0)
+                    {
+                        var fullDoc = await service.GetDocumentByIdAsync(doc.DocumentID);
+                        fileData = fullDoc?.FileData;
+                        if (!string.IsNullOrWhiteSpace(fullDoc?.FileName)) fileName = fullDoc.FileName;
+                        if (!string.IsNullOrWhiteSpace(fullDoc?.MimeType)) mime = fullDoc.MimeType;
+                    }
+
+                    if (fileData == null || fileData.Length == 0)
+                    {
+                        logger.LogWarning("Skipping document ID {DocumentID} ('{Title}') - no file data found.", doc.DocumentID, doc.Title);
+                        continue;
+                    }
+
+                    var cleanName = SanitizeZipEntryName(fileName);
+                    if (string.IsNullOrWhiteSpace(cleanName))
+                    {
+                        cleanName = $"Document_{doc.DocumentID}";
+                    }
+
+                    var ext = Path.GetExtension(cleanName);
+                    if (string.IsNullOrWhiteSpace(ext))
+                    {
+                        ext = GetDefaultExtensionForMime(mime);
+                        cleanName += ext;
+                    }
+
+                    var baseName = Path.GetFileNameWithoutExtension(cleanName);
+                    var uniqueName = cleanName;
+                    int counter = 1;
+                    while (usedEntryNames.Contains(uniqueName))
+                    {
+                        uniqueName = $"{baseName}_{counter}{ext}";
+                        counter++;
+                    }
+                    usedEntryNames.Add(uniqueName);
+
+                    var entry = archive.CreateEntry(uniqueName, CompressionLevel.Optimal);
+                    using var entryStream = entry.Open();
+                    await entryStream.WriteAsync(fileData, 0, fileData.Length);
+                }
+            }
+
+            if (memoryStream.Length == 0)
+            {
+                Snackbar.Add("None of the selected documents contained downloadable data.", Severity.Warning);
+                return;
+            }
+
+            var safeEmployee = !string.IsNullOrWhiteSpace(EmployeeName) 
+                ? SanitizeZipEntryName(EmployeeName) 
+                : $"Employee_{EmployeeId}";
+            var zipFileName = $"{safeEmployee}_Documents_{DateTime.Now:yyyyMMdd_HHmmss}.zip";
+
+            var zipBytes = memoryStream.ToArray();
+            var zipBase64 = Convert.ToBase64String(zipBytes);
+            await JSRuntime.InvokeVoidAsync("downloadFileFromByteArray", zipFileName, zipBase64, "application/zip");
+            Snackbar.Add($"Downloaded {selectedDocs.Count} documents in '{zipFileName}'.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error creating zip download for Employee ID {EmployeeID}.", EmployeeId);
+            Snackbar.Add($"Error downloading documents: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isDownloading = false;
+            isDownloadingChecked = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string SanitizeZipEntryName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "document";
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var cleaned = new string(name.Select(c => invalidChars.Contains(c) ? '_' : c).ToArray());
+        return cleaned.Trim();
     }
 
     private async Task DeleteDocumentAsync(EmployeeDocumentDto doc)
@@ -274,6 +569,7 @@
                 var success = await service.DeleteDocumentAsync(doc.DocumentID);
                 if (success)
                 {
+                    selectedDocumentIds.Remove(doc.DocumentID);
                     Snackbar.Add("Document deleted successfully.", Severity.Success);
                     await LoadDocumentsAsync();
                 }
@@ -303,5 +599,50 @@
         }
         return $"{dblBytes:0.##} {suffixes[i]}";
     }
-}
 
+    private static string GetDefaultExtensionForMime(string? mime)
+    {
+        if (string.IsNullOrWhiteSpace(mime)) return ".bin";
+        return mime.ToLowerInvariant() switch
+        {
+            "application/pdf" => ".pdf",
+            "application/msword" => ".doc",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => ".docx",
+            "application/vnd.ms-excel" => ".xls",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => ".xlsx",
+            "image/png" => ".png",
+            "image/jpeg" => ".jpg",
+            "image/gif" => ".gif",
+            "image/webp" => ".webp",
+            "image/svg+xml" => ".svg",
+            "text/plain" => ".txt",
+            "text/csv" => ".csv",
+            "text/html" => ".html",
+            "application/zip" => ".zip",
+            _ => ".bin"
+        };
+    }
+
+    private static string GetMimeTypeFromExtension(string? fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName)) return "application/octet-stream";
+        var ext = System.IO.Path.GetExtension(fileName)?.ToLowerInvariant();
+        return ext switch
+        {
+            ".pdf" => "application/pdf",
+            ".doc" => "application/msword",
+            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".xls" => "application/vnd.ms-excel",
+            ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".svg" => "image/svg+xml",
+            ".txt" => "text/plain",
+            ".csv" => "text/csv",
+            ".htm" or ".html" => "text/html",
+            _ => "application/octet-stream"
+        };
+    }
+}

@@ -8,7 +8,7 @@
 @inject ISnackbar Snackbar
 @inject ILogger<EmployeeDetail> logger
 
-@attribute [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
+@attribute [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, SSN")]
 
 <PageTitle>@(IsEdit ? (canEditEmployee ? "Edit Employee" : "View Employee") : "Add New Employee")</PageTitle>
 
@@ -254,7 +254,7 @@ else
                     }
                 </MudTabPanel>
 
-                <MudTabPanel Text="Inventory Assignments" Icon="@Icons.Material.Filled.Inventory">
+                <MudTabPanel Text="Equipment" Icon="@Icons.Material.Filled.Inventory">
                     @if (visitedTabs.Contains(2))
                     {
                         <EmployeeInventoryTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableInventoryItems="@availableInventoryItems" />
@@ -268,7 +268,7 @@ else
                     }
                 </MudTabPanel>
 
-                <MudTabPanel Text="Range Statistics" Icon="@Icons.Material.Filled.SportsScore">
+                <MudTabPanel Text="Range Records" Icon="@Icons.Material.Filled.SportsScore">
                     @if (visitedTabs.Contains(4))
                     {
                         <EmployeeRangeStatisticsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableCourses="@availableRangeCourses" AvailableEvents="@availableRangeEvents" />
@@ -285,7 +285,7 @@ else
                 <MudTabPanel Text="Documents" Icon="@Icons.Material.Filled.InsertDriveFile">
                     @if (visitedTabs.Contains(6))
                     {
-                        <EmployeeDocumentsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" />
+                        <EmployeeDocumentsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" EmployeeName="@($"{employee.FirstName}_{employee.LastName}".Trim('_'))" />
                     }
                 </MudTabPanel>
             }

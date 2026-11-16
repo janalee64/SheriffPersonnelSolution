@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Identity.Abstractions;
 using System;
 using System.Collections.Generic;
@@ -14,15 +15,26 @@ namespace SheriffPersonnel.Web.Services
         private readonly IDownstreamApi _downstreamApi;
         private readonly MicrosoftIdentityConsentAndConditionalAccessHandler _consentHandler;
         private readonly ILogger<CodeTableService> _logger;
+        private readonly IMemoryCache? _cache;
 
         public CodeTableService(
             IDownstreamApi downstreamApi,
             MicrosoftIdentityConsentAndConditionalAccessHandler consentHandler,
-            ILogger<CodeTableService> logger)
+            ILogger<CodeTableService> logger,
+            IMemoryCache? cache = null)
         {
             _downstreamApi = downstreamApi ?? throw new ArgumentNullException(nameof(downstreamApi));
             _consentHandler = consentHandler ?? throw new ArgumentNullException(nameof(consentHandler));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _cache = cache;
+        }
+
+        private void InvalidateCache(string? cacheKey)
+        {
+            if (!string.IsNullOrEmpty(cacheKey))
+            {
+                _cache?.Remove(cacheKey);
+            }
         }
 
         private async Task<IEnumerable<T>> GetListAsync<T>(string relativePath)
@@ -127,39 +139,39 @@ namespace SheriffPersonnel.Web.Services
 
         // Statuses
         public Task<IEnumerable<StatusesDto>> GetStatusesAsync() => GetListAsync<StatusesDto>("api/statuses");
-        public Task<StatusesDto?> CreateStatusAsync(StatusesDto dto) => PostAsync<StatusesDto, StatusesDto>("api/statuses", dto);
-        public Task<StatusesDto?> UpdateStatusAsync(int id, StatusesDto dto) => PutAsync<StatusesDto, StatusesDto>($"api/statuses/{id}", dto);
-        public Task<bool> DeleteStatusAsync(int id) => DeleteAsync($"api/statuses/{id}");
+        public async Task<StatusesDto?> CreateStatusAsync(StatusesDto dto) { var res = await PostAsync<StatusesDto, StatusesDto>("api/statuses", dto); InvalidateCache("SearchService_Statuses"); return res; }
+        public async Task<StatusesDto?> UpdateStatusAsync(int id, StatusesDto dto) { var res = await PutAsync<StatusesDto, StatusesDto>($"api/statuses/{id}", dto); InvalidateCache("SearchService_Statuses"); return res; }
+        public async Task<bool> DeleteStatusAsync(int id) { var res = await DeleteAsync($"api/statuses/{id}"); InvalidateCache("SearchService_Statuses"); return res; }
 
         // Programs
         public Task<IEnumerable<ProgramsDto>> GetProgramsAsync() => GetListAsync<ProgramsDto>("api/programs");
-        public Task<ProgramsDto?> CreateProgramAsync(ProgramsDto dto) => PostAsync<ProgramsDto, ProgramsDto>("api/programs", dto);
-        public Task<ProgramsDto?> UpdateProgramAsync(int id, ProgramsDto dto) => PutAsync<ProgramsDto, ProgramsDto>($"api/programs/{id}", dto);
-        public Task<bool> DeleteProgramAsync(int id) => DeleteAsync($"api/programs/{id}");
+        public async Task<ProgramsDto?> CreateProgramAsync(ProgramsDto dto) { var res = await PostAsync<ProgramsDto, ProgramsDto>("api/programs", dto); InvalidateCache("SearchService_Programs"); return res; }
+        public async Task<ProgramsDto?> UpdateProgramAsync(int id, ProgramsDto dto) { var res = await PutAsync<ProgramsDto, ProgramsDto>($"api/programs/{id}", dto); InvalidateCache("SearchService_Programs"); return res; }
+        public async Task<bool> DeleteProgramAsync(int id) { var res = await DeleteAsync($"api/programs/{id}"); InvalidateCache("SearchService_Programs"); return res; }
 
         // Units
         public Task<IEnumerable<UnitsDto>> GetUnitsAsync() => GetListAsync<UnitsDto>("api/units");
-        public Task<UnitsDto?> CreateUnitAsync(UnitsDto dto) => PostAsync<UnitsDto, UnitsDto>("api/units", dto);
-        public Task<UnitsDto?> UpdateUnitAsync(int id, UnitsDto dto) => PutAsync<UnitsDto, UnitsDto>($"api/units/{id}", dto);
-        public Task<bool> DeleteUnitAsync(int id) => DeleteAsync($"api/units/{id}");
+        public async Task<UnitsDto?> CreateUnitAsync(UnitsDto dto) { var res = await PostAsync<UnitsDto, UnitsDto>("api/units", dto); InvalidateCache("SearchService_Units"); return res; }
+        public async Task<UnitsDto?> UpdateUnitAsync(int id, UnitsDto dto) { var res = await PutAsync<UnitsDto, UnitsDto>($"api/units/{id}", dto); InvalidateCache("SearchService_Units"); return res; }
+        public async Task<bool> DeleteUnitAsync(int id) { var res = await DeleteAsync($"api/units/{id}"); InvalidateCache("SearchService_Units"); return res; }
 
         // Ranks
         public Task<IEnumerable<RanksDto>> GetRanksAsync() => GetListAsync<RanksDto>("api/ranks");
-        public Task<RanksDto?> CreateRankAsync(RanksDto dto) => PostAsync<RanksDto, RanksDto>("api/ranks", dto);
-        public Task<RanksDto?> UpdateRankAsync(int id, RanksDto dto) => PutAsync<RanksDto, RanksDto>($"api/ranks/{id}", dto);
-        public Task<bool> DeleteRankAsync(int id) => DeleteAsync($"api/ranks/{id}");
+        public async Task<RanksDto?> CreateRankAsync(RanksDto dto) { var res = await PostAsync<RanksDto, RanksDto>("api/ranks", dto); InvalidateCache("SearchService_Ranks"); return res; }
+        public async Task<RanksDto?> UpdateRankAsync(int id, RanksDto dto) { var res = await PutAsync<RanksDto, RanksDto>($"api/ranks/{id}", dto); InvalidateCache("SearchService_Ranks"); return res; }
+        public async Task<bool> DeleteRankAsync(int id) { var res = await DeleteAsync($"api/ranks/{id}"); InvalidateCache("SearchService_Ranks"); return res; }
 
         // Makes
         public Task<IEnumerable<MakesDto>> GetMakesAsync() => GetListAsync<MakesDto>("api/makes");
-        public Task<MakesDto?> CreateMakeAsync(MakesDto dto) => PostAsync<MakesDto, MakesDto>("api/makes", dto);
-        public Task<MakesDto?> UpdateMakeAsync(int id, MakesDto dto) => PutAsync<MakesDto, MakesDto>($"api/makes/{id}", dto);
-        public Task<bool> DeleteMakeAsync(int id) => DeleteAsync($"api/makes/{id}");
+        public async Task<MakesDto?> CreateMakeAsync(MakesDto dto) { var res = await PostAsync<MakesDto, MakesDto>("api/makes", dto); InvalidateCache("SearchService_Makes"); return res; }
+        public async Task<MakesDto?> UpdateMakeAsync(int id, MakesDto dto) { var res = await PutAsync<MakesDto, MakesDto>($"api/makes/{id}", dto); InvalidateCache("SearchService_Makes"); return res; }
+        public async Task<bool> DeleteMakeAsync(int id) { var res = await DeleteAsync($"api/makes/{id}"); InvalidateCache("SearchService_Makes"); return res; }
 
         // Range Courses
         public Task<IEnumerable<RangeCourseDTO>> GetRangeCoursesAsync() => GetListAsync<RangeCourseDTO>("api/rangecourses");
-        public Task<RangeCourseDTO?> CreateRangeCourseAsync(RangeCourseDTO dto) => PostAsync<RangeCourseDTO, RangeCourseDTO>("api/rangecourses", dto);
-        public Task<RangeCourseDTO?> UpdateRangeCourseAsync(int id, RangeCourseDTO dto) => PutAsync<RangeCourseDTO, RangeCourseDTO>($"api/rangecourses/{id}", dto);
-        public Task<bool> DeleteRangeCourseAsync(int id) => DeleteAsync($"api/rangecourses/{id}");
+        public async Task<RangeCourseDTO?> CreateRangeCourseAsync(RangeCourseDTO dto) { var res = await PostAsync<RangeCourseDTO, RangeCourseDTO>("api/rangecourses", dto); InvalidateCache("SearchService_RangeCourses"); return res; }
+        public async Task<RangeCourseDTO?> UpdateRangeCourseAsync(int id, RangeCourseDTO dto) { var res = await PutAsync<RangeCourseDTO, RangeCourseDTO>($"api/rangecourses/{id}", dto); InvalidateCache("SearchService_RangeCourses"); return res; }
+        public async Task<bool> DeleteRangeCourseAsync(int id) { var res = await DeleteAsync($"api/rangecourses/{id}"); InvalidateCache("SearchService_RangeCourses"); return res; }
 
         // Range Officers
         public Task<IEnumerable<RangeOfficerDTO>> GetRangeOfficersAsync() => GetListAsync<RangeOfficerDTO>("api/rangeofficers");
@@ -199,8 +211,8 @@ namespace SheriffPersonnel.Web.Services
 
         // Document Types
         public Task<IEnumerable<DocumentTypeDto>> GetDocumentTypesAsync() => GetListAsync<DocumentTypeDto>("api/documents/types");
-        public Task<DocumentTypeDto?> CreateDocumentTypeAsync(DocumentTypeDto dto) => PostAsync<DocumentTypeDto, DocumentTypeDto>("api/documents/types", dto);
-        public Task<DocumentTypeDto?> UpdateDocumentTypeAsync(int id, DocumentTypeDto dto) => PutAsync<DocumentTypeDto, DocumentTypeDto>($"api/documents/types/{id}", dto);
-        public Task<bool> DeleteDocumentTypeAsync(int id) => DeleteAsync($"api/documents/types/{id}");
+        public async Task<DocumentTypeDto?> CreateDocumentTypeAsync(DocumentTypeDto dto) { var res = await PostAsync<DocumentTypeDto, DocumentTypeDto>("api/documents/types", dto); InvalidateCache("SearchService_DocumentTypes"); return res; }
+        public async Task<DocumentTypeDto?> UpdateDocumentTypeAsync(int id, DocumentTypeDto dto) { var res = await PutAsync<DocumentTypeDto, DocumentTypeDto>($"api/documents/types/{id}", dto); InvalidateCache("SearchService_DocumentTypes"); return res; }
+        public async Task<bool> DeleteDocumentTypeAsync(int id) { var res = await DeleteAsync($"api/documents/types/{id}"); InvalidateCache("SearchService_DocumentTypes"); return res; }
     }
 }

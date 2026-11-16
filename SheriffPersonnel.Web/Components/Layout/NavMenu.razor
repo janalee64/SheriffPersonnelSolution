@@ -1,52 +1,75 @@
 <nav aria-label="Main Navigation">
     <MudNavMenu>
-    <AuthorizeView Roles="Personnel View, Personnel Edit">
-        <Authorized>
-            <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.PersonSearch">Employee Search</MudNavLink>
-        </Authorized>
-    </AuthorizeView>
+        <MudTooltip Text="Expand Menu" Placement="Placement.Right" Disabled="@IsOpen">
+            <MudNavLink OnClick="OnToggle" Icon="@(IsOpen ? Icons.Material.Filled.ChevronLeft : Icons.Material.Filled.ChevronRight)" aria-label="@(IsOpen ? "Collapse navigation menu" : "Expand navigation menu")">
+                Hide Menu
+            </MudNavLink>
+        </MudTooltip>
+        <MudDivider Class="my-1" />
 
-    <AuthorizeView Roles="Inventory">
-        <Authorized>
-            <MudNavLink Href="inventoryadmin" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Inventory">Inventory Admin</MudNavLink>
-        </Authorized>
-    </AuthorizeView>
+        <AuthorizeView Roles="Personnel View, Personnel Edit">
+            <Authorized>
+                <MudTooltip Text="Employee Search" Placement="Placement.Right" Disabled="@IsOpen">
+                    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.PersonSearch">Employee Search</MudNavLink>
+                </MudTooltip>
+            </Authorized>
+        </AuthorizeView>
 
-    <AuthorizeView Roles="Equipment">
-        <Authorized>
-            <MudNavLink Href="multipleequipment" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Build">Multiple Equipment</MudNavLink>
-        </Authorized>
-    </AuthorizeView>
+        <AuthorizeView Roles="Inventory">
+            <Authorized>
+                <MudTooltip Text="Inventory Admin" Placement="Placement.Right" Disabled="@IsOpen">
+                    <MudNavLink Href="inventoryadmin" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Inventory">Inventory Admin</MudNavLink>
+                </MudTooltip>
+            </Authorized>
+        </AuthorizeView>
 
-    <AuthorizeView Roles="Training">
-        <Authorized>
-            <MudNavLink Href="multipletrainings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.School">Training</MudNavLink>
-        </Authorized>
-    </AuthorizeView>
+        <AuthorizeView Roles="Training">
+            <Authorized>
+                <MudTooltip Text="Training" Placement="Placement.Right" Disabled="@IsOpen">
+                    <MudNavLink Href="multipletrainings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.School">Training</MudNavLink>
+                </MudTooltip>
+            </Authorized>
+        </AuthorizeView>
 
-    <AuthorizeView Roles="Range Statistics">
-        <Authorized>
-            <MudNavLink Href="rangestatistics" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SportsScore">Range Statistics</MudNavLink>
-        </Authorized>
-    </AuthorizeView>
+        <AuthorizeView Roles="Range Statistics">
+            <Authorized>
+                <MudTooltip Text="Range Statistics" Placement="Placement.Right" Disabled="@IsOpen">
+                    <MudNavLink Href="rangestatistics" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SportsScore">Range Statistics</MudNavLink>
+                </MudTooltip>
+            </Authorized>
+        </AuthorizeView>
 
-    <AuthorizeView Roles="Range Scores">
-        <Authorized>
-            <MudNavLink Href="enterrangescores" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.EditNote">Enter Range Scores</MudNavLink>
-        </Authorized>
-    </AuthorizeView>
+        <AuthorizeView Roles="Range Scores">
+            <Authorized>
+                <MudTooltip Text="Enter Range Scores" Placement="Placement.Right" Disabled="@IsOpen">
+                    <MudNavLink Href="enterrangescores" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.EditNote">Enter Range Scores</MudNavLink>
+                </MudTooltip>
+            </Authorized>
+        </AuthorizeView>
 
-    <AuthorizeView Roles="Administrator">
-        <Authorized>
-            <MudNavLink Href="codetables" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.TableChart">Code Tables</MudNavLink>
-        </Authorized>
-    </AuthorizeView>
-    
-    <AuthorizeView Roles="Administrator">
-        <Authorized>    
-            <MudNavLink Href="admin/users" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AdminPanelSettings">User Admin</MudNavLink>
-        </Authorized>
-    </AuthorizeView>
-</MudNavMenu>
+        <AuthorizeView Roles="Administrator">
+            <Authorized>
+                <MudTooltip Text="Code Tables" Placement="Placement.Right" Disabled="@IsOpen">
+                    <MudNavLink Href="codetables" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.TableChart">Code Tables</MudNavLink>
+                </MudTooltip>
+            </Authorized>
+        </AuthorizeView>
+        
+        <AuthorizeView Roles="Administrator">
+            <Authorized>    
+                <MudTooltip Text="User Admin" Placement="Placement.Right" Disabled="@IsOpen">
+                    <MudNavLink Href="admin/users" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AdminPanelSettings">User Admin</MudNavLink>
+                </MudTooltip>
+            </Authorized>
+        </AuthorizeView>
+    </MudNavMenu>
 </nav>
+
+@code {
+    [Parameter]
+    public bool IsOpen { get; set; } = true;
+
+    [Parameter]
+    public EventCallback OnToggle { get; set; }
+}
 

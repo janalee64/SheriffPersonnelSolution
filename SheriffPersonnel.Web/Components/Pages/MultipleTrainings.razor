@@ -212,7 +212,7 @@
                 else
                 {
                     <MudGrid Spacing="2" Class="mt-1">
-                        <MudItem xs="12" sm="6">
+                        <MudItem xs="12">
                             <MudTextField @bind-Value="newSchoolName"
                                           Label="New School Name *"
                                           Variant="Variant.Outlined"
@@ -221,14 +221,6 @@
                                           Disabled="!isNewSession"
                                           Required="true"
                                           RequiredError="School Name is required" />
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudTextField @bind-Value="newSchoolAddress"
-                                          Label="School Address (Optional)"
-                                          Variant="Variant.Outlined"
-                                          MaxLength="250"
-                                          Margin="Margin.Dense"
-                                          Disabled="!isNewSession" />
                         </MudItem>
                         <MudItem xs="12" Class="d-flex justify-end align-center">
                             <MudButton Variant="Variant.Outlined"
@@ -294,9 +286,6 @@
 
             <MudText Typo="Typo.subtitle1" Style="font-weight: 600;" Class="mb-3">Completion & Cost Details</MudText>
             <MudGrid>
-                <MudItem xs="12" sm="6">
-                    <MudNumericField T="decimal?" @bind-Value="request.HoursCompleted" Label="Hours Completed" Variant="Variant.Outlined" Format="F2" Min="0m" Max="999.99m" />
-                </MudItem>
                 <MudItem xs="12" sm="6">
                     <MudDatePicker @bind-Date="expireDate" Label="Expire Date" Variant="Variant.Outlined" Clearable="true" Editable="true" DateFormat="MM/dd/yyyy" />
                 </MudItem>
@@ -432,13 +421,11 @@
         <MudTable Items="FilteredTrainingSchools" Hover="true" Striped="true" Loading="@isLoadingSchools">
             <HeaderContent>
                 <MudTh><MudTableSortLabel SortBy="new Func<TrainingSchoolsDto, object>(x => x.SchoolName)">School Name</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<TrainingSchoolsDto, object>(x => x.Address ?? string.Empty)">Address</MudTableSortLabel></MudTh>
                 <MudTh><MudTableSortLabel SortBy="new Func<TrainingSchoolsDto, object>(x => x.IsActive)">Active</MudTableSortLabel></MudTh>
                 <MudTh Style="width: 120px;">Actions</MudTh>
             </HeaderContent>
             <RowTemplate Context="item">
                 <MudTd DataLabel="School Name"><b>@item.SchoolName</b></MudTd>
-                <MudTd DataLabel="Address">@(item.Address ?? "-")</MudTd>
                 <MudTd DataLabel="Active">
                     <MudSwitch T="bool"
                                Value="@item.IsActive"
@@ -799,9 +786,6 @@
                     <MudTextField @bind-Value="editingTrainingSchool.SchoolName" Label="School Name" Variant="Variant.Outlined" Required="true" RequiredError="School name is required" />
                 </MudItem>
                 <MudItem xs="12">
-                    <MudTextField @bind-Value="editingTrainingSchool.Address" Label="Address" Variant="Variant.Outlined" Lines="2" />
-                </MudItem>
-                <MudItem xs="12">
                     <MudCheckBox T="bool" @bind-Value="editingTrainingSchool.IsActive" Label="Active Training School" Color="Color.Success" />
                 </MudItem>
             </MudGrid>
@@ -890,7 +874,6 @@
     private bool isNewSession = false;
     private bool isNewSchool = false;
     private string newSchoolName = string.Empty;
-    private string newSchoolAddress = string.Empty;
     private bool isSavingSchool = false;
     private bool isLoading = false;
     private bool isAssigning = false;
@@ -908,7 +891,7 @@
     private bool isLoadingSchools = false;
     private IEnumerable<TrainingSchoolsDto> FilteredTrainingSchools => string.IsNullOrWhiteSpace(searchTrainingSchool)
         ? trainingSchools
-        : trainingSchools.Where(x => x.SchoolName.Contains(searchTrainingSchool, StringComparison.OrdinalIgnoreCase) || (x.Address?.Contains(searchTrainingSchool, StringComparison.OrdinalIgnoreCase) ?? false));
+        : trainingSchools.Where(x => x.SchoolName.Contains(searchTrainingSchool, StringComparison.OrdinalIgnoreCase));
 
     private DialogOptions schoolDialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
     private bool isSchoolDialogVisible = false;
@@ -1166,7 +1149,6 @@
         {
             TrainingSchoolID = item.TrainingSchoolID,
             SchoolName = item.SchoolName,
-            Address = item.Address,
             IsActive = item.IsActive
         };
         isSchoolDialogVisible = true;
@@ -1362,7 +1344,6 @@
         isNewSession = newSessionMode;
         isNewSchool = false;
         newSchoolName = string.Empty;
-        newSchoolAddress = string.Empty;
         if (isNewSession)
         {
             selectedTrainingSession = null;
@@ -1386,7 +1367,6 @@
         else
         {
             newSchoolName = string.Empty;
-            newSchoolAddress = string.Empty;
         }
     }
 
@@ -1443,7 +1423,6 @@
         selectedSchool = null;
         isNewSchool = false;
         newSchoolName = string.Empty;
-        newSchoolAddress = string.Empty;
     }
 
     private async Task<TrainingSchoolsDto?> CreateNewSchoolAsync()
@@ -1460,7 +1439,6 @@
             var dto = new TrainingSchoolsDto
             {
                 SchoolName = newSchoolName.Trim(),
-                Address = string.IsNullOrWhiteSpace(newSchoolAddress) ? null : newSchoolAddress.Trim(),
                 IsActive = true
             };
 
@@ -1476,7 +1454,6 @@
                 request.TrainingSchoolID = created.TrainingSchoolID;
                 isNewSchool = false;
                 newSchoolName = string.Empty;
-                newSchoolAddress = string.Empty;
 
                 Snackbar.Add($"Training school '{created.SchoolName}' created successfully!", Severity.Success);
                 return created;

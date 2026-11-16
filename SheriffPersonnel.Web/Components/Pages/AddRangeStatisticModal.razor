@@ -10,7 +10,7 @@
     <TitleContent>
         <MudText Typo="Typo.h6">
             <MudIcon Icon="@(RangeStat.RangeID == 0 ? Icons.Material.Filled.Add : Icons.Material.Filled.Edit)" Class="mr-2" />
-            @(RangeStat.RangeID == 0 ? "Add Range Statistic" : "Edit Range Statistic")
+            @(RangeStat.RangeID == 0 ? "Add Range Record" : "Edit Range Record")
         </MudText>
     </TitleContent>
     <DialogContent>
@@ -47,34 +47,48 @@
                                      RequiredError="Range Officer is required" />
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="int?" @bind-Value="RangeStat.CourseID" Label="Range Course *" Variant="Variant.Outlined" Clearable="true" Required="true" RequiredError="Range Course is required">
-                        <MudSelectItem T="int?" Value="@((int?)null)">-- Select Course --</MudSelectItem>
-                        @foreach (var course in FilteredCourses)
-                        {
-                            <MudSelectItem T="int?" Value="@course.CourseID">@course.FormattedCourse</MudSelectItem>
-                        }
-                    </MudSelect>
+                    <MudAutocomplete T="RangeCourseDTO"
+                                     Value="selectedCourse"
+                                     ValueChanged="OnCourseChanged"
+                                     SearchFunc="SearchCourses"
+                                     ToStringFunc="@(c => c == null ? string.Empty : c.FormattedCourse)"
+                                     Label="Range Course *"
+                                     Placeholder="Type or select Range Course"
+                                     Variant="Variant.Outlined"
+                                     Clearable="true"
+                                     ResetValueOnEmptyText="true"
+                                     CoerceText="true"
+                                     CoerceValue="false"
+                                     SelectValueOnTab="true"
+                                     MinCharacters="0"
+                                     Required="true"
+                                     RequiredError="Range Course is required" />
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="int?" @bind-Value="RangeStat.FirearmID" Label="Firearm *" Variant="Variant.Outlined" Clearable="true" Required="true" RequiredError="Firearm is required">
-                        <MudSelectItem T="int?" Value="@((int?)null)">-- Select Firearm --</MudSelectItem>
-                        @if (AvailableFirearms != null)
-                        {
-                            @foreach (var firearm in AvailableFirearms)
-                            {
-                                var label = $"{firearm.MakeName} {firearm.ModelNumber} (S/N: {firearm.SerialNumber})".Trim();
-                                <MudSelectItem T="int?" Value="@firearm.FirearmID">@label</MudSelectItem>
-                            }
-                        }
-                    </MudSelect>
+                    <MudAutocomplete T="FirearmsDto"
+                                     Value="selectedFirearm"
+                                     ValueChanged="OnFirearmChanged"
+                                     SearchFunc="SearchFirearms"
+                                     ToStringFunc="FormatFirearm"
+                                     Label="Firearm *"
+                                     Placeholder="Type or select Firearm"
+                                     Variant="Variant.Outlined"
+                                     Clearable="true"
+                                     ResetValueOnEmptyText="true"
+                                     CoerceText="true"
+                                     CoerceValue="false"
+                                     SelectValueOnTab="true"
+                                     MinCharacters="0"
+                                     Required="true"
+                                     RequiredError="Firearm is required" />
                 </MudItem>
-                <MudItem xs="12" sm="6">
-                    <MudSelect T="string" @bind-Value="RangeStat.PassFail" Label="Pass / Fail Result *" Variant="Variant.Outlined" Clearable="true" Required="true" RequiredError="Pass / Fail Result is required">
-                        <MudSelectItem T="string" Value="@((string?)null)">-- Select Result --</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("Pass")">Pass</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("Fail")">Fail</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("N/A")">N/A</MudSelectItem>
-                    </MudSelect>
+                <MudItem xs="12" sm="6" Class="d-flex align-center">
+                    <MudSwitch T="bool"
+                               Value="@(IsPass)"
+                               ValueChanged="OnPassFailChanged"
+                               Label="@($"Result: {(IsPass ? "Pass" : "Fail")}")"
+                               Color="Color.Success"
+                               UncheckedColor="Color.Error" />
                 </MudItem>
             </MudGrid>
         </EditForm>
@@ -116,6 +130,8 @@
 
     private DateTime? rangeDate = DateTime.Today;
     private RangeOfficerDTO? selectedRangeOfficer;
+    private RangeCourseDTO? selectedCourse;
+    private FirearmsDto? selectedFirearm;
     private List<RangeOfficerDTO> availableRangeOfficers = new();
     private bool isSaving = false;
 
@@ -141,6 +157,7 @@
                 logger.LogError(ex, "Error loading range courses in AddRangeStatisticModal.");
             }
         }
+        InitCourse();
         if ((AvailableFirearms == null || !AvailableFirearms.Any()) && EmployeeId > 0)
         {
             try
@@ -152,6 +169,7 @@
                 logger.LogError(ex, "Error loading firearms in AddRangeStatisticModal.");
             }
         }
+        InitFirearm();
         await LoadRangeOfficersAsync();
     }
 
@@ -159,17 +177,42 @@
     {
         NormalizePassFail();
         InitDate();
+        InitCourse();
+        InitFirearm();
+    }
+
+    private void InitCourse()
+    {
+        if (selectedCourse == null && RangeStat.CourseID.HasValue && AvailableCourses != null)
+        {
+            selectedCourse = AvailableCourses.FirstOrDefault(c => c.CourseID == RangeStat.CourseID.Value);
+        }
+    }
+
+    private void InitFirearm()
+    {
+        if (selectedFirearm == null && RangeStat.FirearmID.HasValue && AvailableFirearms != null)
+        {
+            selectedFirearm = AvailableFirearms.FirstOrDefault(f => f.FirearmID == RangeStat.FirearmID.Value);
+        }
+    }
+
+    private bool IsPass => !string.Equals(RangeStat.PassFail, "Fail", StringComparison.OrdinalIgnoreCase) && !string.Equals(RangeStat.PassFail, "F", StringComparison.OrdinalIgnoreCase);
+
+    private void OnPassFailChanged(bool value)
+    {
+        RangeStat.PassFail = value ? "Pass" : "Fail";
     }
 
     private void NormalizePassFail()
     {
-        if (string.Equals(RangeStat.PassFail, "P", StringComparison.OrdinalIgnoreCase))
-        {
-            RangeStat.PassFail = "Pass";
-        }
-        else if (string.Equals(RangeStat.PassFail, "F", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(RangeStat.PassFail, "Fail", StringComparison.OrdinalIgnoreCase) || string.Equals(RangeStat.PassFail, "F", StringComparison.OrdinalIgnoreCase))
         {
             RangeStat.PassFail = "Fail";
+        }
+        else
+        {
+            RangeStat.PassFail = "Pass";
         }
     }
 
@@ -191,39 +234,50 @@
         {
             var officers = await codeTableService.GetRangeOfficersAsync();
             availableRangeOfficers = officers != null
-                ? officers.Where(ro => ro.IsActive).OrderBy(ro => ro.OfficerName).ToList()
+                ? officers.Where(ro => ro.IsActive || ro.RangeOfficerID == RangeStat.RangeOfficerID).OrderBy(ro => ro.OfficerName).ToList()
                 : new List<RangeOfficerDTO>();
 
-            if (selectedRangeOfficer == null && RangeStat.RangeEventID > 0)
+            if (selectedRangeOfficer == null)
             {
-                if (AvailableEvents != null)
+                if (RangeStat.RangeOfficerID.HasValue && RangeStat.RangeOfficerID.Value > 0)
                 {
-                    var existingEvent = AvailableEvents.FirstOrDefault(x => x.RangeEventID == RangeStat.RangeEventID);
-                    if (existingEvent?.RangeOfficer != null)
-                    {
-                        selectedRangeOfficer = availableRangeOfficers.FirstOrDefault(ro => ro.RangeOfficerID == existingEvent.RangeOfficer.RangeOfficerID)
-                            ?? new RangeOfficerDTO
-                            {
-                                RangeOfficerID = existingEvent.RangeOfficer.RangeOfficerID,
-                                OfficerName = existingEvent.RangeOfficer.OfficerName,
-                                IsActive = existingEvent.RangeOfficer.IsActive ?? true
-                            };
-                    }
+                    selectedRangeOfficer = availableRangeOfficers.FirstOrDefault(ro => ro.RangeOfficerID == RangeStat.RangeOfficerID.Value)
+                        ?? (!string.IsNullOrWhiteSpace(RangeStat.RangeOfficerName)
+                            ? new RangeOfficerDTO { RangeOfficerID = RangeStat.RangeOfficerID.Value, OfficerName = RangeStat.RangeOfficerName }
+                            : null);
                 }
 
-                if (selectedRangeOfficer == null)
+                if (selectedRangeOfficer == null && RangeStat.RangeEventID > 0)
                 {
-                    var allEvents = await service.GetRangeEventsAsync();
-                    var existingEvent = allEvents?.FirstOrDefault(x => x.RangeEventID == RangeStat.RangeEventID);
-                    if (existingEvent?.RangeOfficer != null)
+                    if (AvailableEvents != null)
                     {
-                        selectedRangeOfficer = availableRangeOfficers.FirstOrDefault(ro => ro.RangeOfficerID == existingEvent.RangeOfficer.RangeOfficerID)
-                            ?? new RangeOfficerDTO
-                            {
-                                RangeOfficerID = existingEvent.RangeOfficer.RangeOfficerID,
-                                OfficerName = existingEvent.RangeOfficer.OfficerName,
-                                IsActive = existingEvent.RangeOfficer.IsActive ?? true
-                            };
+                        var existingEvent = AvailableEvents.FirstOrDefault(x => x.RangeEventID == RangeStat.RangeEventID);
+                        if (existingEvent?.RangeOfficer != null)
+                        {
+                            selectedRangeOfficer = availableRangeOfficers.FirstOrDefault(ro => ro.RangeOfficerID == existingEvent.RangeOfficer.RangeOfficerID)
+                                ?? new RangeOfficerDTO
+                                {
+                                    RangeOfficerID = existingEvent.RangeOfficer.RangeOfficerID,
+                                    OfficerName = existingEvent.RangeOfficer.OfficerName,
+                                    IsActive = existingEvent.RangeOfficer.IsActive ?? true
+                                };
+                        }
+                    }
+
+                    if (selectedRangeOfficer == null)
+                    {
+                        var allEvents = await service.GetRangeEventsAsync();
+                        var existingEvent = allEvents?.FirstOrDefault(x => x.RangeEventID == RangeStat.RangeEventID);
+                        if (existingEvent?.RangeOfficer != null)
+                        {
+                            selectedRangeOfficer = availableRangeOfficers.FirstOrDefault(ro => ro.RangeOfficerID == existingEvent.RangeOfficer.RangeOfficerID)
+                                ?? new RangeOfficerDTO
+                                {
+                                    RangeOfficerID = existingEvent.RangeOfficer.RangeOfficerID,
+                                    OfficerName = existingEvent.RangeOfficer.OfficerName,
+                                    IsActive = existingEvent.RangeOfficer.IsActive ?? true
+                                };
+                        }
                     }
                 }
             }
@@ -254,6 +308,62 @@
         return Task.FromResult(availableRangeOfficers.Where(ro => ro.OfficerName.Contains(value, StringComparison.OrdinalIgnoreCase)));
     }
 
+    private void OnCourseChanged(RangeCourseDTO? course)
+    {
+        selectedCourse = course;
+        RangeStat.CourseID = course?.CourseID;
+    }
+
+    private Task<IEnumerable<RangeCourseDTO>> SearchCourses(string value, CancellationToken token)
+    {
+        var courses = FilteredCourses.ToList();
+        if (!courses.Any())
+        {
+            return Task.FromResult(Enumerable.Empty<RangeCourseDTO>());
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult<IEnumerable<RangeCourseDTO>>(courses);
+        }
+
+        return Task.FromResult(courses.Where(c =>
+            (c.FormattedCourse != null && c.FormattedCourse.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            (c.CourseName != null && c.CourseName.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            (c.CourseCode != null && c.CourseCode.Contains(value, StringComparison.OrdinalIgnoreCase))));
+    }
+
+    private static string FormatFirearm(FirearmsDto? firearm)
+    {
+        if (firearm == null) return string.Empty;
+        return $"{firearm.MakeName} {firearm.ModelNumber} (S/N: {firearm.SerialNumber})".Trim();
+    }
+
+    private void OnFirearmChanged(FirearmsDto? firearm)
+    {
+        selectedFirearm = firearm;
+        RangeStat.FirearmID = firearm?.FirearmID;
+    }
+
+    private Task<IEnumerable<FirearmsDto>> SearchFirearms(string value, CancellationToken token)
+    {
+        if (AvailableFirearms == null || !AvailableFirearms.Any())
+        {
+            return Task.FromResult(Enumerable.Empty<FirearmsDto>());
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult(AvailableFirearms);
+        }
+
+        return Task.FromResult(AvailableFirearms.Where(f =>
+            (f.MakeName != null && f.MakeName.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            (f.ModelNumber != null && f.ModelNumber.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            (f.SerialNumber != null && f.SerialNumber.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            FormatFirearm(f).Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+
     private void Cancel()
     {
         MudDialog.Cancel();
@@ -273,10 +383,20 @@
             return;
         }
 
+        if (selectedCourse != null)
+        {
+            RangeStat.CourseID = selectedCourse.CourseID;
+        }
+
         if (!RangeStat.CourseID.HasValue || RangeStat.CourseID.Value <= 0)
         {
             Snackbar.Add("Range Course is required.", Severity.Error);
             return;
+        }
+
+        if (selectedFirearm != null)
+        {
+            RangeStat.FirearmID = selectedFirearm.FirearmID;
         }
 
         if (!RangeStat.FirearmID.HasValue || RangeStat.FirearmID.Value <= 0)
@@ -319,6 +439,8 @@
 
             RangeStat.RangeEventID = createdEvent.RangeEventID;
             RangeStat.RangeDate = createdEvent.RangeDate;
+            RangeStat.RangeOfficerID = selectedRangeOfficer?.RangeOfficerID;
+            RangeStat.RangeOfficerName = selectedRangeOfficer?.OfficerName;
 
             if (RangeStat.RangeID == 0)
             {

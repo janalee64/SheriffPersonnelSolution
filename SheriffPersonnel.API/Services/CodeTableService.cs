@@ -571,7 +571,8 @@ namespace SheriffPersonnel.API.Services
             {
                 SupplierID = s.SupplierID,
                 SupplierName = s.SupplierName,
-                Notes = s.Notes
+                Notes = s.Notes,
+                IsActive = s.IsActive ?? true
             });
         }
 
@@ -583,7 +584,8 @@ namespace SheriffPersonnel.API.Services
             {
                 SupplierID = entity.SupplierID,
                 SupplierName = entity.SupplierName,
-                Notes = entity.Notes
+                Notes = entity.Notes,
+                IsActive = entity.IsActive ?? true
             };
         }
 
@@ -592,7 +594,8 @@ namespace SheriffPersonnel.API.Services
             var entity = new Supplier
             {
                 SupplierName = dto.SupplierName,
-                Notes = dto.Notes
+                Notes = dto.Notes,
+                IsActive = dto.IsActive
             };
             var created = await _repository.AddSupplierAsync(entity);
             dto.SupplierID = created.SupplierID;
@@ -606,6 +609,7 @@ namespace SheriffPersonnel.API.Services
 
             existing.SupplierName = dto.SupplierName;
             existing.Notes = dto.Notes;
+            existing.IsActive = dto.IsActive;
 
             await _repository.UpdateSupplierAsync(existing);
             return dto;
@@ -624,7 +628,6 @@ namespace SheriffPersonnel.API.Services
             {
                 TrainingSchoolID = ts.TrainingSchoolID,
                 SchoolName = ts.SchoolName,
-                Address = ts.Address,
                 IsActive = ts.IsActive ?? true
             });
         }
@@ -637,7 +640,6 @@ namespace SheriffPersonnel.API.Services
             {
                 TrainingSchoolID = entity.TrainingSchoolID,
                 SchoolName = entity.SchoolName,
-                Address = entity.Address,
                 IsActive = entity.IsActive ?? true
             };
         }
@@ -647,7 +649,6 @@ namespace SheriffPersonnel.API.Services
             var entity = new TrainingSchool
             {
                 SchoolName = dto.SchoolName,
-                Address = dto.Address,
                 IsActive = dto.IsActive
             };
             var created = await _repository.AddTrainingSchoolAsync(entity);
@@ -661,7 +662,6 @@ namespace SheriffPersonnel.API.Services
             if (existing == null) return null;
 
             existing.SchoolName = dto.SchoolName;
-            existing.Address = dto.Address;
             existing.IsActive = dto.IsActive;
 
             await _repository.UpdateTrainingSchoolAsync(existing);

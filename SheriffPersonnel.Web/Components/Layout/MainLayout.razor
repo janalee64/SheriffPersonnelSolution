@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
@@ -8,7 +9,9 @@
 <MudLayout>
     <a class="skip-link" href="#main-content">Skip to Main Content</a>
     <MudAppBar Elevation="1">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" aria-label="Toggle navigation drawer" />
+        <MudTooltip Text="@(_drawerOpen ? "Collapse Menu" : "Expand Menu")" Placement="Placement.Bottom">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="DrawerToggle" aria-label="Toggle navigation drawer" />
+        </MudTooltip>
         <MudText Typo="Typo.h5" Class="ml-3">Sheriff Personnel</MudText>
         <MudSpacer />
         <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggle" aria-label="Toggle light and dark mode" />
@@ -32,8 +35,8 @@
         </AuthorizeView>
         <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" aria-label="More options" />
     </MudAppBar>
-    <MudDrawer id="nav-drawer" @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
-        <NavMenu />
+    <MudDrawer id="nav-drawer" Open="_drawerOpen" OpenChanged="OnDrawerOpenChanged" Variant="DrawerVariant.Mini" OpenMiniOnHover="false" ClipMode="DrawerClipMode.Always" Elevation="2">
+        <NavMenu IsOpen="_drawerOpen" OnToggle="DrawerToggle" />
     </MudDrawer>
     <MudMainContent Class="pt-16 pa-4" id="main-content" tabindex="-1">
         @Body
@@ -48,6 +51,7 @@
 </div>
 
 @code {
+    private const string DrawerStorageKey = "sheriff_nav_drawer_open";
     private bool _drawerOpen = true;
     private bool _isDarkMode = false;
     private MudTheme? _theme = null;
@@ -64,9 +68,48 @@
         };
     }
 
-    private void DrawerToggle()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var storedValue = await JS.InvokeAsync<string?>("localStorage.getItem", DrawerStorageKey);
+                if (!string.IsNullOrEmpty(storedValue) && bool.TryParse(storedValue, out var isOpen) && _drawerOpen != isOpen)
+                {
+                    _drawerOpen = isOpen;
+                    StateHasChanged();
+                }
+            }
+            catch
+            {
+                // Ignore JS interop errors during prerendering or disconnected circuits
+            }
+        }
+    }
+
+    private async Task DrawerToggle()
     {
         _drawerOpen = !_drawerOpen;
+        await SaveDrawerStateAsync();
+    }
+
+    private async Task OnDrawerOpenChanged(bool isOpen)
+    {
+        _drawerOpen = isOpen;
+        await SaveDrawerStateAsync();
+    }
+
+    private async Task SaveDrawerStateAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", DrawerStorageKey, _drawerOpen.ToString().ToLowerInvariant());
+        }
+        catch
+        {
+            // Ignore JS interop errors if circuit is disconnected
+        }
     }
 
     private void DarkModeToggle()

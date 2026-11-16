@@ -18,6 +18,8 @@ namespace SheriffPersonnel.Shared.Models
         [StringLength(255)]
         public string? Notes { get; set; }
 
+        public bool? IsActive { get; set; } = true;
+
         public virtual ICollection<InventoryItem> InventoryItems { get; set; } = new List<InventoryItem>();
     }
 }

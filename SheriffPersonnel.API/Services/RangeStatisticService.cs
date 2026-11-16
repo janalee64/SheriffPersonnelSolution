@@ -151,36 +151,30 @@ namespace SheriffPersonnel.API.Services
             {
                 if (dto == null) throw new ArgumentNullException(nameof(dto));
 
-                var existing = await _repository.GetRangeStatisticByIdAsync(id);
-                if (existing == null)
+                int validUserId = await ResolveValidUserIdAsync(dto.LastUserID);
+
+                var entity = new RangeStatistic
                 {
-                    _logger.LogWarning("Range statistic ID {RangeID} not found for update.", id);
-                    return null;
-                }
+                    RangeID = id,
+                    EmployeeID = dto.EmployeeID,
+                    FirearmID = dto.FirearmID,
+                    CourseID = dto.CourseID,
+                    RoundsFired = dto.RoundsFired,
+                    PassFail = ToDbPassFail(dto.PassFail),
+                    LastUserID = validUserId,
+                    RangeEventID = dto.RangeEventID,
+                    LastUpdated = DateTime.Now
+                };
 
-                int validUserId = await ResolveValidUserIdAsync(dto.LastUserID > 0 ? dto.LastUserID : existing.LastUserID);
-
-                existing.EmployeeID = dto.EmployeeID;
-                existing.FirearmID = dto.FirearmID;
-                existing.CourseID = dto.CourseID;
-                existing.RoundsFired = dto.RoundsFired;
-                existing.PassFail = ToDbPassFail(dto.PassFail);
-                existing.LastUserID = validUserId;
-                existing.RangeEventID = dto.RangeEventID;
-
-                existing.RangeSkills.Clear();
                 if (dto.SelectedSkillIDs != null && dto.SelectedSkillIDs.Any())
                 {
                     var skills = await _dbContext.RangeSkills
                         .Where(s => dto.SelectedSkillIDs.Contains(s.RangeSkillID))
                         .ToListAsync();
-                    foreach (var skill in skills)
-                    {
-                        existing.RangeSkills.Add(skill);
-                    }
+                    entity.RangeSkills = skills;
                 }
 
-                var updated = await _repository.UpdateRangeStatisticAsync(existing);
+                var updated = await _repository.UpdateRangeStatisticAsync(entity);
                 var reloaded = await _repository.GetRangeStatisticByIdAsync(updated.RangeID) ?? updated;
                 return MapToDto(reloaded);
             }
@@ -269,7 +263,8 @@ namespace SheriffPersonnel.API.Services
                     RangeDate = created.RangeDate,
                     Location = created.Location,
                     EventType = created.EventType,
-                    Notes = created.Notes
+                    Notes = created.Notes,
+                    RangeOfficer = dto.RangeOfficer
                 };
             }
             catch (Exception ex)
@@ -383,6 +378,8 @@ namespace SheriffPersonnel.API.Services
                 LastUpdated = entity.LastUpdated,
                 RangeEventID = entity.RangeEventID,
                 RangeDate = entity.RangeEvent?.RangeDate,
+                RangeOfficerID = entity.RangeEvent?.RangeOfficerID ?? entity.RangeEvent?.RangeOfficer?.RangeOfficerID,
+                RangeOfficerName = entity.RangeEvent?.RangeOfficer?.OfficerName,
                 EventDescription = eventDesc,
                 SelectedSkillIDs = entity.RangeSkills != null ? entity.RangeSkills.Select(s => s.RangeSkillID).ToList() : new List<int>()
             };
