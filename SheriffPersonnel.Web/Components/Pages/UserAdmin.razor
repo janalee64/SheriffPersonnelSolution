@@ -6,6 +6,7 @@
 @attribute [Authorize(Roles = "Administrator")]
 
 @inject UserAdminService UserService
+@inject SearchService SearchService
 @inject ISnackbar Snackbar
 @inject ILogger<UserAdmin> Logger
 
@@ -48,7 +49,7 @@
             <MudTh><MudTableSortLabel SortBy="new Func<UserDTO, object>(x => x.DisplayName)">Display Name</MudTableSortLabel></MudTh>
             <MudTh><MudTableSortLabel SortBy="new Func<UserDTO, object>(x => x.UserPrincipalName)">User Principal Name</MudTableSortLabel></MudTh>
             <MudTh><MudTableSortLabel SortBy="new Func<UserDTO, object>(x => x.EntraObjectID ?? string.Empty)">Entra Object ID</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortBy="new Func<UserDTO, object>(x => x.EmployeeID ?? 0)">Employee ID</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<UserDTO, object>(x => GetEmployee(x.EmployeeID ?? 0)?.FormattedName ?? x.EmployeeID?.ToString() ?? string.Empty)">Employee</MudTableSortLabel></MudTh>
             <MudTh><MudTableSortLabel SortBy="new Func<UserDTO, object>(x => x.IsActive)">Status</MudTableSortLabel></MudTh>
             <MudTh>Assigned Roles</MudTh>
             <MudTh>Actions</MudTh>
@@ -69,10 +70,20 @@
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Not linked</MudText>
                 }
             </MudTd>
-            <MudTd DataLabel="Employee ID">
+            <MudTd DataLabel="Employee">
                 @if (context.EmployeeID.HasValue)
                 {
-                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">#@context.EmployeeID</MudChip>
+                    var emp = GetEmployee(context.EmployeeID.Value);
+                    if (emp != null)
+                    {
+                        <MudTooltip Text="@($"Employee ID: #{context.EmployeeID}")">
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">@emp.FormattedName</MudChip>
+                        </MudTooltip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">#@context.EmployeeID</MudChip>
+                    }
                 }
                 else
                 {
@@ -152,7 +163,22 @@
                     <MudTextField @bind-Value="userFormModel.EntraObjectID" Label="Entra Object ID" Variant="Variant.Outlined" HelperText="Entra ID GUID identifier" />
                 </MudItem>
                 <MudItem xs="12" sm="6">
-                    <MudNumericField @bind-Value="userFormModel.EmployeeID" Label="Employee ID" Variant="Variant.Outlined" Clearable="true" HelperText="Associated Employee record ID (optional)" />
+                    <MudAutocomplete T="EmployeeSearchResultDto"
+                                     Label="Employee"
+                                     Value="selectedEmployee"
+                                     ValueChanged="OnEmployeeChanged"
+                                     SearchFunc="SearchEmployees"
+                                     ToStringFunc="FormatEmployeeDisplay"
+                                     Placeholder="Type name to filter..."
+                                     Variant="Variant.Outlined"
+                                     Clearable="true"
+                                     ResetValueOnEmptyText="true"
+                                     CoerceText="true"
+                                     CoerceValue="false"
+                                     SelectValueOnTab="true"
+                                     MinCharacters="0"
+                                     ShowProgressIndicator="true"
+                                     HelperText="Associated active employee record (optional)" />
                 </MudItem>
 
                 <MudItem xs="12">
@@ -238,6 +264,8 @@
 
     private List<UserDTO> users = new();
     private List<RoleDTO> availableRoles = new();
+    private List<EmployeeSearchResultDto> activeEmployees = new();
+    private EmployeeSearchResultDto? selectedEmployee;
     private string searchString = string.Empty;
     private bool isLoading = false;
     private string? errorMessage;
@@ -270,11 +298,16 @@
         {
             var userListTask = UserService.GetUsersAsync();
             var roleListTask = UserService.GetRolesAsync();
+            var activeEmployeesTask = SearchService.GetActiveEmployeesAsync();
 
-            await Task.WhenAll(userListTask, roleListTask);
+            await Task.WhenAll(userListTask, roleListTask, activeEmployeesTask);
 
             users = (await userListTask).ToList();
             availableRoles = (await roleListTask).ToList();
+            var empList = await activeEmployeesTask;
+            activeEmployees = empList != null
+                ? empList.OrderBy(e => e.LastName).ThenBy(e => e.FirstName).ToList()
+                : new();
 
             if (!isEditMode && isDialogVisible)
             {
@@ -298,24 +331,53 @@
 
     private IEnumerable<UserDTO> FilteredUsers => users;
 
+    private EmployeeSearchResultDto? GetEmployee(int employeeId)
+    {
+        return activeEmployees.FirstOrDefault(e => e.EmployeeID == employeeId);
+    }
+
     private bool FilterUserPredicate(UserDTO user)
     {
         if (string.IsNullOrWhiteSpace(searchString))
             return true;
 
         var term = searchString.Trim().ToLowerInvariant();
+        var emp = user.EmployeeID.HasValue ? GetEmployee(user.EmployeeID.Value) : null;
 
         return (user.DisplayName?.ToLowerInvariant().Contains(term) ?? false) ||
                (user.UserPrincipalName?.ToLowerInvariant().Contains(term) ?? false) ||
                (user.EntraObjectID?.ToLowerInvariant().Contains(term) ?? false) ||
                (user.EmployeeID.HasValue && user.EmployeeID.Value.ToString().Contains(term)) ||
+               (emp != null && (
+                   (!string.IsNullOrEmpty(emp.FormattedName) && emp.FormattedName.ToLowerInvariant().Contains(term)) ||
+                   (!string.IsNullOrEmpty(emp.FirstName) && emp.FirstName.ToLowerInvariant().Contains(term)) ||
+                   (!string.IsNullOrEmpty(emp.LastName) && emp.LastName.ToLowerInvariant().Contains(term)) ||
+                   (!string.IsNullOrEmpty(emp.BadgeNumber) && emp.BadgeNumber.ToLowerInvariant().Contains(term))
+               )) ||
                (user.Roles != null && user.Roles.Any(r => r.RoleName.ToLowerInvariant().Contains(term)));
     }
 
-    private void OpenCreateDialog()
+    private async Task OpenCreateDialog()
     {
         isEditMode = false;
         dialogErrorMessage = null;
+        selectedEmployee = null;
+
+        if (activeEmployees.Count == 0)
+        {
+            try
+            {
+                var empList = await SearchService.GetActiveEmployeesAsync();
+                if (empList != null)
+                {
+                    activeEmployees = empList.OrderBy(e => e.LastName).ThenBy(e => e.FirstName).ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to reload active employees.");
+            }
+        }
 
         var defaultRoleIds = new List<int>();
         var personnelViewRole = GetPersonnelViewRole();
@@ -327,16 +389,61 @@
         userFormModel = new UserFormModel
         {
             IsActive = true,
-            RoleIDs = defaultRoleIds
+            RoleIDs = defaultRoleIds,
+            EmployeeID = null
         };
         isDialogVisible = true;
     }
 
-    private void OpenEditDialog(UserDTO user)
+    private async Task OpenEditDialog(UserDTO user)
     {
         isEditMode = true;
         dialogErrorMessage = null;
         editingUser = user;
+
+        if (activeEmployees.Count == 0)
+        {
+            try
+            {
+                var empList = await SearchService.GetActiveEmployeesAsync();
+                if (empList != null)
+                {
+                    activeEmployees = empList.OrderBy(e => e.LastName).ThenBy(e => e.FirstName).ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to reload active employees.");
+            }
+        }
+
+        selectedEmployee = user.EmployeeID.HasValue
+            ? activeEmployees.FirstOrDefault(e => e.EmployeeID == user.EmployeeID.Value)
+            : null;
+
+        if (selectedEmployee == null && user.EmployeeID.HasValue)
+        {
+            try
+            {
+                var empDetail = await SearchService.GetEmployeeByIdAsync(user.EmployeeID.Value);
+                if (empDetail != null)
+                {
+                    selectedEmployee = new EmployeeSearchResultDto
+                    {
+                        EmployeeID = empDetail.EmployeeID,
+                        FirstName = empDetail.FirstName ?? string.Empty,
+                        LastName = empDetail.LastName ?? string.Empty,
+                        BadgeNumber = empDetail.BadgeNumber?.ToString() ?? string.Empty,
+                        Status = empDetail.StatusDescription ?? string.Empty
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Could not load employee details for Employee ID {EmployeeID}", user.EmployeeID.Value);
+            }
+        }
+
         userFormModel = new UserFormModel
         {
             UserID = user.UserID,
@@ -354,6 +461,45 @@
     {
         isDialogVisible = false;
         dialogErrorMessage = null;
+        selectedEmployee = null;
+    }
+
+    private void OnEmployeeChanged(EmployeeSearchResultDto? emp)
+    {
+        selectedEmployee = emp;
+        userFormModel.EmployeeID = emp?.EmployeeID;
+    }
+
+    private string FormatEmployeeDisplay(EmployeeSearchResultDto? emp)
+    {
+        if (emp == null) return string.Empty;
+        return string.IsNullOrWhiteSpace(emp.BadgeNumber)
+            ? emp.FormattedName
+            : $"{emp.FormattedName} (#{emp.BadgeNumber})";
+    }
+
+    private Task<IEnumerable<EmployeeSearchResultDto>> SearchEmployees(string value, CancellationToken cancellationToken)
+    {
+        if (activeEmployees == null || activeEmployees.Count == 0)
+        {
+            return Task.FromResult(Enumerable.Empty<EmployeeSearchResultDto>());
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Task.FromResult<IEnumerable<EmployeeSearchResultDto>>(activeEmployees);
+        }
+
+        var term = value.Trim();
+        var filtered = activeEmployees.Where(e =>
+            (!string.IsNullOrEmpty(e.FormattedName) && e.FormattedName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(e.FirstName) && e.FirstName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(e.LastName) && e.LastName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(e.BadgeNumber) && e.BadgeNumber.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+            ($"{e.FirstName} {e.LastName}".Contains(term, StringComparison.OrdinalIgnoreCase))
+        );
+
+        return Task.FromResult(filtered);
     }
 
     private bool IsRoleSelected(int roleId)
@@ -433,7 +579,7 @@
                 DisplayName = userFormModel.DisplayName.Trim(),
                 UserPrincipalName = userFormModel.UserPrincipalName.Trim(),
                 EntraObjectID = string.IsNullOrWhiteSpace(userFormModel.EntraObjectID) ? null : userFormModel.EntraObjectID.Trim(),
-                EmployeeID = userFormModel.EmployeeID,
+                EmployeeID = selectedEmployee != null ? selectedEmployee.EmployeeID : userFormModel.EmployeeID,
                 IsActive = userFormModel.IsActive,
                 RoleIDs = userFormModel.RoleIDs
             };
@@ -456,6 +602,7 @@
             }
 
             isDialogVisible = false;
+            selectedEmployee = null;
             await LoadDataAsync();
         }
         catch (Exception ex)

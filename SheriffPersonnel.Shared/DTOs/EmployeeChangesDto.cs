@@ -14,6 +14,12 @@ namespace SheriffPersonnel.Shared.DTOs
         [Required(ErrorMessage = "Program is required.")]
         public int? ProgramID { get; set; }
         public string? ProgramName { get; set; }
+        public string? ProgramDescription { get; set; }
+
+        public string? ProgramDisplayName =>
+            string.IsNullOrWhiteSpace(ProgramName)
+                ? null
+                : (string.IsNullOrWhiteSpace(ProgramDescription) ? ProgramName : $"{ProgramName} - {ProgramDescription}");
 
         public int? LastUserID { get; set; }
         public string? LastUserName { get; set; }

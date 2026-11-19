@@ -4,7 +4,66 @@
 @inject SearchService service
 @inject CodeTableService codeTableService
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 @inject ILogger<AddRangeStatisticModal> logger
+
+<style>
+    /* Fix MudSelect popover dropdown width & checkbox spacing */
+    .skills-popover-menu.mud-popover,
+    .mud-popover:has(.skills-popover-menu) {
+        min-width: 260px !important;
+        max-width: 320px !important;
+        width: auto !important;
+    }
+    .skills-popover-menu .mud-list-item,
+    .mud-popover .mud-list-item {
+        padding: 2px 8px !important;
+        min-height: 28px !important;
+    }
+    .skills-popover-menu .mud-list-item .mud-checkbox,
+    .skills-popover-menu .mud-list-item .mud-checkbox.mud-input-content-placement-end,
+    .mud-popover .mud-list-item .mud-checkbox,
+    .mud-popover .mud-list-item .mud-checkbox.mud-input-content-placement-end {
+        gap: 6px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+    }
+    .skills-popover-menu .mud-list-item .mud-checkbox .mud-button-root,
+    .mud-popover .mud-list-item .mud-checkbox .mud-button-root {
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 20px !important;
+        height: 20px !important;
+        min-width: 20px !important;
+        min-height: 20px !important;
+        flex-shrink: 0 !important;
+    }
+    .skills-popover-menu .mud-list-item .mud-checkbox .mud-icon-root,
+    .mud-popover .mud-list-item .mud-checkbox .mud-icon-root {
+        font-size: 1.15rem !important;
+        width: 1.15rem !important;
+        height: 1.15rem !important;
+    }
+    .skills-popover-menu .mud-list-item .mud-checkbox .mud-checkbox-text,
+    .skills-popover-menu .mud-list-item .mud-checkbox > .mud-typography,
+    .skills-popover-menu .mud-list-item .mud-checkbox.mud-input-content-placement-end > .mud-typography,
+    .mud-popover .mud-list-item .mud-checkbox .mud-checkbox-text,
+    .mud-popover .mud-list-item .mud-checkbox > .mud-typography,
+    .mud-popover .mud-list-item .mud-checkbox.mud-input-content-placement-end > .mud-typography {
+        padding-left: 0 !important;
+        margin-left: 0 !important;
+        font-size: 0.8125rem !important;
+        line-height: 1.25 !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        flex-grow: 1 !important;
+        text-align: left !important;
+    }
+</style>
 
 <MudDialog>
     <TitleContent>
@@ -62,8 +121,44 @@
                                      SelectValueOnTab="true"
                                      MinCharacters="0"
                                      Required="true"
-                                     RequiredError="Range Course is required" />
+                                     RequiredError="Range Course is required"
+                                     @onkeydown="OnCourseKeyDown" />
                 </MudItem>
+                @if (IsCourseP)
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudSelect T="int"
+                                       @ref="skillsSelectRef"
+                                       MultiSelection="true"
+                                       SelectAll="true"
+                                       SelectAllText="Select All"
+                                       PopoverClass="skills-popover-menu"
+                                       Label="Range Skills"
+                                       Placeholder="Select Skills"
+                                       Variant="Variant.Outlined"
+                                       Dense="true"
+                                       SelectedValues="@RangeStat.SelectedSkillIDs"
+                                       SelectedValuesChanged="OnSkillsSelectionChanged"
+                                       MultiSelectionTextFunc="@(selectedList => GetSkillsSelectionSummary(selectedList))"
+                                       Style="flex-grow: 1;">
+                                @foreach (var skill in availableRangeSkills)
+                                {
+                                    <MudSelectItem T="int" Value="@skill.RangeSkillID">@skill.SkillName</MudSelectItem>
+                                }
+                            </MudSelect>
+                            <MudTooltip Text="Select Skills Dialog">
+                                <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
+                                               Color="Color.Primary"
+                                               Size="Size.Medium"
+                                               OnClick="OpenSkillsModal"
+                                               Class="mt-1"
+                                               tabindex="-1"
+                                               aria-label="Select skills dialog" />
+                            </MudTooltip>
+                        </MudStack>
+                    </MudItem>
+                }
                 <MudItem xs="12" sm="6">
                     <MudAutocomplete T="FirearmsDto"
                                      Value="selectedFirearm"
@@ -128,12 +223,37 @@
     [Parameter]
     public IEnumerable<FirearmsDto>? AvailableFirearms { get; set; }
 
+    [Parameter]
+    public IEnumerable<RangeSkillDTO>? AvailableSkills { get; set; }
+
+    [Parameter]
+    public string? EmployeeName { get; set; }
+
     private DateTime? rangeDate = DateTime.Today;
     private RangeOfficerDTO? selectedRangeOfficer;
     private RangeCourseDTO? selectedCourse;
     private FirearmsDto? selectedFirearm;
     private List<RangeOfficerDTO> availableRangeOfficers = new();
+    private List<RangeSkillDTO> availableRangeSkills = new();
+    private MudSelect<int>? skillsSelectRef;
     private bool isSaving = false;
+
+    private bool IsCourseP
+    {
+        get
+        {
+            if (selectedCourse != null)
+            {
+                return string.Equals(selectedCourse.CourseCode, "P", StringComparison.OrdinalIgnoreCase);
+            }
+            if (RangeStat.CourseID.HasValue && AvailableCourses != null)
+            {
+                var course = AvailableCourses.FirstOrDefault(c => c.CourseID == RangeStat.CourseID.Value);
+                return course != null && string.Equals(course.CourseCode, "P", StringComparison.OrdinalIgnoreCase);
+            }
+            return false;
+        }
+    }
 
     private IEnumerable<RangeCourseDTO> FilteredCourses =>
         AvailableCourses?
@@ -171,6 +291,23 @@
         }
         InitFirearm();
         await LoadRangeOfficersAsync();
+
+        if (AvailableSkills != null && AvailableSkills.Any())
+        {
+            availableRangeSkills = AvailableSkills.ToList();
+        }
+        else
+        {
+            try
+            {
+                var skills = await codeTableService.GetRangeSkillsAsync();
+                availableRangeSkills = skills != null ? skills.ToList() : new();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error loading range skills in AddRangeStatisticModal.");
+            }
+        }
     }
 
     protected override async Task OnParametersSetAsync()
@@ -179,6 +316,14 @@
         InitDate();
         InitCourse();
         InitFirearm();
+        if (AvailableSkills != null && AvailableSkills.Any())
+        {
+            availableRangeSkills = AvailableSkills.ToList();
+        }
+        if (RangeStat.SelectedSkillIDs == null)
+        {
+            RangeStat.SelectedSkillIDs = new List<int>();
+        }
     }
 
     private void InitCourse()
@@ -312,6 +457,31 @@
     {
         selectedCourse = course;
         RangeStat.CourseID = course?.CourseID;
+        StateHasChanged();
+    }
+
+    private async Task OnCourseKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Tab" && !e.ShiftKey)
+        {
+            // Yield and delay to allow MudAutocomplete to commit the selection (e.g. "P")
+            // and invoke OnCourseChanged before checking if Course is "P".
+            await Task.Yield();
+            await Task.Delay(50);
+            StateHasChanged();
+            if (IsCourseP)
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    if (skillsSelectRef != null)
+                    {
+                        await skillsSelectRef.FocusAsync();
+                        break;
+                    }
+                    await Task.Delay(50);
+                }
+            }
+        }
     }
 
     private Task<IEnumerable<RangeCourseDTO>> SearchCourses(string value, CancellationToken token)
@@ -369,6 +539,60 @@
         MudDialog.Cancel();
     }
 
+    private void OnSkillsSelectionChanged(IEnumerable<int> vals)
+    {
+        RangeStat.SelectedSkillIDs = vals?.ToList() ?? new List<int>();
+    }
+
+    private string GetSkillsSelectionSummary(IReadOnlyList<string> selectedValues)
+    {
+        if (selectedValues == null || !selectedValues.Any())
+        {
+            return "0 Skills";
+        }
+
+        var skillNames = new List<string>();
+        foreach (var valStr in selectedValues)
+        {
+            if (int.TryParse(valStr, out int id))
+            {
+                var skill = availableRangeSkills.FirstOrDefault(s => s.RangeSkillID == id);
+                if (skill != null)
+                {
+                    skillNames.Add(skill.SkillName);
+                }
+            }
+        }
+
+        if (!skillNames.Any()) return $"{selectedValues.Count} Skills";
+        if (skillNames.Count == 1) return skillNames[0];
+        return $"{skillNames.Count} Skills ({string.Join(", ", skillNames)})";
+    }
+
+    private async Task OpenSkillsModal()
+    {
+        var officerName = !string.IsNullOrWhiteSpace(RangeStat.EmployeeName)
+            ? RangeStat.EmployeeName
+            : (!string.IsNullOrWhiteSpace(EmployeeName) ? EmployeeName : "Employee");
+
+        var parameters = new DialogParameters<SelectRangeSkillsModal>
+        {
+            { x => x.OfficerName, officerName },
+            { x => x.AvailableSkills, availableRangeSkills },
+            { x => x.SelectedSkillIDs, new HashSet<int>(RangeStat.SelectedSkillIDs) }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<SelectRangeSkillsModal>("Select Range Skills", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is List<int> selectedSkills)
+        {
+            RangeStat.SelectedSkillIDs = selectedSkills;
+            StateHasChanged();
+        }
+    }
+
     private async Task SaveRangeStatAsync()
     {
         if (rangeDate == null)
@@ -392,6 +616,11 @@
         {
             Snackbar.Add("Range Course is required.", Severity.Error);
             return;
+        }
+
+        if (!IsCourseP)
+        {
+            RangeStat.SelectedSkillIDs.Clear();
         }
 
         if (selectedFirearm != null)

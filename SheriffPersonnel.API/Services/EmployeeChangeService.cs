@@ -181,6 +181,7 @@ namespace SheriffPersonnel.API.Services
                 HistoryDate = entity.HistoryDate,
                 ProgramID = entity.ProgramID,
                 ProgramName = entity.Program?.ProgramName,
+                ProgramDescription = entity.Program?.Description,
                 RankID = entity.RankID,
                 RankName = entity.Rank?.RankName,
                 UnitID = entity.UnitID,

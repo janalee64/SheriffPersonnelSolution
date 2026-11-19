@@ -272,7 +272,7 @@ namespace SheriffPersonnel.Shared.Data
                       .UsingEntity(
                           "RangeStatisticSkills",
                           l => l.HasOne(typeof(RangeSkill)).WithMany().HasForeignKey("SkillID"),
-                          r => r.HasOne(typeof(RangeStatistic)).WithMany().HasForeignKey("RangeID"),
+                          r => r.HasOne(typeof(RangeStatistic)).WithMany().HasForeignKey("RangeID").OnDelete(DeleteBehavior.Cascade),
                           j =>
                           {
                               j.ToTable("RangeStatisticSkills");

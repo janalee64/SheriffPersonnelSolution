@@ -225,9 +225,12 @@ namespace SheriffPersonnel.API.Repositories
 
         public async Task<bool> DeleteRangeStatisticAsync(int id)
         {
-            var entity = await _dbContext.RangeStatistics.FindAsync(id);
+            var entity = await _dbContext.RangeStatistics
+                .Include(rs => rs.RangeSkills)
+                .FirstOrDefaultAsync(rs => rs.RangeID == id);
             if (entity == null) return false;
 
+            entity.RangeSkills.Clear();
             _dbContext.RangeStatistics.Remove(entity);
             await _dbContext.SaveChangesAsync();
             return true;

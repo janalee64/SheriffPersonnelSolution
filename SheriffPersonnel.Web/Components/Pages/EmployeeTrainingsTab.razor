@@ -53,7 +53,7 @@
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeTrainingsDto, object>(x => x.TravelCost)">Travel Cost</MudTableSortLabel></MudTh>
                         @if (CanEdit)
                         {
-                            <MudTh>Actions</MudTh>
+                            <MudTh Style="white-space: nowrap;">Actions</MudTh>
                         }
                     </HeaderContent>
                     <RowTemplate Context="trainingContext">
@@ -77,13 +77,15 @@
                         <MudTd DataLabel="Travel Cost">@trainingContext.TravelCost.ToString("C2")</MudTd>
                         @if (CanEdit)
                         {
-                            <MudTd DataLabel="Actions">
-                                <MudTooltip Text="Edit Training Record">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditTrainingForm(trainingContext))" aria-label="@($"Edit training {trainingContext.SchoolName}")" />
-                                </MudTooltip>
-                                <MudTooltip Text="Delete Training Record">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteTrainingAsync(trainingContext.EmployeeTrainingID))" aria-label="@($"Delete training {trainingContext.SchoolName}")" />
-                                </MudTooltip>
+                            <MudTd DataLabel="Actions" Style="white-space: nowrap;">
+                                <div class="d-flex flex-nowrap align-center">
+                                    <MudTooltip Text="Edit Training Record">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditTrainingForm(trainingContext))" aria-label="@($"Edit training {trainingContext.SchoolName}")" />
+                                    </MudTooltip>
+                                    <MudTooltip Text="Delete Training Record">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteTrainingAsync(trainingContext.EmployeeTrainingID))" aria-label="@($"Delete training {trainingContext.SchoolName}")" />
+                                    </MudTooltip>
+                                </div>
                             </MudTd>
                         }
                     </RowTemplate>

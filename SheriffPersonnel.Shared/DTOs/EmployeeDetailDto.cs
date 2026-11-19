@@ -50,7 +50,7 @@ namespace SheriffPersonnel.Shared.DTOs
         [StringLength(20, ErrorMessage = "Home Phone cannot exceed 20 characters.")]
         public string? HomePhone { get; set; }
 
-        [StringLength(150, ErrorMessage = "Address Line 1 cannot exceed 150 characters.")]
+        [StringLength(150, ErrorMessage = "Address cannot exceed 150 characters.")]
         public string? HomeAddressLine1 { get; set; }
 
         [StringLength(50, ErrorMessage = "City cannot exceed 50 characters.")]

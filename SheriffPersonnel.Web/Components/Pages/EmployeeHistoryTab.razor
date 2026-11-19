@@ -31,7 +31,7 @@
                 <MudTable Items="employeeChanges" Hover="true" Striped="true" Elevation="0" AllowUnsorted="true">
                     <HeaderContent>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeChangesDto, object>(x => x.HistoryDate)">History Date</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeChangesDto, object>(x => x.ProgramName ?? string.Empty)">Program</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<EmployeeChangesDto, object>(x => GetProgramDisplayName(x))">Program</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeChangesDto, object>(x => x.RankName ?? string.Empty)">Rank</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<EmployeeChangesDto, object>(x => x.UnitName ?? string.Empty)">Unit</MudTableSortLabel></MudTh>
                         @if (CanEdit)
@@ -41,7 +41,7 @@
                     </HeaderContent>
                     <RowTemplate Context="changeContext">
                         <MudTd DataLabel="History Date">@changeContext.HistoryDate.ToString("MM/dd/yyyy")</MudTd>
-                        <MudTd DataLabel="Program">@(string.IsNullOrWhiteSpace(changeContext.ProgramName) ? "-" : changeContext.ProgramName)</MudTd>
+                        <MudTd DataLabel="Program">@GetProgramDisplayName(changeContext)</MudTd>
                         <MudTd DataLabel="Rank">@(string.IsNullOrWhiteSpace(changeContext.RankName) ? "-" : changeContext.RankName)</MudTd>
                         <MudTd DataLabel="Unit">@(string.IsNullOrWhiteSpace(changeContext.UnitName) ? "-" : changeContext.UnitName)</MudTd>
                         @if (CanEdit)
@@ -167,6 +167,7 @@
                     UnitID = change.UnitID,
                     LastUserID = change.LastUserID,
                     ProgramName = change.ProgramName,
+                    ProgramDescription = change.ProgramDescription,
                     RankName = change.RankName,
                     UnitName = change.UnitName
                 }
@@ -215,6 +216,32 @@
             logger.LogError(ex, "Error deleting employee change record.");
             Snackbar.Add($"Error deleting history record: {ex.Message}", Severity.Error);
         }
+    }
+
+    private string GetProgramDisplayName(EmployeeChangesDto change)
+    {
+        if (change.ProgramID.HasValue && AvailablePrograms != null)
+        {
+            var prog = AvailablePrograms.FirstOrDefault(p => p.ProgramID == change.ProgramID.Value);
+            if (prog != null && !string.IsNullOrWhiteSpace(prog.DisplayName))
+            {
+                return prog.DisplayName;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(change.ProgramDisplayName))
+        {
+            return change.ProgramDisplayName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(change.ProgramName))
+        {
+            return string.IsNullOrWhiteSpace(change.ProgramDescription)
+                ? change.ProgramName
+                : $"{change.ProgramName} - {change.ProgramDescription}";
+        }
+
+        return "-";
     }
 }
 

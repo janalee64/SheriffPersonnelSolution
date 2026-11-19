@@ -38,7 +38,7 @@
                         <MudTh><MudTableSortLabel SortBy="new Func<RangeStatisticDTO, object>(x => x.PassFail ?? string.Empty)">Result</MudTableSortLabel></MudTh>
                         @if (CanEdit)
                         {
-                            <MudTh>Actions</MudTh>
+                            <MudTh Style="white-space: nowrap;">Actions</MudTh>
                         }
                     </HeaderContent>
                     <RowTemplate Context="statContext">
@@ -65,13 +65,15 @@
                         </MudTd>
                         @if (CanEdit)
                         {
-                            <MudTd DataLabel="Actions">
-                                <MudTooltip Text="Edit Record">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditRangeStatForm(statContext))" aria-label="Edit range record" />
-                                </MudTooltip>
-                                <MudTooltip Text="Delete Record">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteRangeStatAsync(statContext.RangeID))" aria-label="Delete range record" />
-                                </MudTooltip>
+                            <MudTd DataLabel="Actions" Style="white-space: nowrap;">
+                                <div class="d-flex flex-nowrap align-center">
+                                    <MudTooltip Text="Edit Record">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenEditRangeStatForm(statContext))" aria-label="Edit range record" />
+                                    </MudTooltip>
+                                    <MudTooltip Text="Delete Record">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteRangeStatAsync(statContext.RangeID))" aria-label="Delete range record" />
+                                    </MudTooltip>
+                                </div>
                             </MudTd>
                         }
                     </RowTemplate>
@@ -97,6 +99,7 @@
     [Parameter] public IEnumerable<RangeCourseDTO>? AvailableCourses { get; set; }
     [Parameter] public IEnumerable<RangeEventDTO>? AvailableEvents { get; set; }
     [Parameter] public IEnumerable<FirearmsDto>? AvailableFirearms { get; set; }
+    [Parameter] public string? EmployeeName { get; set; }
 
     [CascadingParameter] private Task<AuthenticationState>? authenticationStateTask { get; set; }
 
@@ -179,10 +182,12 @@
         var parameters = new DialogParameters<AddRangeStatisticModal>
         {
             { x => x.EmployeeId, EmployeeId },
-            { x => x.RangeStat, new RangeStatisticDTO { EmployeeID = EmployeeId, PassFail = "Pass" } },
+            { x => x.EmployeeName, EmployeeName },
+            { x => x.RangeStat, new RangeStatisticDTO { EmployeeID = EmployeeId, EmployeeName = EmployeeName, PassFail = "Pass" } },
             { x => x.AvailableCourses, AvailableCourses },
             { x => x.AvailableEvents, AvailableEvents },
-            { x => x.AvailableFirearms, firearms }
+            { x => x.AvailableFirearms, firearms },
+            { x => x.AvailableSkills, availableRangeSkills }
         };
 
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
@@ -204,10 +209,12 @@
         var parameters = new DialogParameters<AddRangeStatisticModal>
         {
             { x => x.EmployeeId, EmployeeId },
+            { x => x.EmployeeName, stat.EmployeeName ?? EmployeeName },
             { x => x.RangeStat, new RangeStatisticDTO
                 {
                     RangeID = stat.RangeID,
                     EmployeeID = stat.EmployeeID,
+                    EmployeeName = stat.EmployeeName ?? EmployeeName,
                     FirearmID = stat.FirearmID,
                     CourseID = stat.CourseID,
                     RoundsFired = stat.RoundsFired,
@@ -224,7 +231,8 @@
             },
             { x => x.AvailableCourses, AvailableCourses },
             { x => x.AvailableEvents, AvailableEvents },
-            { x => x.AvailableFirearms, firearms }
+            { x => x.AvailableFirearms, firearms },
+            { x => x.AvailableSkills, availableRangeSkills }
         };
 
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };

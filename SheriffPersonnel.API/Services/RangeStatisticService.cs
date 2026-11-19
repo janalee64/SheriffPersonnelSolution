@@ -125,7 +125,14 @@ namespace SheriffPersonnel.API.Services
                 var entity = MapToEntity(dto);
                 entity.LastUserID = validUserId;
 
-                if (dto.SelectedSkillIDs != null && dto.SelectedSkillIDs.Any())
+                bool isCourseP = false;
+                if (dto.CourseID.HasValue && dto.CourseID.Value > 0)
+                {
+                    var course = await _dbContext.RangeCourses.FindAsync(dto.CourseID.Value);
+                    isCourseP = course != null && string.Equals(course.CourseCode, "P", StringComparison.OrdinalIgnoreCase);
+                }
+
+                if (isCourseP && dto.SelectedSkillIDs != null && dto.SelectedSkillIDs.Any())
                 {
                     var skills = await _dbContext.RangeSkills
                         .Where(s => dto.SelectedSkillIDs.Contains(s.RangeSkillID))
@@ -166,7 +173,14 @@ namespace SheriffPersonnel.API.Services
                     LastUpdated = DateTime.Now
                 };
 
-                if (dto.SelectedSkillIDs != null && dto.SelectedSkillIDs.Any())
+                bool isCourseP = false;
+                if (dto.CourseID.HasValue && dto.CourseID.Value > 0)
+                {
+                    var course = await _dbContext.RangeCourses.FindAsync(dto.CourseID.Value);
+                    isCourseP = course != null && string.Equals(course.CourseCode, "P", StringComparison.OrdinalIgnoreCase);
+                }
+
+                if (isCourseP && dto.SelectedSkillIDs != null && dto.SelectedSkillIDs.Any())
                 {
                     var skills = await _dbContext.RangeSkills
                         .Where(s => dto.SelectedSkillIDs.Contains(s.RangeSkillID))

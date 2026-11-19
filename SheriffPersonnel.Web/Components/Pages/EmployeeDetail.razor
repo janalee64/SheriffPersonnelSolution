@@ -148,6 +148,10 @@ else
             {
                 <MudTabPanel Text="Employee Details" Icon="@Icons.Material.Filled.Person">
                 <MudStack Spacing="4" Class="mt-4">
+                    <MudPaper Class="pa-4" Elevation="3">
+                        <MudCheckBox T="bool" @bind-Value="employee.EmployeeFlag" Label="Sheriff Employee Flag" Color="Color.Primary" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" />
+                    </MudPaper>
+
                     <!-- Personal Information -->
                     <MudPaper Class="pa-6" Elevation="3">
                         <MudGrid>
@@ -166,12 +170,12 @@ else
                                     <AuthorizeView Roles="SSN" Context="authContext">
                                         <Authorized>
                                             <MudItem xs="12" sm="6">
-                                                <MudTextField @bind-Value="employee.SSN" For="@(() => employee.SSN)" Label="SSN" Variant="Variant.Outlined" Placeholder="XXX-XX-XXXX" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
+                                                <MudTextField @bind-Value="employee.SSN" For="@(() => employee.SSN)" Label="SSN" Variant="Variant.Outlined" Placeholder="XXX-XX-XXXX" Required="@employee.EmployeeFlag" RequiredError="SSN is required" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                                             </MudItem>
                                         </Authorized>
                                     </AuthorizeView>
                                     <MudItem xs="12" sm="6">
-                                        <MudDatePicker @bind-Date="employee.DOB" For="@(() => employee.DOB)" Label="Date of Birth" Variant="Variant.Outlined" Clearable="canEditEmployee" Editable="canEditEmployee" DateFormat="MM/dd/yyyy" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" ErrorText="Invalid date format" />
+                                        <MudDatePicker @bind-Date="employee.DOB" For="@(() => employee.DOB)" Label="Date of Birth" Variant="Variant.Outlined" Clearable="canEditEmployee" Editable="canEditEmployee" DateFormat="MM/dd/yyyy" Required="@employee.EmployeeFlag" RequiredError="Date of Birth is required" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" ErrorText="Invalid date format" />
                                     </MudItem>
                                 </MudGrid>
                             </MudItem>
@@ -235,14 +239,11 @@ else
                                     }
                                 </MudSelect>
                             </MudItem>
-                            <MudItem xs="12" sm="6">
-                                <MudDatePicker @bind-Date="employee.HireDate" For="@(() => employee.HireDate)" Label="Hire Date" Variant="Variant.Outlined" Clearable="canEditEmployee" Editable="canEditEmployee" DateFormat="MM/dd/yyyy" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" ErrorText="Invalid date format" />
+                            <MudItem xs="12" sm="6" md="4">
+                                <MudDatePicker @bind-Date="employee.HireDate" For="@(() => employee.HireDate)" Label="Hire Date" Variant="Variant.Outlined" Clearable="canEditEmployee" Editable="canEditEmployee" DateFormat="MM/dd/yyyy" Required="@employee.EmployeeFlag" RequiredError="Hire Date is required" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" ErrorText="Invalid date format" />
                             </MudItem>
-                            <MudItem xs="12" sm="6">
+                            <MudItem xs="12" sm="6" md="4">
                                 <MudDatePicker @bind-Date="employee.InactiveDate" For="@(() => employee.InactiveDate)" Label="Inactive Date" Variant="Variant.Outlined" Clearable="canEditEmployee" Editable="canEditEmployee" DateFormat="MM/dd/yyyy" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" ErrorText="Invalid date format" />
-                            </MudItem>
-                            <MudItem xs="12">
-                                <MudCheckBox T="bool" @bind-Value="employee.EmployeeFlag" Label="Sheriff Employee Flag" Color="Color.Primary" Disabled="!canEditEmployee" ReadOnly="!canEditEmployee" />
                             </MudItem>
                         </MudGrid>
                     </MudPaper>
@@ -258,7 +259,7 @@ else
                                 <MudTextField @bind-Value="employee.WorkPhone" For="@(() => employee.WorkPhone)" Label="Work Phone" Variant="Variant.Outlined" InputType="InputType.Telephone" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                             <MudItem xs="12" sm="4">
-                                <MudTextField @bind-Value="employee.HomePhone" For="@(() => employee.HomePhone)" Label="Home Phone" Variant="Variant.Outlined" InputType="InputType.Telephone" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
+                                <MudTextField @bind-Value="employee.HomePhone" For="@(() => employee.HomePhone)" Label="Home Phone" Variant="Variant.Outlined" InputType="InputType.Telephone" Required="@employee.EmployeeFlag" RequiredError="Home Phone is required" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                         </MudGrid>
                     </MudPaper>
@@ -268,16 +269,16 @@ else
                         <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-4">Home Address</MudText>
                         <MudGrid>
                             <MudItem xs="12">
-                                <MudTextField @bind-Value="employee.HomeAddressLine1" For="@(() => employee.HomeAddressLine1)" Label="Address Line 1" Variant="Variant.Outlined" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
+                                <MudTextField @bind-Value="employee.HomeAddressLine1" For="@(() => employee.HomeAddressLine1)" Label="Address" Variant="Variant.Outlined" Required="@employee.EmployeeFlag" RequiredError="Address is required" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                             <MudItem xs="12" sm="5">
-                                <MudTextField @bind-Value="employee.HomeCity" For="@(() => employee.HomeCity)" Label="City" Variant="Variant.Outlined" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
+                                <MudTextField @bind-Value="employee.HomeCity" For="@(() => employee.HomeCity)" Label="City" Variant="Variant.Outlined" Required="@employee.EmployeeFlag" RequiredError="City is required" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                             <MudItem xs="12" sm="3">
-                                <MudTextField @bind-Value="employee.HomeState" For="@(() => employee.HomeState)" Label="State" Variant="Variant.Outlined" MaxLength="2" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
+                                <MudTextField @bind-Value="employee.HomeState" For="@(() => employee.HomeState)" Label="State" Variant="Variant.Outlined" MaxLength="2" Required="@employee.EmployeeFlag" RequiredError="State is required" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                             <MudItem xs="12" sm="4">
-                                <MudTextField @bind-Value="employee.HomeZipCode" For="@(() => employee.HomeZipCode)" Label="Zip Code" Variant="Variant.Outlined" MaxLength="10" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
+                                <MudTextField @bind-Value="employee.HomeZipCode" For="@(() => employee.HomeZipCode)" Label="Zip Code" Variant="Variant.Outlined" MaxLength="10" Required="@employee.EmployeeFlag" RequiredError="Zip Code is required" ReadOnly="!canEditEmployee" Disabled="!canEditEmployee" />
                             </MudItem>
                         </MudGrid>
                     </MudPaper>
@@ -322,7 +323,7 @@ else
                     <MudTabPanel Text="Range Statistics" Icon="@Icons.Material.Filled.SportsScore">
                         @if (visitedTabKeys.Contains(TabKey.RangeStats))
                         {
-                            <EmployeeRangeStatisticsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditRangeStats" AvailableCourses="@availableRangeCourses" AvailableEvents="@availableRangeEvents" />
+                            <EmployeeRangeStatisticsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditRangeStats" AvailableCourses="@availableRangeCourses" AvailableEvents="@availableRangeEvents" EmployeeName="@($"{employee.FirstName} {employee.LastName}".Trim())" />
                         }
                     </MudTabPanel>
                 }
@@ -411,6 +412,7 @@ else
     private bool canEditRangeStats = false;
     private bool canEditTrainings = false;
     private bool canEditDocuments = false;
+    private bool hasSsnPermission = false;
 
     private bool canEditEmployee => canEditDetails;
     private bool canEditAny => canEditDetails || canEditHistory || canEditEquipment || canEditFirearms || canEditRangeStats || canEditTrainings || canEditDocuments;
@@ -473,6 +475,7 @@ else
         bool isRangeStats = user.IsInRole("Range Statistics");
         bool isTraining = user.IsInRole("Training");
         bool isDocuments = user.IsInRole("Documents");
+        hasSsnPermission = user.IsInRole("SSN");
 
         canAccessDetails = isPersonnelEdit || isPersonnelView;
         canEditDetails = isPersonnelEdit;
@@ -704,6 +707,65 @@ else
             errorMessage = "You do not have permission to save employee details.";
             Snackbar.Add(errorMessage, Severity.Error);
             return;
+        }
+
+        if (employee.EmployeeFlag)
+        {
+            if (hasSsnPermission && string.IsNullOrWhiteSpace(employee.SSN))
+            {
+                errorMessage = "SSN is required.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
+
+            if (!employee.DOB.HasValue)
+            {
+                errorMessage = "Date of Birth is required.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
+
+            if (!employee.HireDate.HasValue)
+            {
+                errorMessage = "Hire Date is required.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(employee.HomePhone))
+            {
+                errorMessage = "Home Phone is required.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(employee.HomeAddressLine1))
+            {
+                errorMessage = "Address is required.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(employee.HomeCity))
+            {
+                errorMessage = "City is required.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(employee.HomeState))
+            {
+                errorMessage = "State is required.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(employee.HomeZipCode))
+            {
+                errorMessage = "Zip Code is required.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
         }
 
         if (employee.DOB.HasValue && employee.DOB.Value.Date > DateTime.Today)
