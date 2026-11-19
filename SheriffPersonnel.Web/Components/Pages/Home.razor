@@ -27,23 +27,21 @@
 </MudStack>
 
 <MudPaper Class="pa-6 mb-6" Elevation="3">
-    <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-4">Search Criteria</MudText>
-
     <EditForm Model="@searchRequest" OnValidSubmit="HandleSearch">
         <MudGrid>
-            <MudItem xs="12" sm="6" md="4">
+            <MudItem xs="12" sm="6" md="3">
                 <MudTextField @bind-Value="searchRequest.LastName" Label="Last Name" Variant="Variant.Outlined" Clearable="true" Placeholder="Enter last name..." Immediate="true" OnKeyDown="HandleKeyDown" />
             </MudItem>
 
-            <MudItem xs="12" sm="6" md="4">
+            <MudItem xs="12" sm="6" md="3">
                 <MudTextField @bind-Value="searchRequest.FirstName" Label="First Name" Variant="Variant.Outlined" Clearable="true" Placeholder="Enter first name..." Immediate="true" OnKeyDown="HandleKeyDown" />
             </MudItem>
 
-            <MudItem xs="12" sm="6" md="4">
+            <MudItem xs="12" sm="6" md="3">
                 <MudTextField @bind-Value="searchRequest.BadgeNumber" Label="Badge Number" Variant="Variant.Outlined" Clearable="true" Placeholder="Enter badge number..." Immediate="true" OnKeyDown="HandleKeyDown" />
             </MudItem>
 
-            <MudItem xs="12" sm="6" md="4">
+            <MudItem xs="12" sm="6" md="3">
                 <MudSelect T="string" @bind-Value="searchRequest.Status" Label="Status" Variant="Variant.Outlined" Clearable="true">
                     <MudSelectItem T="string" Value="@("")">-- All Statuses --</MudSelectItem>
                     @if (availableStatuses != null)
@@ -58,7 +56,7 @@
                 </MudSelect>
             </MudItem>
 
-            <MudItem xs="12" sm="6" md="4">
+            <MudItem xs="12" sm="6" md="3">
                 <MudSelect T="int?" @bind-Value="searchRequest.ProgramID" Label="Program" Variant="Variant.Outlined" Clearable="true">
                     <MudSelectItem T="int?" Value="@((int?)null)">-- All Programs --</MudSelectItem>
                     @if (availablePrograms != null)
@@ -73,7 +71,7 @@
                 </MudSelect>
             </MudItem>
 
-            <MudItem xs="12" sm="6" md="4">
+            <MudItem xs="12" sm="6" md="3">
                 <MudSelect T="int?" @bind-Value="searchRequest.UnitID" Label="Unit" Variant="Variant.Outlined" Clearable="true">
                     <MudSelectItem T="int?" Value="@((int?)null)">-- All Units --</MudSelectItem>
                     @if (availableUnits != null)
@@ -88,12 +86,12 @@
                 </MudSelect>
             </MudItem>
 
-            <MudItem xs="12" sm="6" md="4" Class="d-flex align-center">
+            <MudItem xs="12" sm="6" md="3" Class="d-flex align-center">
                 <MudCheckBox T="bool" @bind-Value="isEmployeeFlagChecked" Label="Sheriff Employee Flag Only" Color="Color.Primary" />
             </MudItem>
         </MudGrid>
 
-        <MudStack Row="true" Spacing="2" Class="mt-6">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-6 flex-wrap">
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search" Disabled="@isLoading">
                 @if (isLoading)
                 {
@@ -117,6 +115,13 @@
             <MudButton Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Custom.FileFormats.FileExcel" OnClick="ExportToExcel" Disabled="@(isLoading || !hasSearched || searchResults == null || !searchResults.Any())">
                 Export to Excel
             </MudButton>
+
+            @if (hasSearched)
+            {
+                <MudText Typo="Typo.body1" Class="ml-4">
+                    <b>Employees Found:</b> @(searchResults?.Count() ?? 0)
+                </MudText>
+            }
         </MudStack>
     </EditForm>
 </MudPaper>
@@ -137,25 +142,6 @@
 }
 else if (hasSearched)
 {
-    <MudAlert Severity="Severity.Info" Variant="Variant.Filled" Class="mb-4">
-        <div class="d-flex justify-space-between align-center w-100 flex-wrap gap-2">
-            <div>
-                <b>Filters Summary:</b> @GetFiltersSummary()
-            </div>
-            <div class="d-flex align-center gap-2">
-                <div>
-                    <b>Employees Found:</b> @(searchResults?.Count() ?? 0)
-                </div>
-                <MudButton Variant="Variant.Filled" Color="Color.Surface" StartIcon="@Icons.Custom.FileFormats.FileExcel" Size="Size.Small" OnClick="ExportToExcel">
-                    Export Excel
-                </MudButton>
-                <MudButton Variant="Variant.Filled" Color="Color.Surface" StartIcon="@Icons.Material.Filled.Print" Size="Size.Small" OnClick="OpenPrintWindow">
-                    Print
-                </MudButton>
-            </div>
-        </div>
-    </MudAlert>
-
     <MudPaper Elevation="3">
         <MudTable T="EmployeeSearchResultDto" Items="searchResults" Hover="true" Striped="true" Loading="@isLoading" AllowUnsorted="true" OnRowClick="OnRowClick" RowClass="cursor-pointer">
             <HeaderContent>

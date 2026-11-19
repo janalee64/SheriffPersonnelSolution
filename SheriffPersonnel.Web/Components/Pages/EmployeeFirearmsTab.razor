@@ -97,9 +97,7 @@
         {
             var authState = await authenticationStateTask;
             var user = authState?.User;
-            bool hasView = user != null && (user.IsInRole("Personnel View") || user.IsInRole("Employee View"));
-            bool hasEdit = user != null && (user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit"));
-            var hasEditPermission = user != null && (hasView && hasEdit);
+            var hasEditPermission = user != null && user.IsInRole("Range Statistics");
             CanEdit = CanEdit && hasEditPermission;
         }
 

@@ -11,7 +11,7 @@ namespace SheriffPersonnel.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, SSN")]
+    [Authorize(Roles = "Personnel Edit, Employee Edit")]
     public class EmployeeChangesController : ControllerBase
     {
         private readonly IEmployeeChangeService _employeeChangeService;

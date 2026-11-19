@@ -9,7 +9,7 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<EmployeeDocumentsTab> logger
 
-@attribute [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Equipment, SSN")]
+@attribute [Authorize(Roles = "Documents")]
 
 <MudStack Spacing="4" Class="mt-4">
     @if (IsEdit && EmployeeId > 0)
@@ -209,9 +209,7 @@
         {
             var authState = await authenticationStateTask;
             var user = authState?.User;
-            bool hasView = user != null && (user.IsInRole("Personnel View") || user.IsInRole("Employee View"));
-            bool hasEdit = user != null && (user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit"));
-            var hasEditPermission = user != null && (hasView && hasEdit);
+            var hasEditPermission = user != null && user.IsInRole("Documents");
             CanEdit = CanEdit && hasEditPermission;
         }
 
@@ -227,9 +225,7 @@
         {
             var authState = await authenticationStateTask;
             var user = authState?.User;
-            bool hasView = user != null && (user.IsInRole("Personnel View") || user.IsInRole("Employee View"));
-            bool hasEdit = user != null && (user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit"));
-            var hasEditPermission = user != null && (hasView && hasEdit);
+            var hasEditPermission = user != null && user.IsInRole("Documents");
             CanEdit = CanEdit && hasEditPermission;
         }
 

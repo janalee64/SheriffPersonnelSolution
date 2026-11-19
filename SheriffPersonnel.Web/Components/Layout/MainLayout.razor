@@ -38,7 +38,7 @@
     <MudDrawer id="nav-drawer" Open="_drawerOpen" OpenChanged="OnDrawerOpenChanged" Variant="DrawerVariant.Mini" OpenMiniOnHover="false" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu IsOpen="_drawerOpen" OnToggle="DrawerToggle" />
     </MudDrawer>
-    <MudMainContent Class="pt-16 pa-4" id="main-content" tabindex="-1">
+    <MudMainContent Class="@($"pt-16 pa-4 {(_drawerOpen ? "drawer-open" : "drawer-closed")}")" id="main-content" tabindex="-1">
         @Body
     </MudMainContent>
 </MudLayout>

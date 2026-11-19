@@ -230,21 +230,44 @@ namespace SheriffPersonnel.API.Services
                 existing.HomeZipCode = dto.HomeZipCode;
                 if (!dto.StatusID.HasValue || dto.StatusID.Value <= 0)
                 {
-                    var statuses = await _repository.GetStatusesAsync();
-                    var activeStatus = statuses.FirstOrDefault(s =>
-                        string.Equals(s.StatusCode, "Active", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase) ||
-                        (s.StatusCode != null && s.StatusCode.StartsWith("Act", StringComparison.OrdinalIgnoreCase)) ||
-                        (s.StatusDescription != null && s.StatusDescription.StartsWith("Act", StringComparison.OrdinalIgnoreCase)))
-                        ?? statuses.FirstOrDefault();
-                    if (activeStatus != null)
+                    if (existing.StatusID.HasValue && existing.StatusID.Value > 0)
                     {
-                        dto.StatusID = activeStatus.StatusID;
+                        dto.StatusID = existing.StatusID;
+                    }
+                    else
+                    {
+                        var statuses = await _repository.GetStatusesAsync();
+                        var activeStatus = statuses.FirstOrDefault(s =>
+                            string.Equals(s.StatusCode, "Active", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(s.StatusDescription, "Active", StringComparison.OrdinalIgnoreCase) ||
+                            (s.StatusCode != null && s.StatusCode.StartsWith("Act", StringComparison.OrdinalIgnoreCase)) ||
+                            (s.StatusDescription != null && s.StatusDescription.StartsWith("Act", StringComparison.OrdinalIgnoreCase)))
+                            ?? statuses.FirstOrDefault();
+                        if (activeStatus != null)
+                        {
+                            dto.StatusID = activeStatus.StatusID;
+                        }
                     }
                 }
 
-                existing.StatusID = dto.StatusID;
-                existing.Status = null;
+                if (dto.StatusID.HasValue && dto.StatusID.Value > 0)
+                {
+                    if (existing.StatusID != dto.StatusID.Value)
+                    {
+                        existing.StatusID = dto.StatusID.Value;
+                        if (existing.Status != null && existing.Status.StatusID != dto.StatusID.Value)
+                        {
+                            var allStatuses = await _repository.GetStatusesAsync();
+                            existing.Status = allStatuses.FirstOrDefault(s => s.StatusID == dto.StatusID.Value);
+                        }
+                    }
+                }
+                else
+                {
+                    existing.StatusID = null;
+                    existing.Status = null;
+                }
+
                 existing.LastUserID = dto.LastUserID;
 
                 var updated = await _repository.UpdateEmployeeAsync(existing);

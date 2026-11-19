@@ -11,7 +11,7 @@ namespace SheriffPersonnel.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, SSN")]
+    [Authorize(Roles = "Range Statistics")]
     public class FirearmsController : ControllerBase
     {
         private readonly IFirearmService _firearmService;
@@ -76,7 +76,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Policy = "CanEditPersonnel")]
+        [Authorize(Roles = "Range Statistics")]
         public async Task<ActionResult<FirearmsDto>> CreateFirearm([FromBody] FirearmsDto dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
@@ -95,7 +95,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPut("{id:int}")]
-        [Authorize(Policy = "CanEditPersonnel")]
+        [Authorize(Roles = "Range Statistics")]
         public async Task<ActionResult<FirearmsDto>> UpdateFirearm(int id, [FromBody] FirearmsDto dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
@@ -116,7 +116,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpDelete("{id:int}")]
-        [Authorize(Policy = "CanEditPersonnel")]
+        [Authorize(Roles = "Range Statistics")]
         public async Task<IActionResult> DeleteFirearm(int id)
         {
             try

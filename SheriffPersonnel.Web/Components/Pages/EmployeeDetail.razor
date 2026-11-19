@@ -8,15 +8,15 @@
 @inject ISnackbar Snackbar
 @inject ILogger<EmployeeDetail> logger
 
-@attribute [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, SSN")]
+@attribute [Authorize(Roles = "Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, Documents, SSN")]
 
-<PageTitle>@(IsEdit ? (canEditEmployee ? "Edit Employee" : "View Employee") : "Add New Employee")</PageTitle>
+<PageTitle>@(IsEdit ? (canEditAny ? "Edit Employee" : "View Employee") : "Add New Employee")</PageTitle>
 
 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
     <MudText Typo="Typo.h4" HtmlTag="h1">
         @if (IsEdit)
         {
-            @if (canEditEmployee)
+            @if (canEditAny)
             {
                 @(!string.IsNullOrWhiteSpace(employee.FirstName) || !string.IsNullOrWhiteSpace(employee.LastName) ? $"Edit Employee: {employee.FirstName} {employee.LastName}".Trim() : "Edit Employee")
             }
@@ -69,10 +69,12 @@ else
         padding: 10px 22px !important;
         margin-right: 4px !important;
         transition: all 0.2s ease-in-out !important;
+        min-width: 0 !important;
     }
     .folder-styled-tabs .mud-tab .mud-icon-root {
         color: #64748b !important;
         margin-right: 6px !important;
+        transition: margin 0.2s ease-in-out !important;
     }
     .folder-styled-tabs .mud-tab:hover:not(.mud-tab-active) {
         background-color: #e2e8f0 !important;
@@ -101,13 +103,50 @@ else
         background-color: var(--mud-palette-surface) !important;
         padding: 8px !important;
     }
+
+    /* Left-hand menu displayed (drawer open): collapse inactive tab words to show icons only */
+    .drawer-open .folder-styled-tabs .mud-tab:not(.mud-tab-active),
+    #nav-drawer.mud-drawer--open ~ #main-content .folder-styled-tabs .mud-tab:not(.mud-tab-active) {
+        font-size: 0 !important;
+        min-width: 0 !important;
+        padding: 10px 14px !important;
+    }
+    .drawer-open .folder-styled-tabs .mud-tab:not(.mud-tab-active) .mud-icon-root,
+    #nav-drawer.mud-drawer--open ~ #main-content .folder-styled-tabs .mud-tab:not(.mud-tab-active) .mud-icon-root {
+        font-size: 1.25rem !important;
+        margin-right: 0 !important;
+    }
+
+    /* Left-hand menu displayed: show inactive tab words when user hovers over the tab icon */
+    .drawer-open .folder-styled-tabs .mud-tab:not(.mud-tab-active):hover,
+    #nav-drawer.mud-drawer--open ~ #main-content .folder-styled-tabs .mud-tab:not(.mud-tab-active):hover {
+        font-size: 0.875rem !important;
+        padding: 10px 22px !important;
+    }
+    .drawer-open .folder-styled-tabs .mud-tab:not(.mud-tab-active):hover .mud-icon-root,
+    #nav-drawer.mud-drawer--open ~ #main-content .folder-styled-tabs .mud-tab:not(.mud-tab-active):hover .mud-icon-root {
+        margin-right: 6px !important;
+    }
+
+    /* Left-hand menu displayed: active tab always shows both icon and words */
+    .drawer-open .folder-styled-tabs .mud-tab.mud-tab-active,
+    #nav-drawer.mud-drawer--open ~ #main-content .folder-styled-tabs .mud-tab.mud-tab-active {
+        font-size: 0.875rem !important;
+        padding: 10px 22px !important;
+    }
+    .drawer-open .folder-styled-tabs .mud-tab.mud-tab-active .mud-icon-root,
+    #nav-drawer.mud-drawer--open ~ #main-content .folder-styled-tabs .mud-tab.mud-tab-active .mud-icon-root {
+        margin-right: 6px !important;
+    }
 </style>
 
     <EditForm Model="@employee" OnValidSubmit="HandleSave">
         <DataAnnotationsValidator />
 
-        <MudTabs ActivePanelIndex="@activeTabIndex" ActivePanelIndexChanged="OnTabChangedAsync" Elevation="0" ApplyEffectsToContainer="true" Class="folder-styled-tabs mb-4">
-            <MudTabPanel Text="Employee Details" Icon="@Icons.Material.Filled.Person">
+        <MudTabs ActivePanelIndex="@activeTabIndex" ActivePanelIndexChanged="OnTabChangedAsync" Elevation="0" ApplyEffectsToContainer="true" MinimumTabWidth="0" Class="folder-styled-tabs mb-4">
+            @if (canAccessDetails)
+            {
+                <MudTabPanel Text="Employee Details" Icon="@Icons.Material.Filled.Person">
                 <MudStack Spacing="4" Class="mt-4">
                     <!-- Personal Information -->
                     <MudPaper Class="pa-6" Elevation="3">
@@ -244,50 +283,69 @@ else
                     </MudPaper>
                 </MudStack>
             </MudTabPanel>
+            }
 
             @if (IsEdit)
             {
-                <MudTabPanel Text="Employee History" Icon="@Icons.Material.Filled.History">
-                    @if (visitedTabs.Contains(1))
-                    {
-                        <EmployeeHistoryTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailablePrograms="@availablePrograms" AvailableRanks="@availableRanks" AvailableUnits="@availableUnits" />
-                    }
-                </MudTabPanel>
+                @if (canAccessHistory)
+                {
+                    <MudTabPanel Text="Employee History" Icon="@Icons.Material.Filled.History">
+                        @if (visitedTabKeys.Contains(TabKey.History))
+                        {
+                            <EmployeeHistoryTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditHistory" AvailablePrograms="@availablePrograms" AvailableRanks="@availableRanks" AvailableUnits="@availableUnits" />
+                        }
+                    </MudTabPanel>
+                }
 
-                <MudTabPanel Text="Equipment" Icon="@Icons.Material.Filled.Inventory">
-                    @if (visitedTabs.Contains(2))
-                    {
-                        <EmployeeInventoryTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableInventoryItems="@availableInventoryItems" />
-                    }
-                </MudTabPanel>
+                @if (canAccessEquipment)
+                {
+                    <MudTabPanel Text="Equipment" Icon="@Icons.Material.Filled.Inventory">
+                        @if (visitedTabKeys.Contains(TabKey.Equipment))
+                        {
+                            <EmployeeInventoryTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEquipment" AvailableInventoryItems="@availableInventoryItems" />
+                        }
+                    </MudTabPanel>
+                }
 
-                <MudTabPanel Text="Firearms" Icon="@Icons.Material.Filled.Security">
-                    @if (visitedTabs.Contains(3))
-                    {
-                        <EmployeeFirearmsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableMakes="@availableMakes" AvailableStatuses="@availableStatuses" />
-                    }
-                </MudTabPanel>
+                @if (canAccessFirearms)
+                {
+                    <MudTabPanel Text="Firearms" Icon="@Icons.Material.Filled.Security">
+                        @if (visitedTabKeys.Contains(TabKey.Firearms))
+                        {
+                            <EmployeeFirearmsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditFirearms" AvailableMakes="@availableMakes" AvailableStatuses="@availableStatuses" />
+                        }
+                    </MudTabPanel>
+                }
 
-                <MudTabPanel Text="Range Records" Icon="@Icons.Material.Filled.SportsScore">
-                    @if (visitedTabs.Contains(4))
-                    {
-                        <EmployeeRangeStatisticsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableCourses="@availableRangeCourses" AvailableEvents="@availableRangeEvents" />
-                    }
-                </MudTabPanel>
+                @if (canAccessRangeStats)
+                {
+                    <MudTabPanel Text="Range Statistics" Icon="@Icons.Material.Filled.SportsScore">
+                        @if (visitedTabKeys.Contains(TabKey.RangeStats))
+                        {
+                            <EmployeeRangeStatisticsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditRangeStats" AvailableCourses="@availableRangeCourses" AvailableEvents="@availableRangeEvents" />
+                        }
+                    </MudTabPanel>
+                }
 
-                <MudTabPanel Text="Trainings" Icon="@Icons.Material.Filled.School">
-                    @if (visitedTabs.Contains(5))
-                    {
-                        <EmployeeTrainingsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" AvailableTrainingSessions="@availableTrainingSessions" />
-                    }
-                </MudTabPanel>
+                @if (canAccessTrainings)
+                {
+                    <MudTabPanel Text="Trainings" Icon="@Icons.Material.Filled.School">
+                        @if (visitedTabKeys.Contains(TabKey.Trainings))
+                        {
+                            <EmployeeTrainingsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditTrainings" AvailableTrainingSessions="@availableTrainingSessions" />
+                        }
+                    </MudTabPanel>
+                }
 
-                <MudTabPanel Text="Documents" Icon="@Icons.Material.Filled.InsertDriveFile">
-                    @if (visitedTabs.Contains(6))
-                    {
-                        <EmployeeDocumentsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditEmployee" EmployeeName="@($"{employee.FirstName}_{employee.LastName}".Trim('_'))" />
-                    }
-                </MudTabPanel>
+                @if (canAccessDocuments)
+                {
+                    <MudTabPanel Text="Documents" Icon="@Icons.Material.Filled.InsertDriveFile">
+                        @if (visitedTabKeys.Contains(TabKey.Documents))
+                        {
+                            <EmployeeDocumentsTab EmployeeId="@(Id ?? 0)" IsEdit="@IsEdit" CanEdit="@canEditDocuments" EmployeeName="@($"{employee.FirstName}_{employee.LastName}".Trim('_'))" />
+                        }
+                    </MudTabPanel>
+                }
             }
 
         </MudTabs>
@@ -295,9 +353,9 @@ else
         <!-- Form Actions -->
         <MudPaper Class="pa-4 d-flex justify-end gap-3" Elevation="3">
             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="Cancel" Disabled="@isSaving">
-                @(canEditEmployee ? "Cancel" : "Back to Search")
+                @(canEditDetails && CurrentActiveTab == TabKey.Details ? "Cancel" : "Back to Search")
             </MudButton>
-            @if (canEditEmployee && activeTabIndex == 0)
+            @if (canEditDetails && CurrentActiveTab == TabKey.Details)
             {
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="@isSaving">
                     @if (isSaving)
@@ -322,10 +380,41 @@ else
     [CascadingParameter]
     private Task<AuthenticationState>? authenticationStateTask { get; set; }
 
-    private int activeTabIndex = 0;
-    private readonly HashSet<int> visitedTabs = new() { 0 };
+    private enum TabKey
+    {
+        Details,
+        History,
+        Equipment,
+        Firearms,
+        RangeStats,
+        Trainings,
+        Documents
+    }
 
-    private bool canEditEmployee = false;
+    private int activeTabIndex = 0;
+    private readonly List<TabKey> visibleTabs = new();
+    private readonly HashSet<TabKey> visitedTabKeys = new();
+    private TabKey? CurrentActiveTab => visibleTabs.ElementAtOrDefault(activeTabIndex);
+
+    private bool canAccessDetails = false;
+    private bool canAccessHistory = false;
+    private bool canAccessEquipment = false;
+    private bool canAccessFirearms = false;
+    private bool canAccessRangeStats = false;
+    private bool canAccessTrainings = false;
+    private bool canAccessDocuments = false;
+
+    private bool canEditDetails = false;
+    private bool canEditHistory = false;
+    private bool canEditEquipment = false;
+    private bool canEditFirearms = false;
+    private bool canEditRangeStats = false;
+    private bool canEditTrainings = false;
+    private bool canEditDocuments = false;
+
+    private bool canEditEmployee => canEditDetails;
+    private bool canEditAny => canEditDetails || canEditHistory || canEditEquipment || canEditFirearms || canEditRangeStats || canEditTrainings || canEditDocuments;
+
     private bool IsEdit => Id.HasValue && Id.Value > 0;
     private EmployeeDetailDto employee = new();
     private IEnumerable<StatusesDto>? availableStatuses;
@@ -354,29 +443,98 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
+        if (authenticationStateTask != null)
+        {
+            var authState = await authenticationStateTask;
+            UpdatePermissions(authState?.User);
+        }
+
         if (Id.HasValue && employee.EmployeeID != Id.Value)
         {
             activeTabIndex = 0;
-            visitedTabs.Clear();
-            visitedTabs.Add(0);
+            visitedTabKeys.Clear();
+            if (visibleTabs.Count > 0)
+            {
+                var firstTab = visibleTabs[0];
+                visitedTabKeys.Add(firstTab);
+                await LoadTabLookupsAsync(firstTab);
+            }
             await LoadDataAsync();
+        }
+    }
+
+    private void UpdatePermissions(System.Security.Claims.ClaimsPrincipal? user)
+    {
+        if (user == null) return;
+
+        bool isPersonnelEdit = user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit");
+        bool isPersonnelView = user.IsInRole("Personnel View") || user.IsInRole("Employee View");
+        bool isInventory = user.IsInRole("Inventory");
+        bool isRangeStats = user.IsInRole("Range Statistics");
+        bool isTraining = user.IsInRole("Training");
+        bool isDocuments = user.IsInRole("Documents");
+
+        canAccessDetails = isPersonnelEdit || isPersonnelView;
+        canEditDetails = isPersonnelEdit;
+
+        canAccessHistory = isPersonnelEdit;
+        canEditHistory = isPersonnelEdit;
+
+        canAccessEquipment = isInventory;
+        canEditEquipment = isInventory;
+
+        canAccessFirearms = isRangeStats;
+        canEditFirearms = isRangeStats;
+
+        canAccessRangeStats = isRangeStats;
+        canEditRangeStats = isRangeStats;
+
+        canAccessTrainings = isTraining;
+        canEditTrainings = isTraining;
+
+        canAccessDocuments = isDocuments;
+        canEditDocuments = isDocuments;
+
+        visibleTabs.Clear();
+        if (canAccessDetails)
+        {
+            visibleTabs.Add(TabKey.Details);
+        }
+        if (IsEdit)
+        {
+            if (canAccessHistory) visibleTabs.Add(TabKey.History);
+            if (canAccessEquipment) visibleTabs.Add(TabKey.Equipment);
+            if (canAccessFirearms) visibleTabs.Add(TabKey.Firearms);
+            if (canAccessRangeStats) visibleTabs.Add(TabKey.RangeStats);
+            if (canAccessTrainings) visibleTabs.Add(TabKey.Trainings);
+            if (canAccessDocuments) visibleTabs.Add(TabKey.Documents);
         }
     }
 
     private async Task OnTabChangedAsync(int newIndex)
     {
         activeTabIndex = newIndex;
-        visitedTabs.Add(newIndex);
-        await LoadTabLookupsAsync(newIndex);
+        if (newIndex >= 0 && newIndex < visibleTabs.Count)
+        {
+            var tabKey = visibleTabs[newIndex];
+            visitedTabKeys.Add(tabKey);
+            await LoadTabLookupsAsync(tabKey);
+        }
     }
 
-    private async Task LoadTabLookupsAsync(int tabIndex)
+    private async Task LoadTabLookupsAsync(TabKey tabKey)
     {
         try
         {
-            switch (tabIndex)
+            switch (tabKey)
             {
-                case 1: // History
+                case TabKey.Details:
+                    if (availableStatuses == null)
+                    {
+                        availableStatuses = await service.GetAvailableStatusesAsync();
+                    }
+                    break;
+                case TabKey.History:
                     if (availablePrograms == null || availableRanks == null || availableUnits == null)
                     {
                         var programsTask = availablePrograms == null ? service.GetProgramsAsync() : Task.FromResult(availablePrograms);
@@ -388,19 +546,20 @@ else
                         availableUnits = await unitsTask;
                     }
                     break;
-                case 2: // Inventory
+                case TabKey.Equipment:
                     if (availableInventoryItems == null)
                     {
                         availableInventoryItems = await service.GetInventoryItemsAsync(onlyActive: true);
                     }
                     break;
-                case 3: // Firearms
-                    if (availableMakes == null)
-                    {
-                        availableMakes = await service.GetMakesAsync();
-                    }
+                case TabKey.Firearms:
+                    var makesTask = availableMakes == null ? service.GetMakesAsync() : Task.FromResult(availableMakes);
+                    var statusesTask = availableStatuses == null ? service.GetAvailableStatusesAsync() : Task.FromResult(availableStatuses);
+                    await Task.WhenAll(makesTask, statusesTask);
+                    availableMakes = await makesTask;
+                    availableStatuses = await statusesTask;
                     break;
-                case 4: // Range Statistics
+                case TabKey.RangeStats:
                     if (availableRangeCourses == null || availableRangeEvents == null)
                     {
                         var coursesTask = availableRangeCourses == null ? service.GetRangeCoursesAsync() : Task.FromResult(availableRangeCourses);
@@ -410,28 +569,20 @@ else
                         availableRangeEvents = await eventsTask;
                     }
                     break;
-                case 5: // Trainings
+                case TabKey.Trainings:
                     if (availableTrainingSessions == null)
                     {
                         availableTrainingSessions = await service.GetTrainingSessionsAsync();
                     }
                     break;
+                case TabKey.Documents:
+                    break;
             }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error loading lookup data for tab index {TabIndex}.", tabIndex);
+            logger.LogError(ex, "Error loading lookup data for tab {TabKey}.", tabKey);
         }
-    }
-
-    private static bool IsUserAuthorizedToEdit(System.Security.Claims.ClaimsPrincipal? user)
-    {
-        if (user == null) return false;
-
-        bool hasView = user.IsInRole("Personnel View") || user.IsInRole("Employee View");
-        bool hasEdit = user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit");
-
-        return hasView && hasEdit;
     }
 
     private async Task LoadDataAsync()
@@ -445,7 +596,7 @@ else
             {
                 var authState = await authenticationStateTask;
                 var user = authState?.User;
-                canEditEmployee = IsUserAuthorizedToEdit(user);
+                UpdatePermissions(user);
 
                 logger.LogInformation("EmployeeDetail loaded for User '{UserName}'. canEditEmployee = {CanEdit}",
                     user?.Identity?.Name ?? "Unknown User",
@@ -458,7 +609,15 @@ else
                 Navigation.NavigateTo("/");
                 return;
             }
-            // Fetch only what is needed for the initial Employee Details tab in parallel
+
+            if (visibleTabs.Count > 0 && !visitedTabKeys.Contains(visibleTabs[0]))
+            {
+                var firstTab = visibleTabs[0];
+                visitedTabKeys.Add(firstTab);
+                await LoadTabLookupsAsync(firstTab);
+            }
+
+            // Fetch statuses and employee details in parallel
             var statusesTask = service.GetAvailableStatusesAsync();
             var employeeTask = IsEdit
                 ? service.GetEmployeeByIdAsync(Id!.Value)
@@ -631,7 +790,26 @@ else
 
     private void Cancel()
     {
-        Navigation.NavigateTo("/");
+        if (canAccessDetails)
+        {
+            Navigation.NavigateTo("/");
+        }
+        else if (canAccessEquipment)
+        {
+            Navigation.NavigateTo("/inventoryadmin");
+        }
+        else if (canAccessRangeStats || canAccessFirearms)
+        {
+            Navigation.NavigateTo("/rangestatistics");
+        }
+        else if (canAccessTrainings)
+        {
+            Navigation.NavigateTo("/multipletrainings");
+        }
+        else
+        {
+            Navigation.NavigateTo("/");
+        }
     }
 
     private async Task HandleImageUpload(InputFileChangeEventArgs e)

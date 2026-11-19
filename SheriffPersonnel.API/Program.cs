@@ -163,9 +163,7 @@ try
             {
                 var user = context.User;
                 if (user == null) return false;
-                bool hasView = user.IsInRole("Personnel View") || user.IsInRole("Employee View");
-                bool hasEdit = user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit");
-                return hasView && hasEdit;
+                return user.IsInRole("Personnel Edit") || user.IsInRole("Employee Edit");
             }));
     });
 

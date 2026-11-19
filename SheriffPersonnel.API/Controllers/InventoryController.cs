@@ -11,7 +11,7 @@ namespace SheriffPersonnel.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Inventory, Range Statistics, Range Scores, Training, SSN")]
+    [Authorize(Roles = "Inventory")]
     public class InventoryController : ControllerBase
     {
         private readonly IInventoryService _inventoryService;
@@ -82,7 +82,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPost("assignments")]
-        [Authorize(Policy = "CanEditPersonnel")]
+        [Authorize(Roles = "Inventory")]
         public async Task<ActionResult<EmployeeInventoryAssignmentsDto>> CreateAssignment([FromBody] EmployeeInventoryAssignmentsDto dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
@@ -101,7 +101,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPost("assign-multiple")]
-        [Authorize(Roles = "Inventory, Administrator")]
+        [Authorize(Roles = "Inventory")]
         public async Task<ActionResult<MultipleEquipmentAssignmentResultDto>> AssignMultipleEquipment([FromBody] MultipleEquipmentAssignmentRequestDto request)
         {
             if (request == null) return BadRequest("Payload cannot be null.");
@@ -124,7 +124,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPut("assignments/{id:int}")]
-        [Authorize(Policy = "CanEditPersonnel")]
+        [Authorize(Roles = "Inventory")]
         public async Task<ActionResult<EmployeeInventoryAssignmentsDto>> UpdateAssignment(int id, [FromBody] EmployeeInventoryAssignmentsDto dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");
@@ -145,7 +145,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpDelete("assignments/{id:int}")]
-        [Authorize(Policy = "CanEditPersonnel")]
+        [Authorize(Roles = "Inventory")]
         public async Task<IActionResult> DeleteAssignment(int id)
         {
             try
