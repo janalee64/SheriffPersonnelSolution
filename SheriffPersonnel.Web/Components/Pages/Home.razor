@@ -143,20 +143,20 @@
 else if (hasSearched)
 {
     <MudPaper Elevation="3">
-        <MudTable T="EmployeeSearchResultDto" Items="searchResults" Hover="true" Striped="true" Loading="@isLoading" AllowUnsorted="true" OnRowClick="OnRowClick" RowClass="cursor-pointer">
+        <MudTable T="EmployeeSearchResultDto" Items="searchResults" Hover="true" Striped="true" Loading="@isLoading" AllowUnsorted="true" OnRowClick="OnRowClick" RowClass="cursor-pointer" Breakpoint="Breakpoint.None">
             <HeaderContent>
-                <MudTh>Photo</MudTh>
+                <MudTh Class="d-none d-sm-table-cell">Photo</MudTh>
                 <MudTh><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.FormattedName)">Name</MudTableSortLabel></MudTh>
                 <MudTh><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.Status)">Status</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.BadgeNumber)">Badge Number</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.HireDate ?? DateTime.MinValue)">Hire Date</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.Program ?? string.Empty)">Program</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.Unit ?? string.Empty)">Unit</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.InactiveDate ?? DateTime.MinValue)">Inactive Date</MudTableSortLabel></MudTh>
-                <MudTh>Employee Flag</MudTh>
+                <MudTh Class="d-none d-sm-table-cell"><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.BadgeNumber)">Badge Number</MudTableSortLabel></MudTh>
+                <MudTh Class="d-none d-sm-table-cell"><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.HireDate ?? DateTime.MinValue)">Hire Date</MudTableSortLabel></MudTh>
+                <MudTh Class="d-none d-sm-table-cell"><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.Program ?? string.Empty)">Program</MudTableSortLabel></MudTh>
+                <MudTh Class="d-none d-sm-table-cell"><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.Unit ?? string.Empty)">Unit</MudTableSortLabel></MudTh>
+                <MudTh Class="d-none d-sm-table-cell"><MudTableSortLabel SortBy="new Func<EmployeeSearchResultDto, object>(x => x.InactiveDate ?? DateTime.MinValue)">Inactive Date</MudTableSortLabel></MudTh>
+                <MudTh Class="d-none d-sm-table-cell">Employee Flag</MudTh>
             </HeaderContent>
             <RowTemplate>
-                <MudTd DataLabel="Photo">
+                <MudTd Class="d-none d-sm-table-cell" DataLabel="Photo">
                     @if (context.EmployeeImage != null && context.EmployeeImage.Length > 0)
                     {
                         <MudAvatar Size="Size.Medium">
@@ -177,17 +177,17 @@ else if (hasSearched)
                         <MudChip T="string" Color="GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
                     }
                 </MudTd>
-                <MudTd DataLabel="Badge Number">
+                <MudTd Class="d-none d-sm-table-cell" DataLabel="Badge Number">
                     @if (!string.IsNullOrWhiteSpace(context.BadgeNumber))
                     {
                         <MudChip T="string" Color="Color.Dark" Size="Size.Small">@context.BadgeNumber</MudChip>
                     }
                 </MudTd>
-                <MudTd DataLabel="Hire Date">@(context.HireDate?.ToString("MM/dd/yyyy") ?? "")</MudTd>
-                <MudTd DataLabel="Program">@(context.Program ?? "")</MudTd>
-                <MudTd DataLabel="Unit">@(context.Unit ?? "")</MudTd>
-                <MudTd DataLabel="Inactive Date">@(context.InactiveDate?.ToString("MM/dd/yyyy") ?? "")</MudTd>
-                <MudTd DataLabel="Employee Flag">
+                <MudTd Class="d-none d-sm-table-cell" DataLabel="Hire Date">@(context.HireDate?.ToString("MM/dd/yyyy") ?? "")</MudTd>
+                <MudTd Class="d-none d-sm-table-cell" DataLabel="Program">@(context.Program ?? "")</MudTd>
+                <MudTd Class="d-none d-sm-table-cell" DataLabel="Unit">@(context.Unit ?? "")</MudTd>
+                <MudTd Class="d-none d-sm-table-cell" DataLabel="Inactive Date">@(context.InactiveDate?.ToString("MM/dd/yyyy") ?? "")</MudTd>
+                <MudTd Class="d-none d-sm-table-cell" DataLabel="Employee Flag">
                     @if (context.EmployeeFlag)
                     {
                         <MudChip T="string" Color="Color.Success" Size="Size.Small">Yes</MudChip>

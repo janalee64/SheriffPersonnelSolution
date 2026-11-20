@@ -9,6 +9,8 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject ILogger<InventoryAdmin> Logger
+@inject IBrowserViewportService ViewportService
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Inventory Admin</PageTitle>
 
@@ -107,6 +109,101 @@
             </MudButton>
         </MudStack>
 
+        @if (isInlineFormVisible)
+        {
+            <MudPaper id="inventory-item-inline-form" Class="pa-4 mb-4" Elevation="3" Style="border-left: 4px solid var(--mud-palette-primary); background-color: var(--mud-palette-surface);">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                    <MudText Typo="Typo.h6">
+                        <MudIcon Icon="@(isEditMode ? Icons.Material.Filled.Edit : Icons.Material.Filled.Add)" Class="mr-2" Size="Size.Small" />
+                        @(isEditMode ? $"Edit: {editingItem.ProductName}" : "Add Inventory Item")
+                    </MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="CloseDialog" aria-label="Close" />
+                </MudStack>
+
+                <EditForm Model="editingItem" OnValidSubmit="SaveItemAsync">
+                    <DataAnnotationsValidator />
+                    <MudGrid>
+                        <MudItem xs="12" sm="8">
+                            <MudTextField @bind-Value="editingItem.ProductName" Label="Product Name" Variant="Variant.Outlined" Required="true" RequiredError="Product Name is required." />
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
+                            <MudTextField @bind-Value="editingItem.SKU" Label="SKU" Variant="Variant.Outlined" />
+                        </MudItem>
+
+                        <MudItem xs="12" sm="4">
+                            <MudSelect T="int?" @bind-Value="editingItem.CategoryID" Label="Category" Variant="Variant.Outlined" Required="true" RequiredError="Category is required." Clearable="true">
+                                <MudSelectItem T="int?" Value="@((int?)null)">-- Select Category --</MudSelectItem>
+                                @foreach (var cat in categories.Where(c => c.IsActive || c.CategoryID == editingItem.CategoryID))
+                                {
+                                    <MudSelectItem T="int?" Value="@((int?)cat.CategoryID)">@cat.CategoryName</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
+                            <MudSelect T="int?" @bind-Value="editingItem.SupplierID" Label="Supplier" Variant="Variant.Outlined" Clearable="true">
+                                <MudSelectItem T="int?" Value="@((int?)null)">-- Select Supplier --</MudSelectItem>
+                                @foreach (var sup in suppliers.Where(s => s.IsActive || s.SupplierID == editingItem.SupplierID))
+                                {
+                                    <MudSelectItem T="int?" Value="@((int?)sup.SupplierID)">@sup.SupplierName</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
+                            <MudSelect T="int?" @bind-Value="editingItem.LocationID" Label="Location" Variant="Variant.Outlined" Clearable="true">
+                                <MudSelectItem T="int?" Value="@((int?)null)">-- Select Location --</MudSelectItem>
+                                @foreach (var loc in locations)
+                                {
+                                    <MudSelectItem T="int?" Value="@((int?)loc.LocationID)">@loc.LocationName</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+
+                        <MudItem xs="12" sm="4">
+                            <MudTextField @bind-Value="editingItem.BrandName" Label="Brand Name" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
+                            <MudTextField @bind-Value="editingItem.Size" Label="Size" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
+                            <MudTextField @bind-Value="editingItem.Color" Label="Color" Variant="Variant.Outlined" />
+                        </MudItem>
+
+                        <MudItem xs="12" sm="4">
+                            <MudNumericField T="decimal?" @bind-Value="editingItem.UnitPrice" Label="Unit Price" Variant="Variant.Outlined" Format="N2" Min="0m" />
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
+                            <MudNumericField T="int?" @bind-Value="editingItem.StockQuantity" Label="Stock Quantity" Variant="Variant.Outlined" Min="0" />
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
+                            <MudNumericField T="int?" @bind-Value="editingItem.ReorderPoint" Label="Reorder Point" Variant="Variant.Outlined" Min="0" />
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6">
+                            <MudDatePicker @bind-Date="lastPurchaseDate" Label="Last Purchase Date" Variant="Variant.Outlined" Clearable="true" DateFormat="MM/dd/yyyy" Editable="true" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6" Class="d-flex align-center">
+                            <MudCheckBox T="bool" @bind-Value="editingItem.IsActive" Label="Active Item" Color="Color.Primary" />
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="mt-4">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="CloseDialog" Disabled="@isSaving">Cancel</MudButton>
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Check" Disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <span>Saving...</span>
+                            }
+                            else
+                            {
+                                <span>Save</span>
+                            }
+                        </MudButton>
+                    </MudStack>
+                </EditForm>
+            </MudPaper>
+        }
+
         @if (isLoading)
         {
             <MudPaper Class="pa-6 d-flex justify-center align-center" Style="min-height: 200px;">
@@ -117,21 +214,21 @@
         else
         {
             <MudPaper Elevation="3">
-                <MudTable Items="FilteredItems" Hover="true" Striped="true" Filter="new Func<InventoryItemsDto, bool>(FilterFunc)">
+                <MudTable T="InventoryItemsDto" Items="FilteredItems" Hover="true" Striped="true" Filter="new Func<InventoryItemsDto, bool>(FilterFunc)" OnRowClick="OnRowClick" RowClass="cursor-pointer" Breakpoint="Breakpoint.None">
                     <HeaderContent>
                         <MudTh><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.ProductName)">Product Name</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.CategoryName ?? string.Empty)">Category</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.StockQuantity ?? 0)">Stock</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.ReorderPoint ?? 0)">Reorder</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.SKU ?? string.Empty)">SKU</MudTableSortLabel></MudTh>
+                        <MudTh Class="d-none d-sm-table-cell"><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.CategoryName ?? string.Empty)">Category</MudTableSortLabel></MudTh>
+                        <MudTh Class="d-none d-sm-table-cell"><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.StockQuantity ?? 0)">Stock</MudTableSortLabel></MudTh>
+                        <MudTh Class="d-none d-sm-table-cell"><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.ReorderPoint ?? 0)">Reorder</MudTableSortLabel></MudTh>
+                        <MudTh Class="d-none d-sm-table-cell"><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.SKU ?? string.Empty)">SKU</MudTableSortLabel></MudTh>
                         <MudTh><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.Size ?? string.Empty)">Size</MudTableSortLabel></MudTh>
-                        <MudTh><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.IsActive)">Status</MudTableSortLabel></MudTh>
-                        <MudTh Style="width: 110px;">Actions</MudTh>
+                        <MudTh Class="d-none d-sm-table-cell"><MudTableSortLabel SortBy="new Func<InventoryItemsDto, object>(x => x.IsActive)">Status</MudTableSortLabel></MudTh>
+                        <MudTh Class="d-none d-sm-table-cell" Style="width: 110px;">Actions</MudTh>
                     </HeaderContent>
                     <RowTemplate Context="item">
                         <MudTd DataLabel="Product Name"><b>@item.ProductName</b></MudTd>
-                        <MudTd DataLabel="Category">@(string.IsNullOrWhiteSpace(item.CategoryName) ? "-" : item.CategoryName)</MudTd>
-                        <MudTd DataLabel="Stock">
+                        <MudTd Class="d-none d-sm-table-cell" DataLabel="Category">@(string.IsNullOrWhiteSpace(item.CategoryName) ? "-" : item.CategoryName)</MudTd>
+                        <MudTd Class="d-none d-sm-table-cell" DataLabel="Stock">
                             @if (IsReorderNeeded(item))
                             {
                                 <MudTooltip Text="Stock is at or below reorder point">
@@ -145,10 +242,10 @@
                                 <span>@(item.StockQuantity.HasValue ? item.StockQuantity.Value.ToString() : "-")</span>
                             }
                         </MudTd>
-                        <MudTd DataLabel="Reorder">@(item.ReorderPoint.HasValue ? item.ReorderPoint.Value.ToString() : "-")</MudTd>
-                        <MudTd DataLabel="SKU">@(string.IsNullOrWhiteSpace(item.SKU) ? "-" : item.SKU)</MudTd>
+                        <MudTd Class="d-none d-sm-table-cell" DataLabel="Reorder">@(item.ReorderPoint.HasValue ? item.ReorderPoint.Value.ToString() : "-")</MudTd>
+                        <MudTd Class="d-none d-sm-table-cell" DataLabel="SKU">@(string.IsNullOrWhiteSpace(item.SKU) ? "-" : item.SKU)</MudTd>
                         <MudTd DataLabel="Size">@(string.IsNullOrWhiteSpace(item.Size) ? "-" : item.Size)</MudTd>
-                        <MudTd DataLabel="Status">
+                        <MudTd Class="d-none d-sm-table-cell" DataLabel="Status">
                             @if (item.IsActive)
                             {
                                 <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Outlined">Active</MudChip>
@@ -158,7 +255,7 @@
                                 <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined">Inactive</MudChip>
                             }
                         </MudTd>
-                        <MudTd DataLabel="Actions">
+                        <MudTd Class="d-none d-sm-table-cell" DataLabel="Actions" @onclick:stopPropagation="true">
                             <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => OpenEditDialog(item)" aria-label="@($"Edit inventory item {item.ProductName}")" />
                             <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => ConfirmDeleteAsync(item)" aria-label="@($"Delete inventory item {item.ProductName}")" />
                         </MudTd>
@@ -685,6 +782,7 @@
 
     // Inventory Item Dialog State
     private bool isDialogVisible = false;
+    private bool isInlineFormVisible = false;
     private bool isEditMode = false;
     private bool isSaving = false;
     private InventoryItemsDto editingItem = new();
@@ -982,15 +1080,61 @@
         return parts.Count > 0 ? string.Join(" | ", parts) : "-";
     }
 
-    private void OpenCreateDialog()
+    private async Task<bool> CheckIsMobileAsync()
+    {
+        try
+        {
+            var bp = await ViewportService.GetCurrentBreakpointAsync();
+            return bp <= Breakpoint.Xs;
+        }
+        catch
+        {
+            try
+            {
+                var width = await JSRuntime.InvokeAsync<int>("eval", "window.innerWidth");
+                return width < 600;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
+    private async Task OpenCreateDialog()
     {
         isEditMode = false;
         editingItem = new InventoryItemsDto { IsActive = true };
         lastPurchaseDate = null;
-        isDialogVisible = true;
+
+        var isMobile = await CheckIsMobileAsync();
+        if (isMobile)
+        {
+            isInlineFormVisible = true;
+            isDialogVisible = false;
+            StateHasChanged();
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('inventory-item-inline-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });");
+            }
+            catch { }
+        }
+        else
+        {
+            isInlineFormVisible = false;
+            isDialogVisible = true;
+        }
     }
 
-    private void OpenEditDialog(InventoryItemsDto item)
+    private async Task OnRowClick(TableRowClickEventArgs<InventoryItemsDto> args)
+    {
+        if (args.Item != null)
+        {
+            await OpenEditDialog(args.Item);
+        }
+    }
+
+    private async Task OpenEditDialog(InventoryItemsDto item)
     {
         isEditMode = true;
         editingItem = new InventoryItemsDto
@@ -1016,12 +1160,30 @@
             LastUpdated = item.LastUpdated
         };
         lastPurchaseDate = item.LastPurchaseDate.HasValue ? item.LastPurchaseDate.Value.ToDateTime(TimeOnly.MinValue) : null;
-        isDialogVisible = true;
+
+        var isMobile = await CheckIsMobileAsync();
+        if (isMobile)
+        {
+            isInlineFormVisible = true;
+            isDialogVisible = false;
+            StateHasChanged();
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('inventory-item-inline-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });");
+            }
+            catch { }
+        }
+        else
+        {
+            isInlineFormVisible = false;
+            isDialogVisible = true;
+        }
     }
 
     private void CloseDialog()
     {
         isDialogVisible = false;
+        isInlineFormVisible = false;
     }
 
     private async Task SaveItemAsync()
@@ -1050,6 +1212,7 @@
                 {
                     Snackbar.Add("Inventory item updated successfully!", Severity.Success);
                     isDialogVisible = false;
+                    isInlineFormVisible = false;
                     await LoadDataAsync();
                 }
                 else
@@ -1064,6 +1227,7 @@
                 {
                     Snackbar.Add("Inventory item created successfully!", Severity.Success);
                     isDialogVisible = false;
+                    isInlineFormVisible = false;
                     await LoadDataAsync();
                 }
                 else
