@@ -11,7 +11,7 @@ namespace SheriffPersonnel.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Range Statistics")]
+    [Authorize(Roles = "Range Statistics, Range Scores")]
     public class FirearmsController : ControllerBase
     {
         private readonly IFirearmService _firearmService;
@@ -76,7 +76,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Range Statistics")]
+        [Authorize(Roles = "Range Statistics, Range Scores")]
         public async Task<ActionResult<FirearmsDto>> CreateFirearm([FromBody] FirearmsDto dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");

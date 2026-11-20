@@ -265,12 +265,12 @@ namespace SheriffPersonnel.API.Repositories
         // Range Officers
         public async Task<IEnumerable<RangeOfficer>> GetRangeOfficersAsync()
         {
-            return await _dbContext.RangeOfficers.AsNoTracking().OrderBy(ro => ro.OfficerName).ToListAsync();
+            return await _dbContext.RangeOfficers.AsNoTracking().Include(ro => ro.User).OrderBy(ro => ro.OfficerName).ToListAsync();
         }
 
         public async Task<RangeOfficer?> GetRangeOfficerByIdAsync(int id)
         {
-            return await _dbContext.RangeOfficers.FindAsync(id);
+            return await _dbContext.RangeOfficers.Include(ro => ro.User).FirstOrDefaultAsync(ro => ro.RangeOfficerID == id);
         }
 
         public async Task<RangeOfficer> AddRangeOfficerAsync(RangeOfficer officer)
@@ -300,6 +300,11 @@ namespace SheriffPersonnel.API.Repositories
             _dbContext.RangeOfficers.Remove(entity);
             await _dbContext.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<IEnumerable<User>> GetActiveUsersAsync()
+        {
+            return await _dbContext.Users.AsNoTracking().Where(u => u.IsActive == true).OrderBy(u => u.DisplayName).ToListAsync();
         }
 
         // Range Skills

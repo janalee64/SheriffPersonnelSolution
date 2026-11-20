@@ -306,6 +306,10 @@ namespace SheriffPersonnel.Shared.Data
             {
                 entity.ToTable("RangeOfficers");
                 entity.HasKey(ro => ro.RangeOfficerID);
+                entity.HasOne(ro => ro.User)
+                      .WithMany()
+                      .HasForeignKey(ro => ro.UserID)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<RangeSkill>(entity =>

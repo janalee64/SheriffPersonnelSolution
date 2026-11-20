@@ -178,6 +178,7 @@ namespace SheriffPersonnel.Web.Services
         public Task<RangeOfficerDTO?> CreateRangeOfficerAsync(RangeOfficerDTO dto) => PostAsync<RangeOfficerDTO, RangeOfficerDTO>("api/rangeofficers", dto);
         public Task<RangeOfficerDTO?> UpdateRangeOfficerAsync(int id, RangeOfficerDTO dto) => PutAsync<RangeOfficerDTO, RangeOfficerDTO>($"api/rangeofficers/{id}", dto);
         public Task<bool> DeleteRangeOfficerAsync(int id) => DeleteAsync($"api/rangeofficers/{id}");
+        public Task<IEnumerable<UserDTO>> GetActiveUsersAsync() => GetListAsync<UserDTO>("api/rangeofficers/users");
 
         // Range Skills
         public Task<IEnumerable<RangeSkillDTO>> GetRangeSkillsAsync() => GetListAsync<RangeSkillDTO>("api/rangeskills");

@@ -54,6 +54,7 @@ namespace SheriffPersonnel.API.Services
         Task<RangeOfficerDTO> CreateRangeOfficerAsync(RangeOfficerDTO dto);
         Task<RangeOfficerDTO?> UpdateRangeOfficerAsync(int id, RangeOfficerDTO dto);
         Task<bool> DeleteRangeOfficerAsync(int id);
+        Task<IEnumerable<UserDTO>> GetActiveUsersAsync();
 
         // Range Skills
         Task<IEnumerable<RangeSkillDTO>> GetRangeSkillsAsync();

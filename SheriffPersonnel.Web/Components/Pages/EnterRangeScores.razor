@@ -1,4 +1,5 @@
 @page "/enterrangescores"
+@using System.Security.Claims
 @using SheriffPersonnel.Shared.DTOs
 @using SheriffPersonnel.Shared.Models
 @using SheriffPersonnel.Web.Services
@@ -265,10 +266,7 @@
                     <MudTh Style="min-width: 220px;">Course *</MudTh>
                     <MudTh Style="min-width: 180px;">Range Skills</MudTh>
                     <MudTh Style="min-width: 170px;">Serial Number *</MudTh>
-                    <MudTh Style="min-width: 140px;">Make</MudTh>
-                    <MudTh Style="min-width: 140px;">Model</MudTh>
-                    <MudTh Style="min-width: 120px;">Caliber</MudTh>
-                    <MudTh Style="min-width: 80px;">Optic</MudTh>
+                    <MudTh Style="min-width: 200px;">Firearm</MudTh>
                     <MudTh Style="min-width: 160px; text-align: center;">Result (Pass/Fail) *</MudTh>
                     <MudTh Style="width: 60px; text-align: center;">Action</MudTh>
                 </HeaderContent>
@@ -379,24 +377,9 @@
                             </MudTooltip>
                         </MudStack>
                     </MudTd>
-                    <MudTd DataLabel="Make">
+                    <MudTd DataLabel="Firearm">
                         <MudText Typo="Typo.body2" Style="font-weight: 500;">
-                            @(row.SelectedMake ?? string.Empty)
-                        </MudText>
-                    </MudTd>
-                    <MudTd DataLabel="Model">
-                        <MudText Typo="Typo.body2" Style="font-weight: 500;">
-                            @(row.SelectedModel ?? string.Empty)
-                        </MudText>
-                    </MudTd>
-                    <MudTd DataLabel="Caliber">
-                        <MudText Typo="Typo.body2" Style="font-weight: 500;">
-                            @(row.SelectedCaliber ?? string.Empty)
-                        </MudText>
-                    </MudTd>
-                    <MudTd DataLabel="Optic">
-                        <MudText Typo="Typo.body2" Style="font-weight: 500;">
-                            @(string.IsNullOrWhiteSpace(row.SelectedSerial) ? string.Empty : (row.SelectedOptic ? "Yes" : "No"))
+                            @GetFirearmSummary(row)
                         </MudText>
                     </MudTd>
                     <MudTd DataLabel="Result" Style="text-align: center;">
@@ -539,21 +522,9 @@
                                     </MudTooltip>
                                 </MudStack>
                             </MudItem>
-                            <MudItem xs="3">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Make</MudText>
-                                <MudText Typo="Typo.body2" Style="font-weight: 500;">@(row.SelectedMake ?? string.Empty)</MudText>
-                            </MudItem>
-                            <MudItem xs="3">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Model</MudText>
-                                <MudText Typo="Typo.body2" Style="font-weight: 500;">@(row.SelectedModel ?? string.Empty)</MudText>
-                            </MudItem>
-                            <MudItem xs="3">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Caliber</MudText>
-                                <MudText Typo="Typo.body2" Style="font-weight: 500;">@(row.SelectedCaliber ?? string.Empty)</MudText>
-                            </MudItem>
-                            <MudItem xs="3">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Optic</MudText>
-                                <MudText Typo="Typo.body2" Style="font-weight: 500;">@(string.IsNullOrWhiteSpace(row.SelectedSerial) ? string.Empty : (row.SelectedOptic ? "Yes" : "No"))</MudText>
+                            <MudItem xs="12">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Firearm</MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight: 500;">@GetFirearmSummary(row)</MudText>
                             </MudItem>
                         </MudGrid>
 
@@ -690,6 +661,10 @@
 
     private const string NewFirearmOption = "+ Add New Firearm...";
 
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
+
+    private int? currentLoggedInUserId;
     private RangeOfficerDTO? selectedRangeOfficer;
     private List<RangeOfficerDTO> availableRangeOfficers = new();
 
@@ -772,6 +747,9 @@
             availableRangeOfficers = rangeOfficers != null
                 ? rangeOfficers.Where(ro => ro.IsActive).OrderBy(ro => ro.OfficerName).ToList()
                 : new();
+
+            await LoadCurrentUserIdAsync();
+            SetDefaultRangeOfficer();
 
             var rangeSkills = await rangeSkillsTask;
             availableRangeSkills = rangeSkills != null
@@ -909,6 +887,43 @@
         selectedRangeOfficer = officer;
     }
 
+    private async Task LoadCurrentUserIdAsync()
+    {
+        try
+        {
+            if (AuthStateTask != null)
+            {
+                var authState = await AuthStateTask;
+                var user = authState?.User;
+                if (user?.Identity?.IsAuthenticated == true)
+                {
+                    var userIdClaim = user.FindFirst("UserID")?.Value
+                                   ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                    if (int.TryParse(userIdClaim, out int uid))
+                    {
+                        currentLoggedInUserId = uid;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not determine logged-in UserID for defaulting Range Officer.");
+        }
+    }
+
+    private void SetDefaultRangeOfficer()
+    {
+        if (currentLoggedInUserId.HasValue && availableRangeOfficers.Any())
+        {
+            selectedRangeOfficer = availableRangeOfficers.FirstOrDefault(ro => ro.UserID == currentLoggedInUserId.Value);
+        }
+        else
+        {
+            selectedRangeOfficer = null;
+        }
+    }
+
     private Task<IEnumerable<RangeCourseDTO>> SearchCourses(string value, CancellationToken cancellationToken)
     {
         if (availableCourses == null || !availableCourses.Any())
@@ -971,6 +986,35 @@
             .ToList();
 
         return Task.FromResult<IEnumerable<RangeCourseDTO>>(nameContainsMatches);
+    }
+
+    private string GetFirearmSummary(ScoreEntryRow row)
+    {
+        if (string.IsNullOrWhiteSpace(row.SelectedSerial) &&
+            string.IsNullOrWhiteSpace(row.SelectedMake) &&
+            string.IsNullOrWhiteSpace(row.SelectedModel))
+        {
+            return string.Empty;
+        }
+
+        var parts = new List<string>();
+        var makeModel = $"{row.SelectedMake} {row.SelectedModel}".Trim();
+        if (!string.IsNullOrWhiteSpace(makeModel))
+        {
+            parts.Add(makeModel);
+        }
+
+        if (!string.IsNullOrWhiteSpace(row.SelectedCaliber))
+        {
+            parts.Add(row.SelectedCaliber);
+        }
+
+        if (!string.IsNullOrWhiteSpace(row.SelectedSerial))
+        {
+            parts.Add(row.SelectedOptic ? "Optic: Yes" : "Optic: No");
+        }
+
+        return string.Join(" • ", parts);
     }
 
     private List<string> GetAvailableSerials(ScoreEntryRow row)
@@ -1178,7 +1222,7 @@
     private async Task ResetForm()
     {
         rangeDate = DateTime.Today;
-        selectedRangeOfficer = null;
+        SetDefaultRangeOfficer();
         saveSuccessMessage = null;
         errorMessage = null;
         InitializeDefaultRows();
@@ -1325,8 +1369,8 @@
             saveSuccessMessage = $"Successfully created Range Event on {createdEvent.RangeDate:MM/dd/yyyy} and saved {savedCount} officer score record(s)!";
             Snackbar.Add(saveSuccessMessage, Severity.Success);
 
-            // Reset scores list for next batch
-            selectedRangeOfficer = null;
+            // Reset scores list for next batch (default Range Officer back to logged-in user)
+            SetDefaultRangeOfficer();
             InitializeDefaultRows();
         }
         catch (Exception ex)

@@ -55,6 +55,7 @@ namespace SheriffPersonnel.API.Repositories
         Task<RangeOfficer> AddRangeOfficerAsync(RangeOfficer officer);
         Task<RangeOfficer> UpdateRangeOfficerAsync(RangeOfficer officer);
         Task<bool> DeleteRangeOfficerAsync(int id);
+        Task<IEnumerable<User>> GetActiveUsersAsync();
 
         // Range Skills
         Task<IEnumerable<RangeSkill>> GetRangeSkillsAsync();

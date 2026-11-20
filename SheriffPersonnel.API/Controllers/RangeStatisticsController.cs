@@ -99,7 +99,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Range Statistics")]
+        [Authorize(Roles = "Range Statistics, Range Scores")]
         public async Task<ActionResult<RangeStatisticDTO>> CreateRangeStatistic([FromBody] RangeStatisticDTO dto)
         {
             if (dto == null) return BadRequest("Payload cannot be null.");

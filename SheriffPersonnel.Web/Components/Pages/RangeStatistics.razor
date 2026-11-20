@@ -339,11 +339,13 @@
         <MudTable Items="FilteredRangeOfficers" Hover="true" Striped="true" Loading="@isLoading">
             <HeaderContent>
                 <MudTh><MudTableSortLabel SortBy="new Func<RangeOfficerDTO, object>(x => x.OfficerName)">Officer Name</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="new Func<RangeOfficerDTO, object>(x => x.UserDisplayName ?? string.Empty)">User</MudTableSortLabel></MudTh>
                 <MudTh><MudTableSortLabel SortBy="new Func<RangeOfficerDTO, object>(x => x.IsActive)">Active</MudTableSortLabel></MudTh>
                 <MudTh Style="width: 120px;">Actions</MudTh>
             </HeaderContent>
             <RowTemplate Context="item">
                 <MudTd DataLabel="Officer Name"><b>@item.OfficerName</b></MudTd>
+                <MudTd DataLabel="User">@(string.IsNullOrWhiteSpace(item.UserDisplayName) ? "-" : item.UserDisplayName)</MudTd>
                 <MudTd DataLabel="Active">
                     <MudSwitch T="bool"
                                Value="@item.IsActive"
@@ -557,6 +559,24 @@
                 <MudGrid>
                     <MudItem xs="12">
                         <MudTextField @bind-Value="editingRangeOfficer.OfficerName" For="@(() => editingRangeOfficer.OfficerName)" Label="Officer Name" Variant="Variant.Outlined" Required="true" RequiredError="Officer name is required" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudAutocomplete T="UserDTO"
+                                         Label="User"
+                                         Value="selectedRangeOfficerUser"
+                                         ValueChanged="OnRangeOfficerUserChanged"
+                                         SearchFunc="SearchActiveUsers"
+                                         ToStringFunc="FormatUserDisplay"
+                                         Placeholder="Type name to filter active users..."
+                                         Variant="Variant.Outlined"
+                                         Clearable="true"
+                                         ResetValueOnEmptyText="true"
+                                         CoerceText="true"
+                                         CoerceValue="false"
+                                         SelectValueOnTab="true"
+                                         MinCharacters="0"
+                                         ShowProgressIndicator="true"
+                                         HelperText="Associated active user account (optional)" />
                     </MudItem>
                     <MudItem xs="12">
                         <MudCheckBox T="bool" @bind-Value="editingRangeOfficer.IsActive" Label="Active Range Officer" Color="Color.Success" />
@@ -1021,7 +1041,8 @@
     private IEnumerable<RangeOfficerDTO> FilteredRangeOfficers =>
         rangeOfficers.Where(x => (!rangeOfficerActiveOnly || x.IsActive) &&
             (string.IsNullOrWhiteSpace(searchRangeOfficer) ||
-             x.OfficerName.Contains(searchRangeOfficer, StringComparison.OrdinalIgnoreCase)));
+             (!string.IsNullOrWhiteSpace(x.OfficerName) && x.OfficerName.Contains(searchRangeOfficer, StringComparison.OrdinalIgnoreCase)) ||
+             (!string.IsNullOrWhiteSpace(x.UserDisplayName) && x.UserDisplayName.Contains(searchRangeOfficer, StringComparison.OrdinalIgnoreCase))));
 
     private IEnumerable<RangeSkillDTO> FilteredRangeSkills =>
         string.IsNullOrWhiteSpace(searchRangeSkill) ? rangeSkills : rangeSkills.Where(x => x.SkillName.Contains(searchRangeSkill, StringComparison.OrdinalIgnoreCase));
@@ -1134,6 +1155,8 @@
     private RangeCourseDTO editingRangeCourse = new();
     private RangeOfficerDTO editingRangeOfficer = new();
     private RangeSkillDTO editingRangeSkill = new();
+    private List<UserDTO> activeUsers = new();
+    private UserDTO? selectedRangeOfficerUser;
 
     // Delete dialog state for code tables
     private bool isDeleteDialogVisible = false;
@@ -1162,6 +1185,7 @@
             var taskPrograms = CodeTableService.GetProgramsAsync();
             var taskUnits = CodeTableService.GetUnitsAsync();
             var taskMakes = CodeTableService.GetMakesAsync();
+            var taskActiveUsers = CodeTableService.GetActiveUsersAsync();
 
             Task<IEnumerable<RangeStatisticDTO>>? taskRangeStats = hasRangeStatsSearched ? service.GetAllRangeStatisticsAsync() : null;
             Task<IEnumerable<FirearmsDto>>? taskFirearms = hasFirearmSearched ? service.GetAllFirearmsAsync() : null;
@@ -1173,6 +1197,7 @@
             try { availablePrograms = (await taskPrograms).ToList(); } catch (Exception ex) { logger.LogError(ex, "Error loading programs."); }
             try { availableUnits = (await taskUnits).ToList(); } catch (Exception ex) { logger.LogError(ex, "Error loading units."); }
             try { availableMakes = (await taskMakes).ToList(); } catch (Exception ex) { logger.LogError(ex, "Error loading makes."); }
+            try { activeUsers = (await taskActiveUsers).ToList(); } catch (Exception ex) { logger.LogError(ex, "Error loading active users."); }
 
             if (taskRangeStats != null)
             {
@@ -1267,6 +1292,7 @@
         activeTableTitle = "Range Officer";
         isEditMode = false;
         editingRangeOfficer = new RangeOfficerDTO { IsActive = true };
+        selectedRangeOfficerUser = null;
         dialogFormModel = editingRangeOfficer;
         isDialogVisible = true;
     }
@@ -1280,10 +1306,44 @@
         {
             RangeOfficerID = item.RangeOfficerID,
             OfficerName = item.OfficerName,
-            IsActive = item.IsActive
+            IsActive = item.IsActive,
+            UserID = item.UserID,
+            UserDisplayName = item.UserDisplayName
         };
+        selectedRangeOfficerUser = item.UserID.HasValue
+            ? activeUsers.FirstOrDefault(u => u.UserID == item.UserID.Value)
+              ?? (!string.IsNullOrWhiteSpace(item.UserDisplayName) ? new UserDTO { UserID = item.UserID.Value, DisplayName = item.UserDisplayName } : null)
+            : null;
         dialogFormModel = editingRangeOfficer;
         isDialogVisible = true;
+    }
+
+    private void OnRangeOfficerUserChanged(UserDTO? user)
+    {
+        selectedRangeOfficerUser = user;
+        editingRangeOfficer.UserID = user?.UserID;
+        editingRangeOfficer.UserDisplayName = user?.DisplayName;
+    }
+
+    private Task<IEnumerable<UserDTO>> SearchActiveUsers(string value, CancellationToken token)
+    {
+        if (activeUsers == null || !activeUsers.Any())
+            return Task.FromResult(Enumerable.Empty<UserDTO>());
+
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.FromResult<IEnumerable<UserDTO>>(activeUsers);
+
+        return Task.FromResult(activeUsers.Where(u =>
+            (!string.IsNullOrEmpty(u.DisplayName) && u.DisplayName.Contains(value, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(u.UserPrincipalName) && u.UserPrincipalName.Contains(value, StringComparison.OrdinalIgnoreCase))));
+    }
+
+    private string FormatUserDisplay(UserDTO? user)
+    {
+        if (user == null) return string.Empty;
+        return string.IsNullOrWhiteSpace(user.UserPrincipalName)
+            ? user.DisplayName
+            : $"{user.DisplayName} ({user.UserPrincipalName})";
     }
 
     // Range Skills Dialogs

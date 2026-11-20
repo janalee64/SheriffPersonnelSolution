@@ -40,6 +40,21 @@ namespace SheriffPersonnel.API.Controllers
             }
         }
 
+        [HttpGet("users")]
+        public async Task<ActionResult<IEnumerable<UserDTO>>> GetActiveUsers()
+        {
+            try
+            {
+                var users = await _codeTableService.GetActiveUsersAsync();
+                return Ok(users);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching active users for range officers.");
+                return StatusCode(500, $"Error fetching active users: {ex.Message}");
+            }
+        }
+
         [HttpGet("{id:int}")]
         public async Task<ActionResult<RangeOfficerDTO>> GetRangeOfficer(int id)
         {

@@ -363,7 +363,9 @@ namespace SheriffPersonnel.API.Services
             {
                 RangeOfficerID = ro.RangeOfficerID,
                 OfficerName = ro.OfficerName,
-                IsActive = ro.IsActive ?? true
+                IsActive = ro.IsActive ?? true,
+                UserID = ro.UserID,
+                UserDisplayName = ro.User?.DisplayName
             });
         }
 
@@ -375,7 +377,9 @@ namespace SheriffPersonnel.API.Services
             {
                 RangeOfficerID = entity.RangeOfficerID,
                 OfficerName = entity.OfficerName,
-                IsActive = entity.IsActive ?? true
+                IsActive = entity.IsActive ?? true,
+                UserID = entity.UserID,
+                UserDisplayName = entity.User?.DisplayName
             };
         }
 
@@ -384,7 +388,8 @@ namespace SheriffPersonnel.API.Services
             var entity = new RangeOfficer
             {
                 OfficerName = dto.OfficerName,
-                IsActive = dto.IsActive
+                IsActive = dto.IsActive,
+                UserID = dto.UserID
             };
             var created = await _repository.AddRangeOfficerAsync(entity);
             dto.RangeOfficerID = created.RangeOfficerID;
@@ -398,6 +403,7 @@ namespace SheriffPersonnel.API.Services
 
             existing.OfficerName = dto.OfficerName;
             existing.IsActive = dto.IsActive;
+            existing.UserID = dto.UserID;
 
             await _repository.UpdateRangeOfficerAsync(existing);
             return dto;
@@ -406,6 +412,18 @@ namespace SheriffPersonnel.API.Services
         public async Task<bool> DeleteRangeOfficerAsync(int id)
         {
             return await _repository.DeleteRangeOfficerAsync(id);
+        }
+
+        public async Task<IEnumerable<UserDTO>> GetActiveUsersAsync()
+        {
+            var users = await _repository.GetActiveUsersAsync();
+            return users.Select(u => new UserDTO
+            {
+                UserID = u.UserID,
+                DisplayName = u.DisplayName,
+                UserPrincipalName = u.UserPrincipalName,
+                IsActive = u.IsActive ?? true
+            });
         }
 
         // Range Skills

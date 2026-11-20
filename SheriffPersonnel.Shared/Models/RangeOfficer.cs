@@ -15,6 +15,11 @@ namespace SheriffPersonnel.Shared.Models
         public string OfficerName { get; set; } = string.Empty;
 
         public bool? IsActive { get; set; } = true;
+
+        public int? UserID { get; set; }
+
+        [ForeignKey(nameof(UserID))]
+        public virtual User? User { get; set; }
     }
 }
 
