@@ -356,7 +356,9 @@ namespace SheriffPersonnel.API.Services
                 HomeCity = dto.HomeCity,
                 HomeState = dto.HomeState,
                 HomeZipCode = dto.HomeZipCode,
-                StatusID = dto.StatusID
+                StatusID = dto.StatusID,
+                LastUserID = dto.LastUserID,
+                LastUpdated = dto.LastUpdated
             };
         }
     }

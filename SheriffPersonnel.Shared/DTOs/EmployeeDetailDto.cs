@@ -35,6 +35,7 @@ namespace SheriffPersonnel.Shared.DTOs
         public DateTime? InactiveDate { get; set; }
 
         public bool EmployeeFlag { get; set; } = false;
+        public bool IsSheriffEmployee { get => EmployeeFlag; set => EmployeeFlag = value; }
 
         public byte[]? EmployeeImage { get; set; }
 

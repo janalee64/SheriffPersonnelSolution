@@ -54,7 +54,7 @@ namespace SheriffPersonnel.API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Policy = "CanEditPersonnel")]
+        [Authorize(Roles = "Personnel Edit, Employee Edit, Range Scores")]
         public async Task<ActionResult<EmployeeDetailDto>> Create([FromBody] EmployeeDetailDto dto)
         {
             if (dto == null)

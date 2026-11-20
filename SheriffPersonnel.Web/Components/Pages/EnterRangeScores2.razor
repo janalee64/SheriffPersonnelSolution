@@ -150,7 +150,7 @@
                 2. Officer Scores
             </MudText>
             <MudText Typo="Typo.caption" Color="Color.Secondary">
-                Enter details for one officer, then tap Save Officer Score.
+                Enter details for one officer, then tap Save Score.
             </MudText>
         </div>
 
@@ -164,24 +164,98 @@
         else
         {
             <MudStack Spacing="3">
-                <!-- Officer Autocomplete -->
+                <!-- Officer Autocomplete & Add Officer Button -->
                 <div>
-                    <MudAutocomplete T="EmployeeSearchResultDto"
-                                     @ref="officerAutocomplete"
-                                     Value="currentOfficer.SelectedEmployee"
-                                     ValueChanged="OnEmployeeSelected"
-                                     SearchFunc="SearchEmployees"
-                                     ToStringFunc="@(e => FormatOfficerDisplay(e))"
-                                     Label="Officer *"
-                                     Placeholder="Tap to search name or unit"
-                                     Variant="Variant.Outlined"
-                                     Clearable="true"
-                                     ResetValueOnEmptyText="true"
-                                     CoerceText="true"
-                                     CoerceValue="false"
-                                     SelectValueOnTab="true"
-                                     MinCharacters="0"
-                                     ShowProgressIndicator="true" />
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudAutocomplete T="EmployeeSearchResultDto"
+                                         @ref="officerAutocomplete"
+                                         Value="currentOfficer.SelectedEmployee"
+                                         ValueChanged="OnEmployeeSelected"
+                                         SearchFunc="SearchEmployees"
+                                         ToStringFunc="@(e => FormatOfficerDisplay(e))"
+                                         Label="Officer *"
+                                         Placeholder="Tap to search name or unit"
+                                         Variant="Variant.Outlined"
+                                         Clearable="true"
+                                         ResetValueOnEmptyText="true"
+                                         CoerceText="true"
+                                         CoerceValue="false"
+                                         SelectValueOnTab="true"
+                                         MinCharacters="0"
+                                         ShowProgressIndicator="true"
+                                         Disabled="@isAddingEmployeeInline"
+                                         Style="flex-grow: 1;" />
+                        <MudTooltip Text="@(isAddingEmployeeInline ? "Cancel Add Officer" : "Add New Officer")">
+                            <MudIconButton Icon="@(isAddingEmployeeInline ? Icons.Material.Filled.Close : Icons.Material.Filled.Add)"
+                                           Color="@(isAddingEmployeeInline ? Color.Secondary : Color.Primary)"
+                                           Size="Size.Medium"
+                                           OnClick="ToggleAddEmployeeInline"
+                                           Class="mt-1"
+                                           aria-label="@(isAddingEmployeeInline ? "Cancel add officer" : "Add officer")" />
+                        </MudTooltip>
+                    </MudStack>
+
+                    <!-- Inline Add Officer Panel -->
+                    <MudCollapse Expanded="isAddingEmployeeInline">
+                        <MudPaper Class="pa-3 pa-sm-4 mt-2"
+                                  Elevation="0"
+                                  Style="background-color: var(--mud-palette-background-grey); border-radius: 8px; border: 1.5px solid var(--mud-palette-primary);">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                                <MudText Typo="Typo.subtitle2" Style="font-weight: 600;" Color="Color.Primary" Class="d-flex align-center">
+                                    <MudIcon Icon="@Icons.Material.Filled.PersonAdd" Size="Size.Small" Class="mr-1" />
+                                    Add New Officer
+                                </MudText>
+                                <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                               Size="Size.Small"
+                                               Color="Color.Default"
+                                               OnClick="CancelAddEmployeeInline"
+                                               aria-label="Cancel add officer" />
+                            </MudStack>
+
+                            <MudGrid Spacing="2">
+                                <MudItem xs="12" sm="6">
+                                    <MudTextField @bind-Value="inlineEmployeeLastName"
+                                                  Label="Last Name *"
+                                                  Variant="Variant.Outlined"
+                                                  Required="true"
+                                                  RequiredError="Last Name is required" />
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudTextField @bind-Value="inlineEmployeeFirstName"
+                                                  Label="First Name *"
+                                                  Variant="Variant.Outlined"
+                                                  Required="true"
+                                                  RequiredError="First Name is required" />
+                                </MudItem>
+                            </MudGrid>
+
+                            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="mt-3">
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Secondary"
+                                           Size="Size.Medium"
+                                           OnClick="CancelAddEmployeeInline"
+                                           Disabled="@isSavingInlineEmployee">
+                                    Cancel
+                                </MudButton>
+                                <MudButton Variant="Variant.Filled"
+                                           Color="Color.Success"
+                                           Size="Size.Medium"
+                                           StartIcon="@Icons.Material.Filled.Check"
+                                           OnClick="SaveInlineEmployeeAsync"
+                                           Disabled="@isSavingInlineEmployee">
+                                    @if (isSavingInlineEmployee)
+                                    {
+                                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                        <span>Saving Officer...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Save & Select Officer</span>
+                                    }
+                                </MudButton>
+                            </MudStack>
+                        </MudPaper>
+                    </MudCollapse>
                 </div>
 
                 <!-- Course Autocomplete -->
@@ -416,7 +490,7 @@
                     </div>
                 </div>
 
-                <!-- Save Officer Button -->
+                <!-- Save Score Button -->
                 <div class="pt-2">
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Success"
@@ -429,11 +503,11 @@
                         @if (isSavingOfficer)
                         {
                             <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <span>Saving Officer Score...</span>
+                            <span>Saving Score...</span>
                         }
                         else
                         {
-                            <span>Save Officer Score</span>
+                            <span>Save Score</span>
                         }
                     </MudButton>
                 </div>
@@ -454,7 +528,7 @@
         {
             <MudPaper Class="pa-4 text-center" Elevation="0" Style="background-color: var(--mud-palette-background-grey); border-radius: 8px;">
                 <MudText Color="Color.Secondary" Typo="Typo.body2">
-                    No officers saved yet for this session. Enter officer details above and tap <strong>Save Officer Score</strong>.
+                    No officers saved yet for this session. Enter officer details above and tap <strong>Save Score</strong>.
                 </MudText>
             </MudPaper>
         }
@@ -585,6 +659,12 @@
     private bool isSavingInlineFirearm = false;
     private FirearmsDto inlineFirearm = new();
     private MakesDto? selectedInlineMake;
+
+    // Inline Employee Entry State
+    private bool isAddingEmployeeInline = false;
+    private bool isSavingInlineEmployee = false;
+    private string? inlineEmployeeLastName;
+    private string? inlineEmployeeFirstName;
 
     // Current Officer Entry Model
     private OfficerScoreEntry currentOfficer = new();
@@ -979,6 +1059,7 @@
 
     private void OpenAddFirearmInline()
     {
+        CancelAddEmployeeInline();
         if (currentOfficer.SelectedEmployee == null || currentOfficer.SelectedEmployee.EmployeeID <= 0)
         {
             Snackbar.Add("Please select an officer before adding a firearm.", Severity.Warning);
@@ -1097,6 +1178,131 @@
         finally
         {
             isSavingInlineFirearm = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ToggleAddEmployeeInline()
+    {
+        if (isAddingEmployeeInline)
+        {
+            CancelAddEmployeeInline();
+        }
+        else
+        {
+            OpenAddEmployeeInline();
+        }
+    }
+
+    private void OpenAddEmployeeInline()
+    {
+        CancelAddFirearmInline();
+        inlineEmployeeLastName = string.Empty;
+        inlineEmployeeFirstName = string.Empty;
+        isAddingEmployeeInline = true;
+    }
+
+    private void CancelAddEmployeeInline()
+    {
+        isAddingEmployeeInline = false;
+        inlineEmployeeLastName = string.Empty;
+        inlineEmployeeFirstName = string.Empty;
+    }
+
+    private async Task SaveInlineEmployeeAsync()
+    {
+        if (string.IsNullOrWhiteSpace(inlineEmployeeLastName))
+        {
+            Snackbar.Add("Last Name is required.", Severity.Error);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(inlineEmployeeFirstName))
+        {
+            Snackbar.Add("First Name is required.", Severity.Error);
+            return;
+        }
+
+        // Find StatusID for record with StatusCode "P"
+        var pendingStatus = availableStatuses.FirstOrDefault(s => string.Equals(s.StatusCode?.Trim(), "P", StringComparison.OrdinalIgnoreCase));
+        if (pendingStatus == null)
+        {
+            // Refresh availableStatuses from database via codeTableService just in case
+            try
+            {
+                var refreshed = await codeTableService.GetStatusesAsync();
+                if (refreshed != null)
+                {
+                    availableStatuses = refreshed.OrderBy(s => s.StatusDescription ?? s.StatusCode).ToList();
+                    pendingStatus = availableStatuses.FirstOrDefault(s => string.Equals(s.StatusCode?.Trim(), "P", StringComparison.OrdinalIgnoreCase));
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to refresh statuses when looking for StatusCode 'P'.");
+            }
+        }
+
+        if (pendingStatus == null)
+        {
+            Snackbar.Add("Unable to save officer: Status record with code 'P' (Pending) was not found in the Statuses table.", Severity.Error);
+            return;
+        }
+
+        var newEmployee = new EmployeeDetailDto
+        {
+            LastName = inlineEmployeeLastName.Trim(),
+            FirstName = inlineEmployeeFirstName.Trim(),
+            EmployeeFlag = false, // IsSheriffEmployee column = 0 (false)
+            StatusID = pendingStatus.StatusID,
+            LastUserID = currentLoggedInUserId,
+            LastUpdated = DateTime.Now
+        };
+
+        isSavingInlineEmployee = true;
+        try
+        {
+            var created = await service.CreateEmployeeAsync(newEmployee);
+            if (created != null && created.EmployeeID > 0)
+            {
+                Snackbar.Add($"Officer '{created.FirstName} {created.LastName}' added successfully!", Severity.Success);
+
+                var searchDto = new EmployeeSearchResultDto
+                {
+                    EmployeeID = created.EmployeeID,
+                    FirstName = created.FirstName ?? string.Empty,
+                    LastName = created.LastName ?? string.Empty,
+                    Status = created.StatusDescription ?? pendingStatus.StatusDescription ?? "Pending",
+                    EmployeeFlag = false
+                };
+
+                // Add to allEmployees list and re-sort
+                allEmployees.Add(searchDto);
+                allEmployees = allEmployees
+                    .OrderBy(e => e.LastName)
+                    .ThenBy(e => e.FirstName)
+                    .ToList();
+
+                // Automatically select the newly created employee
+                await OnEmployeeSelected(searchDto);
+
+                isAddingEmployeeInline = false;
+                inlineEmployeeLastName = string.Empty;
+                inlineEmployeeFirstName = string.Empty;
+            }
+            else
+            {
+                Snackbar.Add("Failed to create employee record.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error creating employee on the fly.");
+            Snackbar.Add($"Failed to save officer: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSavingInlineEmployee = false;
             StateHasChanged();
         }
     }
@@ -1380,6 +1586,7 @@
                 PassFail = "Pass"
             };
             CancelAddFirearmInline();
+            CancelAddEmployeeInline();
 
             // Focus back on officer autocomplete for fast continuous entry
             if (officerAutocomplete != null)

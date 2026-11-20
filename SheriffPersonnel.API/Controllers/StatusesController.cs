@@ -11,7 +11,7 @@ namespace SheriffPersonnel.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Employee Edit, Range Statistics")]
+    [Authorize(Roles = "Administrator, Personnel View, Personnel Edit, Employee Edit, Range Statistics, Range Scores")]
     public class StatusesController : ControllerBase
     {
         private readonly ICodeTableService _codeTableService;
