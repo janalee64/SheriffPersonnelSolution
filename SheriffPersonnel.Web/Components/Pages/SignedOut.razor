@@ -1,0 +1,30 @@
+@page "/signed-out"
+@attribute [AllowAnonymous]
+@inject NavigationManager Navigation
+
+<PageTitle>Signed Out - Sheriff Personnel</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-12">
+    <MudPaper Class="pa-8 text-center" Elevation="4">
+        <MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline" Color="Color.Success" Size="Size.Large" Style="font-size: 4rem;" Class="mb-4" />
+        <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-2">Signed Out</MudText>
+        <MudText Typo="Typo.body1" Class="mb-6">
+            You have successfully signed out of the Sheriff Personnel system.
+        </MudText>
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-6 text-start">
+            For security, please close your browser window if you are using a shared or public computer.
+        </MudAlert>
+        <MudStack Row="true" Justify="Justify.Center" Spacing="3">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" StartIcon="@Icons.Material.Filled.Login" OnClick="SignInAgain">
+                Sign In Again
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private void SignInAgain()
+    {
+        Navigation.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
+    }
+}

@@ -66,9 +66,19 @@ try
         .AddDownstreamApi("MyCustomApi", builder.Configuration.GetSection("MyCustomApi"))
         .AddInMemoryTokenCaches();
 
-    // Add the diagnostic logger to intercept and print OIDC failures
+    // Configure OpenID Connect options for sign-out callback and failure handling
     builder.Services.Configure<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme, options =>
     {
+        options.SignedOutCallbackPath = "/signout-callback-oidc";
+        options.SignedOutRedirectUri = "/signed-out";
+
+        options.Events.OnSignedOutCallbackRedirect = context =>
+        {
+            context.HttpContext.Response.Redirect("/signed-out");
+            context.HandleResponse();
+            return Task.CompletedTask;
+        };
+
         options.Events.OnRemoteFailure = context =>
         {
             context.Response.ContentType = "text/plain";
@@ -135,6 +145,8 @@ try
 
     app.MapStaticAssets();
     app.MapControllers();
+    app.MapGet("/signout", () => Results.Redirect("/MicrosoftIdentity/Account/SignOut"));
+    app.MapGet("/MicrosoftIdentity/Account/SignedOut", () => Results.Redirect("/signed-out"));
     app.MapRazorComponents<App>()
         .AddInteractiveServerRenderMode();
 
