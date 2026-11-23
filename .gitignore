@@ -19,6 +19,8 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+[Pp]ublish-output/
+**/[Pp]ublish-output/
 
 # Visual Studio Tooling
 .vs/

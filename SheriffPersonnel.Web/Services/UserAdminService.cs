@@ -14,15 +14,27 @@ namespace SheriffPersonnel.Web.Services
         private readonly IDownstreamApi _downstreamApi;
         private readonly MicrosoftIdentityConsentAndConditionalAccessHandler _consentHandler;
         private readonly ILogger<UserAdminService> _logger;
+        private readonly IEntraService? _entraService;
 
         public UserAdminService(
             IDownstreamApi downstreamApi,
             MicrosoftIdentityConsentAndConditionalAccessHandler consentHandler,
-            ILogger<UserAdminService> logger)
+            ILogger<UserAdminService> logger,
+            IEntraService? entraService = null)
         {
             _downstreamApi = downstreamApi ?? throw new ArgumentNullException(nameof(downstreamApi));
             _consentHandler = consentHandler ?? throw new ArgumentNullException(nameof(consentHandler));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _entraService = entraService;
+        }
+
+        public async Task<IEnumerable<EntraUserDto>> SearchEntraUsersAsync(string query, System.Threading.CancellationToken cancellationToken = default)
+        {
+            if (_entraService == null)
+            {
+                return Array.Empty<EntraUserDto>();
+            }
+            return await _entraService.SearchUsersAsync(query, cancellationToken);
         }
 
         public async Task<IEnumerable<UserDTO>> GetUsersAsync()

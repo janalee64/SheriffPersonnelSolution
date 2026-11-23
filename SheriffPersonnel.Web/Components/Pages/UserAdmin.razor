@@ -7,6 +7,7 @@
 
 @inject UserAdminService UserService
 @inject SearchService SearchService
+@inject IEntraService EntraService
 @inject ISnackbar Snackbar
 @inject ILogger<UserAdmin> Logger
 
@@ -153,7 +154,48 @@
 
             <MudGrid>
                 <MudItem xs="12" sm="6">
-                    <MudTextField @bind-Value="userFormModel.DisplayName" Label="Display Name" Variant="Variant.Outlined" Required="true" RequiredError="Display name is required" />
+                    <MudAutocomplete T="EntraUserDto"
+                                     Label="Display Name"
+                                     Value="selectedEntraUser"
+                                     ValueChanged="OnEntraUserSelected"
+                                     SearchFunc="SearchEntraUsers"
+                                     ToStringFunc="FormatEntraUserDisplay"
+                                     Text="@userFormModel.DisplayName"
+                                     TextChanged="OnDisplayNameChanged"
+                                     Placeholder="Type to search Entra directory..."
+                                     Variant="Variant.Outlined"
+                                     Clearable="true"
+                                     ResetValueOnEmptyText="false"
+                                     CoerceText="false"
+                                     CoerceValue="false"
+                                     SelectValueOnTab="true"
+                                     MinCharacters="2"
+                                     ShowProgressIndicator="true"
+                                     Adornment="Adornment.Start"
+                                     AdornmentIcon="@Icons.Material.Filled.PersonSearch"
+                                     Required="true"
+                                     RequiredError="Display name is required"
+                                     HelperText="Search Entra to auto-fill Principal Name and Entra ID">
+                        <ItemTemplate Context="entraUser">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.body2"><b>@entraUser.DisplayName</b></MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @entraUser.UserPrincipalName
+                                    @if (!string.IsNullOrWhiteSpace(entraUser.JobTitle))
+                                    {
+                                        <span> &bull; @entraUser.JobTitle</span>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(entraUser.Department))
+                                    {
+                                        <span> (@entraUser.Department)</span>
+                                    }
+                                </MudText>
+                            </MudStack>
+                        </ItemTemplate>
+                        <NoItemsTemplate>
+                            <MudText Typo="Typo.caption" Class="pa-2 text-muted">No Entra accounts found matching query</MudText>
+                        </NoItemsTemplate>
+                    </MudAutocomplete>
                 </MudItem>
                 <MudItem xs="12" sm="6">
                     <MudTextField @bind-Value="userFormModel.UserPrincipalName" Label="User Principal Name (Email)" Variant="Variant.Outlined" Required="true" RequiredError="User principal name is required" />
@@ -266,6 +308,7 @@
     private List<RoleDTO> availableRoles = new();
     private List<EmployeeSearchResultDto> activeEmployees = new();
     private EmployeeSearchResultDto? selectedEmployee;
+    private EntraUserDto? selectedEntraUser;
     private string searchString = string.Empty;
     private bool isLoading = false;
     private string? errorMessage;
@@ -362,6 +405,7 @@
         isEditMode = false;
         dialogErrorMessage = null;
         selectedEmployee = null;
+        selectedEntraUser = null;
 
         if (activeEmployees.Count == 0)
         {
@@ -454,6 +498,12 @@
             IsActive = user.IsActive,
             RoleIDs = user.RoleIDs != null ? new List<int>(user.RoleIDs) : new List<int>()
         };
+        selectedEntraUser = new EntraUserDto
+        {
+            Id = user.EntraObjectID ?? string.Empty,
+            DisplayName = user.DisplayName,
+            UserPrincipalName = user.UserPrincipalName
+        };
         isDialogVisible = true;
     }
 
@@ -462,6 +512,82 @@
         isDialogVisible = false;
         dialogErrorMessage = null;
         selectedEmployee = null;
+        selectedEntraUser = null;
+    }
+
+    private string FormatEntraUserDisplay(EntraUserDto? u)
+    {
+        if (u != null && !string.IsNullOrWhiteSpace(u.DisplayName))
+        {
+            return u.DisplayName;
+        }
+        return userFormModel?.DisplayName ?? string.Empty;
+    }
+
+    private void OnDisplayNameChanged(string val)
+    {
+        userFormModel.DisplayName = val ?? string.Empty;
+        if (selectedEntraUser != null && selectedEntraUser.DisplayName != val)
+        {
+            selectedEntraUser = null;
+        }
+    }
+
+    private void OnEntraUserSelected(EntraUserDto? entraUser)
+    {
+        selectedEntraUser = entraUser;
+        if (entraUser != null)
+        {
+            userFormModel.DisplayName = entraUser.DisplayName ?? string.Empty;
+            userFormModel.UserPrincipalName = !string.IsNullOrWhiteSpace(entraUser.UserPrincipalName)
+                ? entraUser.UserPrincipalName
+                : (entraUser.Mail ?? string.Empty);
+            userFormModel.EntraObjectID = entraUser.Id ?? string.Empty;
+
+            if (selectedEmployee == null && activeEmployees.Count > 0)
+            {
+                var matched = FindMatchingEmployee(entraUser);
+                if (matched != null)
+                {
+                    OnEmployeeChanged(matched);
+                }
+            }
+        }
+    }
+
+    private async Task<IEnumerable<EntraUserDto>> SearchEntraUsers(string value, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Trim().Length < 2)
+        {
+            return Enumerable.Empty<EntraUserDto>();
+        }
+
+        try
+        {
+            return await EntraService.SearchUsersAsync(value.Trim(), cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to search Entra users for '{Query}'", value);
+            return Enumerable.Empty<EntraUserDto>();
+        }
+    }
+
+    private EmployeeSearchResultDto? FindMatchingEmployee(EntraUserDto entraUser)
+    {
+        if (string.IsNullOrWhiteSpace(entraUser.DisplayName)) return null;
+
+        var nameParts = entraUser.DisplayName.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (nameParts.Length >= 2)
+        {
+            var first = nameParts[0];
+            var last = nameParts[^1];
+            return activeEmployees.FirstOrDefault(e =>
+                string.Equals(e.FirstName, first, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(e.LastName, last, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return null;
     }
 
     private void OnEmployeeChanged(EmployeeSearchResultDto? emp)
@@ -603,6 +729,7 @@
 
             isDialogVisible = false;
             selectedEmployee = null;
+            selectedEntraUser = null;
             await LoadDataAsync();
         }
         catch (Exception ex)

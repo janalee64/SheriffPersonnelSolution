@@ -119,6 +119,7 @@ try
     builder.Services.AddScoped<IClaimsTransformation, UserClaimsTransformer>();
     builder.Services.AddScoped<SearchService>();
     builder.Services.AddScoped<SearchStateContainer>();
+    builder.Services.AddScoped<IEntraService, EntraService>();
     builder.Services.AddScoped<UserAdminService>();
     builder.Services.AddScoped<CodeTableService>();
     builder.Services.AddScoped<ExcelExportService>();
